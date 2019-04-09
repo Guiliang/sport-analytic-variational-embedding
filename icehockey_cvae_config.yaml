@@ -1,0 +1,8 @@
+# An employee record
+Learn:
+  keep_prob : 0.9
+  learning_rate : 0.9
+  number_of_total_game: 1130
+Arch:
+  n_hidden : 256
+  n_output : 256
