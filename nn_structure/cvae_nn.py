@@ -30,11 +30,17 @@ class CVAE_NN(object):
         self.sarsa_hidden_node = config.Arch.Sarsa.n_hidden
         self.sarsa_output_node = config.Arch.Sarsa.output_node
 
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        self.build()
+        self.call()
+        self.saver = tf.train.Saver()
+
     def init_placeholder(self):
-        self.x_t0_ph = tf.placeholder(dtype=tf.float32, name="x0 input", shape=[None, None])
+        self.x_t0_ph = tf.placeholder(dtype=tf.int32, name="x0 input", shape=[None, None])
         self.y_t0_ph = tf.placeholder(dtype=tf.float32, name="y0 input", shape=[None, None])
-        self.x_t1_ph = tf.placeholder(dtype=tf.float32, name="x1 input", shape=[None, None])
+        self.x_t1_ph = tf.placeholder(dtype=tf.int32, name="x1 input", shape=[None, None])
         self.y_t1_ph = tf.placeholder(dtype=tf.float32, name="y1 input", shape=[None, None])
+        self.reward_ph = tf.placeholder(dtype=tf.int32, name="y1 input", shape=[None, self.sarsa_output_node])
 
     def build(self):
         with tf.variable_scope("gaussian_MLP_encoder"):
@@ -135,12 +141,15 @@ class CVAE_NN(object):
 
         return y
 
-    def sarsa_value_function(self):
+    def sarsa_value_function(self, look_ahead=False):
         with tf.variable_scope("sarsa_network"):
             with tf.name_scope('sarsa-dense-layer'):
                 dense_output = None
                 for i in range(self.sarsa_hidden_layer_num):
-                    dense_input = self.x_t0_ph if i == 0 else dense_output
+                    if look_ahead:
+                        dense_input = self.x_t1_ph if i == 0 else dense_output
+                    else:
+                        dense_input = self.x_t0_ph if i == 0 else dense_output
                     # dense_input = embed_layer
                     dense_output = tf.matmul(dense_input, self.sarsa_weight[i]) + self.sarsa_bias[i]
                     # if i < self.sarsa_hidden_layer_num - 1:
@@ -150,7 +159,6 @@ class CVAE_NN(object):
                 output = tf.matmul(dense_output, self.sarsa_output_weight) + self.sarsa_output_bias
 
         return output
-
 
     # Gateway
     def autoencoder(self):
@@ -169,18 +177,23 @@ class CVAE_NN(object):
         # TODO: figure out if the x here has to be x_ph
         KL_divergence = 0.5 * tf.reduce_sum(tf.square(mu) + tf.square(sigma) - tf.log(1e-8 + tf.square(sigma)) - 1, 1)
 
-        marginal_likelihood = tf.reduce_mean(marginal_likelihood)
-        KL_divergence = tf.reduce_mean(KL_divergence)
+        marginal_likelihood_loss = -tf.reduce_mean(marginal_likelihood)
+        KL_divergence_loss = tf.reduce_mean(KL_divergence)
 
-        ELBO = marginal_likelihood - KL_divergence
-
+        # ELBO = marginal_likelihood - KL_divergence
         # minimize loss instead of maximizing ELBO
-        loss = -ELBO
+        # loss = -ELBO
 
-        return x_, z, loss, -marginal_likelihood, KL_divergence
+        return x_, z, marginal_likelihood_loss, KL_divergence_loss
 
     def call(self):
-        pass
+        # TODO: check if we can use multi-GPU implementation when necessary
+        x_, z, self.marginal_likelihood_loss, self.KL_divergence_loss = self.autoencoder()
+        self.q_t0_values = self.sarsa_value_function(look_ahead=False)
+        self.q_t1_values = self.sarsa_value_function(look_ahead=True)
+        self.td_loss = tf.reduce_mean(tf.square(self.q_t1_values+self.reward_ph-self.q_t0_values), axis=-1)
+        total_loss = self.td_loss+self.KL_divergence_loss+self.marginal_likelihood_loss
+        self.train_op = self.optimizer.minimize(loss=total_loss)
 
     # Conditional Decoder (Generator)
     def decoder(self, z):

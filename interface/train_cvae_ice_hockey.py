@@ -13,24 +13,6 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
     game_number = 0
     global_counter = 0
     converge_flag = False
-
-    # loading network
-    saver = tf.train.Saver()
-    merge = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter(log_dir, sess.graph)
-    sess.run(tf.global_variables_initializer())
-    if config.learn.model_train_continue:  # resume the training
-        checkpoint = tf.train.get_checkpoint_state(saved_network)
-        if checkpoint and checkpoint.model_checkpoint_path:
-            check_point_game_number = int((checkpoint.model_checkpoint_path.split("-"))[-1])
-            game_number_checkpoint = check_point_game_number % config.number_of_total_game
-            game_number = check_point_game_number
-            game_starting_point = 0
-            saver.restore(sess, checkpoint.model_checkpoint_path)
-            print("Successfully loaded:", checkpoint.model_checkpoint_path)
-        else:
-            print("Could not find old network weights")
-
     game_diff_record_all = []
 
     while True:
@@ -44,12 +26,6 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
         else:
             converge_flag = True
         for dir_game in dir_games_all:
-
-            if checkpoint and checkpoint.model_checkpoint_path:
-                if config.learn.model_train_continue:  # go the check point data
-                    game_starting_point += 1
-                    if game_number_checkpoint + 1 > game_starting_point:
-                        continue
 
             v_diff_record = []
             game_number += 1
@@ -103,27 +79,12 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
 
                 for i in range(0, len(batch_return)):
                     terminal = batch_return[i][7]
-                    cut = batch_return[i][8]
-                    # if terminal, only equals reward
-                    if terminal or cut:
-                        y_home = float((r_t_batch[i])[0])
-                        y_away = float((r_t_batch[i])[1])
-                        y_end = float((r_t_batch[i])[2])
-                        y_batch.append([y_home, y_away, y_end])
-                        break
-                    else:
-                        y_home = float((r_t_batch[i])[0]) + config.learn.gamma * \
-                                                            ((readout_t1_batch[i]).tolist())[0]
-                        y_away = float((r_t_batch[i])[1]) + config.learn.gamma * \
-                                                            ((readout_t1_batch[i]).tolist())[1]
-                        y_end = float((r_t_batch[i])[2]) + config.learn.gamma * \
-                                                           ((readout_t1_batch[i]).tolist())[2]
-                        y_batch.append([y_home, y_away, y_end])
+                    # cut = batch_return[i][8]
 
                 # perform gradient step
                 y_batch = np.asarray(y_batch)
                 [diff, read_out, cost_out, summary_train, _] = sess.run(
-                    [model.diff, model.readout, model.cost, merge, model.train_step],
+                    [model.diff, model.readout, model.cost, model.train_step],
                     feed_dict={model.y_ph: y_batch,
                                model.trace_lengths_ph: trace_t0_batch,
                                model.rnn_input_ph: s_t0_batch,
@@ -135,7 +96,7 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
                     converge_flag = False
                 global_counter += 1
                 game_cost_record.append(cost_out)
-                train_writer.add_summary(summary_train, global_step=global_counter)
+                # train_writer.add_summary(summary_train, global_step=global_counter)
                 s_t0 = s_tl
 
                 # print info
@@ -153,8 +114,8 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
 
                 if terminal:
                     # save progress after a game
-                    saver.save(sess, saved_network + '/' + config.learn.sport + '-game-',
-                               global_step=game_number)
+                    model.saver.save(sess, saved_network + '/' + config.learn.sport + '-game-',
+                                     global_step=game_number)
                     v_diff_record_average = sum(v_diff_record) / len(v_diff_record)
                     game_diff_record_dict.update({dir_game: v_diff_record_average})
                     break
