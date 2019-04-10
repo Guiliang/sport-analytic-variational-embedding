@@ -9,7 +9,7 @@ from support.data_processing_tools import handle_trace_length, compromise_state_
 from support.data_processing_tools import get_icehockey_game_data
 
 
-def train_network(sess, model, config, log_dir, saved_network, dir_games_all, data_store, print_parameters=False):
+def train_network(sess, model, config, log_dir, saved_network, dir_games_all, data_store, writing_loss_flag=False):
     game_number = 0
     global_counter = 0
     converge_flag = False
@@ -30,7 +30,7 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
             v_diff_record = []
             game_number += 1
             game_cost_record = []
-            state_trace_length, state_input, reward, ha_id = get_icehockey_game_data(
+            state_trace_length, state_input, reward, ha_id, team_id = get_icehockey_game_data(
                 data_store=data_store, dir_game=dir_game, config=config)
 
             print ("\n load file" + str(dir_game) + " success")
@@ -56,61 +56,62 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
                                                          train_len=train_len,
                                                          state_trace_length=state_trace_length,
                                                          ha_id=ha_id,
-                                                         batch_size=config.learn.batch_size)
+                                                         team_id=team_id,
+                                                         config=config)
 
                 # get the batch variables
                 s_t0_batch = [d[0] for d in batch_return]
                 s_t1_batch = [d[1] for d in batch_return]
                 r_t_batch = [d[2] for d in batch_return]
-                trace_t0_batch = [d[3] for d in batch_return]
-                trace_t1_batch = [d[4] for d in batch_return]
-                ha_id_t0_batch = [d[5] for d in batch_return]
-                ha_id_t1_batch = [d[6] for d in batch_return]
-                y_batch = []
+                # trace_t0_batch = [d[3] for d in batch_return]
+                # trace_t1_batch = [d[4] for d in batch_return]
+                # ha_id_t0_batch = [d[5] for d in batch_return]
+                # ha_id_t1_batch = [d[6] for d in batch_return]
+                team_id_t0_batch = [d[7] for d in batch_return]
+                team_id_t1_batch = [d[8] for d in batch_return]
 
-                # readout_t1_batch = model.read_out.eval(
-                #     feed_dict={model.trace_lengths: trace_t1_batch, model.rnn_input: s_t1_batch})  # get value of s
-
-                [readout_t1_batch] = sess.run([model.readout],
-                                              feed_dict={model.trace_lengths_ph: trace_t1_batch,
-                                                         model.rnn_input_ph: s_t1_batch,
-                                                         model.home_away_indicator_ph: ha_id_t1_batch
-                                                         })
+                [
+                    q0,
+                    q1,
+                    kl_loss,
+                    ll_loss,
+                    td_loss,
+                    _
+                ] = sess.run([
+                    model.q_t0_values,
+                    model.q_t1_values,
+                    model.marginal_likelihood_loss,
+                    model.KL_divergence_loss,
+                    model.td_loss,
+                    model.train_op],
+                    feed_dict={model.x_t0_ph: team_id_t0_batch,
+                               model.x_t1_ph: team_id_t1_batch,
+                               model.y_t0_ph: s_t0_batch,
+                               model.y_t1_ph: s_t1_batch,
+                               model.reward_ph: r_t_batch}
+                )
 
                 for i in range(0, len(batch_return)):
                     terminal = batch_return[i][7]
                     # cut = batch_return[i][8]
 
                 # perform gradient step
-                y_batch = np.asarray(y_batch)
-                [diff, read_out, cost_out, summary_train, _] = sess.run(
-                    [model.diff, model.readout, model.cost, model.train_step],
-                    feed_dict={model.y_ph: y_batch,
-                               model.trace_lengths_ph: trace_t0_batch,
-                               model.rnn_input_ph: s_t0_batch,
-                               model.home_away_indicator_ph: ha_id_t0_batch})
+                v_diff_record.append(td_loss)
 
-                v_diff_record.append(diff)
-
-                if cost_out > 0.0001:
-                    converge_flag = False
+                # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
+                #     converge_flag = False
                 global_counter += 1
+                cost_out = ll_loss + kl_loss + td_loss
                 game_cost_record.append(cost_out)
                 # train_writer.add_summary(summary_train, global_step=global_counter)
                 s_t0 = s_tl
 
-                # print info
-                # if print_flag:
                 print ("cost of the network is" + str(cost_out))
-                # if terminal or ((train_number - 1) / tt_lstm_config.learn.batch_size) % 5 == 1:
-                # print ("TIMESTEP:", train_number, "Game:", game_number)
-                home_avg = sum(read_out[:, 0]) / len(read_out[:, 0])
-                away_avg = sum(read_out[:, 1]) / len(read_out[:, 1])
-                end_avg = sum(read_out[:, 2]) / len(read_out[:, 2])
+                home_avg = sum(q0[:, 0]) / len(q0[:, 0])
+                away_avg = sum(q0[:, 1]) / len(q0[:, 1])
+                end_avg = sum(q0[:, 2]) / len(q0[:, 2])
                 print "home average:{0}, away average:{1}, end average:{2}".format(str(home_avg), str(away_avg),
                                                                                    str(end_avg))
-                # if print_flag:
-                #     print ("cost of the network is" + str(cost_out))
 
                 if terminal:
                     # save progress after a game
@@ -121,11 +122,12 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
                     break
 
                     # break
-            cost_per_game_average = sum(game_cost_record) / len(game_cost_record)
-            write_game_average_csv(
-                [{"iteration": str(game_number / config.number_of_total_game + 1), "game": game_number,
-                  "cost_per_game_average": cost_per_game_average}],
-                log_dir=log_dir)
+            if writing_loss_flag:
+                cost_per_game_average = sum(game_cost_record) / len(game_cost_record)
+                write_game_average_csv(
+                    [{"iteration": str(game_number / config.number_of_total_game + 1), "game": game_number,
+                      "cost_per_game_average": cost_per_game_average}],
+                    log_dir=log_dir)
 
         game_diff_record_all.append(game_diff_record_dict)
 
