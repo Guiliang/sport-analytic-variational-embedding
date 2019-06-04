@@ -96,7 +96,7 @@ class CVAE_NN(object):
     def gaussian_MLP_conditional_encoder(self):
         with tf.variable_scope("gaussian_MLP_encoder"):
             # concatenate condition and image
-            input = tf.concat(concat_dim=1, values=[self.x_t0_ph, self.y_t0_ph])
+            input = tf.concat(axis=1, values=[self.x_t0_ph, self.y_t0_ph])
 
             # 1st hidden layer
             h0 = tf.matmul(input, self.en_w0) + self.en_b0
