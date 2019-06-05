@@ -6,4 +6,4 @@ if __name__ == '__main__':
     prep = Preprocess(hockey_data_dir=hockey_data_dir, save_data_dir=save_data_dir)
     scaler = prep.scale_allgame_features()
     prep.process_all(scaler)
-    process_seq_all(hockey_data_dir=hockey_data_dir)
+    process_seq_all(save_data_dir=save_data_dir)

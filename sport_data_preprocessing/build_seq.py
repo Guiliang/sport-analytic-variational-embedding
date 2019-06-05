@@ -20,10 +20,10 @@ def new_state_feature(s_f, lt):
     return state_feature_new
 
 
-def process_seq_all(hockey_data_dir):
-    folder_all = os.listdir(hockey_data_dir)
+def process_seq_all(save_data_dir):
+    folder_all = os.listdir(save_data_dir)
     for folder in folder_all:
-        folder_path = hockey_data_dir + '/' + folder
+        folder_path = save_data_dir + '/' + folder
         file_all = os.listdir(folder_path)
         state_feature_path = ""
         lt_path = ""
@@ -43,5 +43,5 @@ def process_seq_all(hockey_data_dir):
 
 
 if __name__ == '__main__':
-    hockey_data_dir = '/cs/oschulte/Galen/Ice-hockey-data/2018-2019'
-    process_seq_all(hockey_data_dir)
+    save_data_dir = '/cs/oschulte/Galen/Ice-hockey-data/2018-2019'
+    process_seq_all(save_data_dir)
