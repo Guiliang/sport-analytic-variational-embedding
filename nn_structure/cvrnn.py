@@ -96,13 +96,13 @@ class VartiationalRNNCell(tf.contrib.rnn.RNNCell):
 class CVRNN():
     def __init__(self, config):
         self.config = config
-        self.target_data = tf.placeholder(dtype=tf.float32,
-                                          shape=[self.config.Learn.batch_size, self.config.Learn.max_seq_length,
-                                                 self.config.Arch.CVRNN.x_dim], name='target_data')
-        self.input_data = tf.placeholder(dtype=tf.float32,
-                                         shape=[self.config.Learn.batch_size, self.config.Learn.max_seq_length,
-                                                self.config.Arch.CVRNN.x_dim + self.config.Arch.CVRNN.y_dim],
-                                         name='input_data')
+        self.target_data_ph = tf.placeholder(dtype=tf.float32,
+                                             shape=[self.config.Learn.batch_size, self.config.Learn.max_seq_length,
+                                                    self.config.Arch.CVRNN.x_dim], name='target_data')
+        self.input_data_ph = tf.placeholder(dtype=tf.float32,
+                                            shape=[self.config.Learn.batch_size, self.config.Learn.max_seq_length,
+                                                   self.config.Arch.CVRNN.x_dim + self.config.Arch.CVRNN.y_dim],
+                                            name='input_data')
         self.trace_length_ph = tf.placeholder(dtype=tf.int32, shape=[self.config.Learn.batch_size], name='trace_length')
         self.cell = None
         self.initial_state_c = None
@@ -110,11 +110,11 @@ class CVRNN():
 
     def call(self):
 
-        def tf_normal(y, mu, s, rho):
+        def tf_normal(target_x, mu, s, rho):
             with tf.variable_scope('normal'):
                 ss = tf.maximum(1e-10, tf.square(s))
                 # norm = tf.subtract(y[:, :args.chunk_samples], mu)  # TODO: why?
-                norm = tf.subtract(y, mu)
+                norm = tf.subtract(target_x, mu)
                 z = tf.div(tf.square(norm), ss)
                 denom_log = tf.log(2 * np.pi * ss, name='denom_log')
                 result = tf.reduce_sum(z + denom_log, 1) / 2  # -
@@ -130,9 +130,9 @@ class CVRNN():
                     + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
                 ), 1)
 
-        def get_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma, y):
+        def get_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma, target_x):
             kl_loss = tf_kl_gaussgauss(enc_mu, enc_sigma, prior_mu, prior_sigma)
-            likelihood_loss = tf_normal(y, dec_mu, dec_sigma, dec_rho)
+            likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
 
             return tf.reduce_mean(kl_loss + likelihood_loss)
             # return tf.reduce_mean(likelihood_loss)
@@ -157,7 +157,7 @@ class CVRNN():
         #     Split data because rnn cell needs a list of inputs for the RNN inner loop
         #     inputs = tf.split(axis=0, num_or_size_splits=args.seq_length,
         #                       value=inputs)  # n_steps * (batch_size, n_hidden)
-        flat_target_data = tf.reshape(self.target_data, [-1, self.config.Arch.CVRNN.x_dim])
+        flat_target_data = tf.reshape(self.target_data_ph, [-1, self.config.Arch.CVRNN.x_dim])
 
         # self.target = flat_target_data
         # self.flat_input = tf.reshape(tf.transpose(tf.stack(inputs), [1, 0, 2]), [args.batch_size * args.seq_length, -1])
@@ -165,7 +165,7 @@ class CVRNN():
         # Get vrnn cell output
         # outputs, last_state = tf.contrib.rnn.static_rnn(self.cell, inputs,
         #                                                 initial_state=(self.initial_state_c, self.initial_state_h))
-        outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data,
+        outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
                                                 sequence_length=self.trace_length_ph,
                                                 initial_state=tf.nn.rnn_cell.LSTMStateTuple(self.initial_state_c,
                                                                                             self.initial_state_h))
@@ -229,7 +229,7 @@ class CVRNN():
             for i in range(start.shape[0] - 1):
                 prev_x = start[i, :]
                 prev_x = prev_x[np.newaxis, np.newaxis, :]
-                feed = {self.input_data: prev_x,
+                feed = {self.input_data_ph: prev_x,
                         self.initial_state_c: prev_state[0],
                         self.initial_state_h: prev_state[1]}
 
@@ -246,7 +246,7 @@ class CVRNN():
         sigmas = np.zeros((num, args.chunk_samples), dtype=np.float32)
 
         for i in xrange(num):
-            feed = {self.input_data: prev_x,
+            feed = {self.input_data_ph: prev_x,
                     self.initial_state_c: prev_state[0],
                     self.initial_state_h: prev_state[1]}
             [o_mu, o_sigma, o_rho, next_state_c, next_state_h] = sess.run([self.mu, self.sigma,

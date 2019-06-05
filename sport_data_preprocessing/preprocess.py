@@ -3,7 +3,7 @@ import os
 import numpy as np
 import scipy.io as sio
 from sklearn import preprocessing
-from data_config import action_all, interested_raw_features, teamList
+from data_config import action_all, interested_raw_features, interested_compute_features, teamList
 
 
 class Preprocess:
@@ -164,19 +164,28 @@ class Preprocess:
                 else:
                     features_all.append(float(feature_value))
             # add compute features
-            duration = self.get_duration(events, idx)
-            v_x = self.compute_v_x(events, idx, duration)
-            v_y = self.compute_v_y(events, idx, duration)
-            time_remain = self.get_time_remain(events, idx)
-            h_a = self.is_home_away(events, idx)
-            home_away_one_hot_vector = self.home_away_one_hot(h_a)
-            angle2gate = self.compute_angle2gate(events, idx)
-            features_all.append(v_x)
-            features_all.append(v_y)
-            features_all.append(time_remain)
-            features_all.append(duration)
-            features_all.append(angle2gate)
-            features_all += home_away_one_hot_vector
+            for feature_name in interested_compute_features:
+                if feature_name == 'velocity_x':
+                    duration = self.get_duration(events, idx)
+                    v_x = self.compute_v_x(events, idx, duration)
+                    features_all.append(v_x)
+                elif feature_name == 'velocity_y':
+                    duration = self.get_duration(events, idx)
+                    v_y = self.compute_v_y(events, idx, duration)
+                    features_all.append(v_y)
+                elif feature_name == 'time_remain':
+                    time_remain = self.get_time_remain(events, idx)
+                    features_all.append(time_remain)
+                elif feature_name == 'duration':
+                    duration = self.get_duration(events, idx)
+                    features_all.append(duration)
+                elif feature_name == 'home_away':
+                    h_a = self.is_home_away(events, idx)
+                    home_away_one_hot_vector = self.home_away_one_hot(h_a)
+                    features_all += home_away_one_hot_vector
+                elif feature_name == 'angle2gate':
+                    angle2gate = self.compute_angle2gate(events, idx)
+                    features_all.append(angle2gate)
 
             # rewards_game.append(reward)
             state_feature_game.append(np.asarray(features_all))
