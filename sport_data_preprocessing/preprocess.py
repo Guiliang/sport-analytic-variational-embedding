@@ -223,18 +223,24 @@ class Preprocess:
 
     def process_all(self, scaler):
         files_all = os.listdir(self.hockey_data_dir)
+        wrong_files = []
         for file in files_all:
             if file == '.Rhistory':
                 continue
             file_name = file.split('.')[0]
             game_name = file_name.split('-')[0]
             save_game_dir = self.save_data_dir + '/' + game_name
+            events = self.get_events(file)
+            state_feature_game, action_game, team_game, lt_game, rewards_game = self.process_game_events(events)
+            try:
+                state_feature_game_scale = scaler.transform(state_feature_game)
+            except:
+                print 'skip wrong file {0}'.format(file)
+                wrong_files.append(file)
+                continue
             if not os.path.exists(save_game_dir):
                 os.mkdir(save_game_dir)
             print('Processing file {0}'.format(file))
-            events = self.get_events(file)
-            state_feature_game, action_game, team_game, lt_game, rewards_game = self.process_game_events(events)
-            state_feature_game_scale = scaler.transform(state_feature_game)
             # save data to mat
             sio.savemat(save_game_dir + "/" + "reward_" + file_name + ".mat", {'reward': np.asarray(rewards_game)})
             sio.savemat(save_game_dir + "/" + "state_feature_" + file_name + ".mat",
@@ -243,9 +249,12 @@ class Preprocess:
             sio.savemat(save_game_dir + "/" + "lt_" + file_name + ".mat", {'lt': np.asarray(lt_game)})
             sio.savemat(save_game_dir + "/" + "team_" + file_name + ".mat", {'team': np.asarray(team_game)})
 
+        return wrong_files
+
 
 if __name__ == '__main__':
-    hockey_data_dir = '/cs/oschulte/2019-icehockey-data/2018-2019/'
+    hockey_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/'
+    # hockey_data_dir = '/cs/oschulte/2019-icehockey-data/2018-2019/'
     save_data_dir = '/cs/oschulte/Galen/Ice-hockey-data/2018-2019'
     prep = Preprocess(hockey_data_dir=hockey_data_dir, save_data_dir=save_data_dir)
     scaler = prep.scale_allgame_features()
