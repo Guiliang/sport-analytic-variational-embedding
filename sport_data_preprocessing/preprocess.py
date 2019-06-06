@@ -229,7 +229,8 @@ class Preprocess:
             file_name = file.split('.')[0]
             game_name = file_name.split('-')[0]
             save_game_dir = self.save_data_dir + '/' + game_name
-            os.mkdir(save_game_dir)
+            if not os.path.exists(save_game_dir):
+                os.mkdir(save_game_dir)
             print('Processing file {0}'.format(file))
             events = self.get_events(file)
             state_feature_game, action_game, team_game, lt_game, rewards_game = self.process_game_events(events)
