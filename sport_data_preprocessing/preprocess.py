@@ -38,6 +38,9 @@ class Preprocess:
             one_hot[1] = 1
         return one_hot
 
+    def get_reward(self, events, idx):
+        gameTime_now = events[idx].get('gameTime')
+
     def get_duration(self, events, idx):
         duration = float(0)
         gameTime_now = events[idx].get('gameTime')
@@ -123,14 +126,14 @@ class Preprocess:
         return tant
 
     def process_game_events(self, events):
-        # rewards_game = []
+        rewards_game = []
         state_feature_game = []
         action_game = []
         team_game = []
         lt_game = []
 
         lt = 0
-
+        # reward = []
         for idx in range(0, len(events)):
             event = events[idx]
             teamId = event.get('teamId')
@@ -186,13 +189,20 @@ class Preprocess:
                 elif feature_name == 'angle2gate':
                     angle2gate = self.compute_angle2gate(events, idx)
                     features_all.append(angle2gate)
-
+            if action == 'goal' and h_a == 'H':
+                print ('home goal')
+                rewards_game.append(1)
+            elif action == 'goal' and h_a == 'A':
+                print ('away goal')
+                rewards_game.append(-1)
+            else:
+                rewards_game.append(0)
             # rewards_game.append(reward)
             state_feature_game.append(np.asarray(features_all))
             action_game.append(np.asarray(action_one_hot_vector))
             team_game.append(np.asarray(team_one_hot_vector))
             lt_game.append(lt)
-        return state_feature_game, action_game, team_game, lt_game
+        return state_feature_game, action_game, team_game, lt_game, rewards_game
 
     def scale_allgame_features(self):
         files_all = os.listdir(self.hockey_data_dir)
@@ -202,7 +212,7 @@ class Preprocess:
             if file == '.Rhistory':
                 continue
             events = self.get_events(file)
-            state_feature_game, _, _, _ = self.process_game_events(events)
+            state_feature_game, _, _, _, _ = self.process_game_events(events)
             features_allgame += state_feature_game
 
         scaler = preprocessing.StandardScaler().fit(np.asarray(features_allgame))
@@ -222,10 +232,10 @@ class Preprocess:
             os.mkdir(save_game_dir)
             print('Processing file {0}'.format(file))
             events = self.get_events(file)
-            state_feature_game, action_game, team_game, lt_game = self.process_game_events(events)
+            state_feature_game, action_game, team_game, lt_game, rewards_game = self.process_game_events(events)
             state_feature_game_scale = scaler.transform(state_feature_game)
             # save data to mat
-            # sio.savemat(save_game_dir+"/"+"reward_"+file_name+".mat", {'reward': np.asarray(rewards_game)})
+            sio.savemat(save_game_dir + "/" + "reward_" + file_name + ".mat", {'reward': np.asarray(rewards_game)})
             sio.savemat(save_game_dir + "/" + "state_feature_" + file_name + ".mat",
                         {'state_feature': np.asarray(state_feature_game_scale)})
             sio.savemat(save_game_dir + "/" + "action_" + file_name + ".mat", {'action': np.asarray(action_game)})

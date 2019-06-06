@@ -6,7 +6,7 @@ from config.cvae_config import CVAECongfig
 from nn_structure.cvae_nn import CVAE_NN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
     get_together_training_batch, write_game_average_csv
-from support.data_processing_tools import get_icehockey_game_data
+from support.data_processing_tools import get_icehockey_game_data_old
 
 
 def train_network(sess, model, config, log_dir, saved_network, dir_games_all, data_store, writing_loss_flag=False):
@@ -30,7 +30,7 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
             v_diff_record = []
             game_number += 1
             game_cost_record = []
-            state_trace_length, state_input, reward, ha_id, team_id = get_icehockey_game_data(
+            state_trace_length, state_input, reward, ha_id, team_id = get_icehockey_game_data_old(
                 data_store=data_store, dir_game=dir_game, config=config)
 
             print ("\n load file" + str(dir_game) + " success")

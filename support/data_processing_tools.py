@@ -99,7 +99,7 @@ def get_soccer_game_data(data_store, dir_game, config):
     return state_trace_length, state_input, reward, ha_id
 
 
-def get_icehockey_game_data(data_store, dir_game, config):
+def get_icehockey_game_data_old(data_store, dir_game, config):
     game_files = os.listdir(data_store + "/" + dir_game)
     for filename in game_files:
         if "dynamic_rnn_reward" in filename:
@@ -136,6 +136,43 @@ def get_icehockey_game_data(data_store, dir_game, config):
         max_trace_length=config.learn.max_trace_length,
         features_num=config.learn.feature_number
     )
+
+    return state_trace_length, state_input, reward, ha_id, team_id
+
+
+def get_icehockey_game_data(data_store, dir_game, config):
+    game_files = os.listdir(data_store + "/" + dir_game)
+    reward_name = None
+    state_input_name = None
+    trace_length_name = None
+    ha_id_name = None
+    team_id_name = None
+    for filename in game_files:
+        if "dynamic_rnn_reward" in filename:
+            reward_name = filename
+        elif "dynamic_rnn_input" in filename:
+            state_input_name = filename
+        elif "trace" in filename:
+            trace_length_name = filename
+        elif "home_identifier" in filename:
+            ha_id_name = filename
+        elif 'team_id' in filename:
+            team_id_name = filename
+    if reward_name is not None:
+        reward = sio.loadmat(data_store + "/" + dir_game + "/" + reward_name)
+        reward = reward['reward']
+    if ha_id_name is not None:
+        ha_id = sio.loadmat(data_store + "/" + dir_game + "/" + ha_id_name)["home_identifier"][0]
+    if team_id_name is not None:
+        team_id = sio.loadmat(data_store + "/" + dir_game + "/" + team_id_name)["team_id"][0]
+    if state_input_name is not None:
+        state_input = sio.loadmat(data_store + "/" + dir_game + "/" + state_input_name)['dynamic_feature_input']
+    # state_input = (state_input['dynamic_feature_input'])
+    # state_output = sio.loadmat(DATA_STORE + "/" + dir_game + "/" + state_output_name)
+    # state_output = state_output['hybrid_output_state']
+    if trace_length_name is not None:
+        state_trace_length = sio.loadmat(
+            data_store + "/" + dir_game + "/" + trace_length_name)['hybrid_trace_length'][0]
 
     return state_trace_length, state_input, reward, ha_id, team_id
 
