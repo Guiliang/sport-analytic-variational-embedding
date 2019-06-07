@@ -25,13 +25,19 @@ def process_seq_all(save_data_dir):
     for folder in folder_all:
         folder_path = save_data_dir + '/' + folder
         file_all = os.listdir(folder_path)
-        state_feature_path = ""
-        lt_path = ""
+        state_feature_path = None
+        lt_path = None
         for file in file_all:
             if "state" in file:
                 state_feature_path = folder_path + '/' + file
             if "lt" in file:
                 lt_path = folder_path + '/' + file
+        if state_feature_path is None:
+            print ('wrong files in {0}'.format(folder))
+            continue
+        if lt_path is None:
+            print ('wrong files in {0}'.format(folder))
+            continue
         state_feature = sio.loadmat(state_feature_path)
         state_feature = state_feature["state_feature"]
         lt = sio.loadmat(lt_path)

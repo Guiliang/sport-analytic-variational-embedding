@@ -8,11 +8,16 @@ class CVRNNCongfig(object):
         self.Arch = CVRNNCongfig.Arch(init["Arch"])
 
     class Learn(InitWithDict):
+        save_mother_dir = None
         batch_size = None
         keep_prob = None
         learning_rate = None
         number_of_total_game = None
         max_seq_length = None
+        feature_type = None
+        iterate_num = None
+        model_type = None
+        number_of_total_game
 
     class Arch(InitWithDict):
         def __init__(self, init):

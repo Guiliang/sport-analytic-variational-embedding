@@ -18,11 +18,11 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
 
     while True:
         game_diff_record_dict = {}
-        iteration_now = game_number / config.number_of_total_game + 1
+        iteration_now = game_number / config.Learn.number_of_total_game + 1
         game_diff_record_dict.update({"Iteration": iteration_now})
         if converge_flag:
             break
-        elif game_number >= config.number_of_total_game * config.learn.iterate_num:
+        elif game_number >= config.Learn.number_of_total_game * config.Learn.iterate_num:
             break
         else:
             converge_flag = True
@@ -134,11 +134,11 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
 
 
 def run():
-    icehockey_cvrnn_config_path = "./icehockey_cvae_config.yaml"
+    icehockey_cvrnn_config_path = "../icehockey_cvrnn_config.yaml"
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
 
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config)
-    data_store_dir = ""
+    data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
 
     dir_games_all = os.listdir(data_store_dir)
     number_of_total_game = len(dir_games_all)

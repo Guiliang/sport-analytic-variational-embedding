@@ -5,7 +5,7 @@ import math
 import json
 import scipy.io as sio
 import unicodedata
-from config.icehockey_feature_setting import select_feature_setting
+# from config.icehockey_feature_setting import select_feature_setting
 
 
 def handle_trace_length(state_trace_length):
@@ -148,9 +148,9 @@ def get_icehockey_game_data(data_store, dir_game, config):
     ha_id_name = None
     team_id_name = None
     for filename in game_files:
-        if "dynamic_rnn_reward" in filename:
+        if "reward" in filename:
             reward_name = filename
-        elif "dynamic_rnn_input" in filename:
+        elif "dynamic_rnn_i" in filename:
             state_input_name = filename
         elif "trace" in filename:
             trace_length_name = filename

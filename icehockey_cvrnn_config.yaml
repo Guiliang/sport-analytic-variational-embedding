@@ -4,6 +4,11 @@ Learn:
   number_of_total_game: 1130
   batch_size: 32
   max_seq_length: 10
+  save_mother_dir: "/cs"
+  feature_type: "V1"
+  iterate_num: 30
+  model_type: 'normal'
+  number_of_total_game: 1202
 
 Arch:
   CVRNN:
