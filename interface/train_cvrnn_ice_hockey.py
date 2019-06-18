@@ -1,6 +1,10 @@
+# import sys
+#
+# print sys.path
+# sys.path.append('/Local-Scratch/PycharmProjects/Sport-Analytic-NN/')
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
-import scipy.io as sio
 import numpy as np
 from config.cvrnn_config import CVRNNCongfig
 from nn_structure.cvrnn import CVRNN
