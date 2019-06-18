@@ -107,6 +107,10 @@ class CVRNN():
         self.cell = None
         self.initial_state_c = None
         self.initial_state_h = None
+        self.kl_loss = None
+        self.likelihood_loss = None
+        self.cost = None
+        self.train_op = None
 
     def call(self):
 
@@ -134,7 +138,7 @@ class CVRNN():
             kl_loss = tf_kl_gaussgauss(enc_mu, enc_sigma, prior_mu, prior_sigma)
             likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
 
-            return tf.reduce_mean(kl_loss + likelihood_loss)
+            return tf.reduce_mean(kl_loss + likelihood_loss), kl_loss, likelihood_loss
             # return tf.reduce_mean(likelihood_loss)
 
         # self.args = args
@@ -194,10 +198,12 @@ class CVRNN():
         self.sigma = dec_sigma
         self.rho = dec_rho
 
-        lossfunc = get_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma, flat_target_data)
+        lossfunc, kl_loss, likelihood_loss = get_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma, flat_target_data)
         self.sigma = dec_sigma
         self.mu = dec_mu
         with tf.variable_scope('cost'):
+            self.kl_loss = kl_loss
+            self.likelihood_loss = likelihood_loss
             self.cost = lossfunc
         tf.summary.scalar('cost', self.cost)
         tf.summary.scalar('mu', tf.reduce_mean(self.mu))

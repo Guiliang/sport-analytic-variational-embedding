@@ -5,6 +5,8 @@ import math
 import json
 import scipy.io as sio
 import unicodedata
+
+
 # from config.icehockey_feature_setting import select_feature_setting
 
 
@@ -140,41 +142,61 @@ def get_icehockey_game_data_old(data_store, dir_game, config):
     return state_trace_length, state_input, reward, ha_id, team_id
 
 
+def transfer2seq(data, trace_length, max_length):
+    return_data = []
+    for index in range(0, len(trace_length)):
+        tl = trace_length[index]
+        # print(index)
+        tl = max_length if tl > max_length else tl
+        seq_line = data[index:index + tl].tolist()
+        for i in range(max_length-len(seq_line)):
+            seq_line.append(len(data[0])*[0])
+        # print len(seq_line)
+        assert len(seq_line) == max_length
+        return_data.append(seq_line)
+    return np.asarray(return_data)
+
+
 def get_icehockey_game_data(data_store, dir_game, config):
     game_files = os.listdir(data_store + "/" + dir_game)
     reward_name = None
     state_input_name = None
     trace_length_name = None
-    ha_id_name = None
+    # ha_id_name = None
     team_id_name = None
+    action_id_name = None
     for filename in game_files:
         if "reward" in filename:
             reward_name = filename
-        elif "dynamic_rnn_i" in filename:
+        elif "state_feature_seq" in filename:
             state_input_name = filename
-        elif "trace" in filename:
+        elif "lt" in filename:
             trace_length_name = filename
-        elif "home_identifier" in filename:
-            ha_id_name = filename
-        elif 'team_id' in filename:
+        # elif "home_identifier" in filename:
+        #     ha_id_name = filename
+        elif 'team' in filename:
             team_id_name = filename
+        elif 'action' in filename:
+            action_id_name = filename
     if reward_name is not None:
         reward = sio.loadmat(data_store + "/" + dir_game + "/" + reward_name)
-        reward = reward['reward']
-    if ha_id_name is not None:
-        ha_id = sio.loadmat(data_store + "/" + dir_game + "/" + ha_id_name)["home_identifier"][0]
+        reward = reward['reward'][0]
+    # if ha_id_name is not None:
+    #     ha_id = sio.loadmat(data_store + "/" + dir_game + "/" + ha_id_name)["home_identifier"][0]
     if team_id_name is not None:
-        team_id = sio.loadmat(data_store + "/" + dir_game + "/" + team_id_name)["team_id"][0]
+        team_id = sio.loadmat(data_store + "/" + dir_game + "/" + team_id_name)['team']
     if state_input_name is not None:
-        state_input = sio.loadmat(data_store + "/" + dir_game + "/" + state_input_name)['dynamic_feature_input']
-    # state_input = (state_input['dynamic_feature_input'])
+        state_input = sio.loadmat(data_store + "/" + dir_game + "/" + state_input_name)['state_feature_seq']
+    if action_id_name is not None:
+        action = sio.loadmat(data_store + "/" + dir_game + "/" + action_id_name)['action']
+        # state_input = (state_input['dynamic_feature_input'])
     # state_output = sio.loadmat(DATA_STORE + "/" + dir_game + "/" + state_output_name)
     # state_output = state_output['hybrid_output_state']
     if trace_length_name is not None:
         state_trace_length = sio.loadmat(
-            data_store + "/" + dir_game + "/" + trace_length_name)['hybrid_trace_length'][0]
+            data_store + "/" + dir_game + "/" + trace_length_name)['lt'][0]
 
-    return state_trace_length, state_input, reward, ha_id, team_id
+    return state_trace_length, state_input, reward, action, team_id
 
 
 def id2onehot(id, dimension_num):
@@ -183,13 +205,13 @@ def id2onehot(id, dimension_num):
     return onehot
 
 
-def get_together_training_batch(s_t0, state_input, reward, train_number, train_len, state_trace_length, ha_id,
+def get_together_training_batch(s_t0, state_input, reward, train_number, train_len, state_trace_length, action,
                                 team_id, config):
     """
     combine training data to a batch
     :return:
     """
-    batch_size = config.learn.batch_size
+    batch_size = config.Learn.batch_size
     batch_return = []
     print_flag = False
     current_batch_length = 0
@@ -201,10 +223,12 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
             # continue
         s_length_t1 = state_trace_length[train_number]
         s_length_t0 = state_trace_length[train_number - 1]
-        home_away_id_t1 = ha_id[train_number]
-        home_away_id_t0 = ha_id[train_number - 1]
-        team_id_t1 = id2onehot(team_id[train_number], config.learn.team_number)
-        team_id_t0 = id2onehot(team_id[train_number - 1], config.learn.team_number)
+        action_id_t1 = action[train_number]
+        action_id_t0 = action[train_number - 1]
+        team_id_t1 = team_id[train_number]
+        team_id_t0 = team_id[train_number - 1]
+        # team_id_t1 = id2onehot(team_id[train_number], config.learn.team_number)
+        # team_id_t0 = id2onehot(team_id[train_number - 1], config.learn.team_number)
         if s_length_t1 > 10:  # if trace length is too long
             s_length_t1 = 10
         if s_length_t0 > 10:  # if trace length is too long
@@ -216,14 +240,12 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
             raise IndexError("s_reward wrong with index")
         train_number += 1
         if train_number + 1 == train_len:
-            trace_length_index_t1 = s_length_t1 - 1
-            trace_length_index_t0 = s_length_t0 - 1
-            r_t0 = np.asarray([s_reward_t0[trace_length_index_t0]])
-            r_t1 = np.asarray([s_reward_t1[trace_length_index_t1]])
-            if r_t0 == [float(0)]:
+            r_t0 = s_reward_t0
+            r_t1 = s_reward_t1
+            if r_t0 == float(0):
                 r_t0_combine = [float(0), float(0), float(0)]
                 batch_return.append(
-                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, home_away_id_t0, home_away_id_t1, team_id_t0,
+                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
                      team_id_t1, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
@@ -234,13 +256,13 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                 else:
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
-                    (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, home_away_id_t1, home_away_id_t1, team_id_t1,
+                    (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
                      team_id_t1, 1, 0))
 
-            elif r_t0 == [float(-1)]:
+            elif r_t0 == float(-1):
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
-                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, home_away_id_t0, home_away_id_t1, team_id_t0,
+                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
                      team_id_t1, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
@@ -251,13 +273,13 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                 else:
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
-                    (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, home_away_id_t1, home_away_id_t1, team_id_t1,
+                    (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
                      team_id_t1, 1, 0))
 
-            elif r_t0 == [float(1)]:
+            elif r_t0 == float(1):
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
-                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, home_away_id_t0, home_away_id_t1, team_id_t0,
+                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
                      team_id_t1, 0, 0))
 
                 if r_t1 == float(0):
@@ -269,7 +291,7 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                 else:
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
-                    (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, home_away_id_t1, home_away_id_t1, team_id_t1,
+                    (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
                      team_id_t1, 1, 0))
             else:
                 raise ValueError("r_t0 wrong value")
@@ -277,20 +299,19 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
             s_t0 = s_t1
             break
 
-        trace_length_index_t0 = s_length_t0 - 1  # we want the reward of s_t0, so -2
-        r_t0 = np.asarray([s_reward_t0[trace_length_index_t0]])
-        if r_t0 != [float(0)]:
+        r_t0 = s_reward_t0
+        if r_t0 != float(0):
             print 'find no-zero reward', r_t0
             print_flag = True
             if r_t0 == [float(-1)]:
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
-                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, home_away_id_t0, home_away_id_t1, team_id_t0,
+                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
                      team_id_t1, 0, 1))
             elif r_t0 == [float(1)]:
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
-                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, home_away_id_t0, home_away_id_t1, team_id_t0,
+                    (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
                      team_id_t1, 0, 1))
             else:
                 raise ValueError("r_t0 wrong value")
@@ -298,7 +319,7 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
             break
         r_t0_combine = [float(0), float(0), float(0)]
         batch_return.append(
-            (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, home_away_id_t0, home_away_id_t1, team_id_t0,
+            (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
              team_id_t1, 0, 0))
         current_batch_length += 1
         s_t0 = s_t1

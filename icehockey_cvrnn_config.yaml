@@ -15,5 +15,5 @@ Arch:
     hidden_dim : 256
     latent_dim : 256
     x_dim : 33
-    y_dim : 56 # tmp value, to be fixed as real data
+    y_dim : 43 # 12+31
     z_dim : 256
