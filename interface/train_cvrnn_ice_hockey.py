@@ -27,7 +27,8 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
         else:
             converge_flag = True
         for dir_game in dir_games_all:
-
+            if dir_game == '.DS_Store':
+                continue
             game_number += 1
             game_cost_record = []
             state_trace_length, state_input, reward, action, team_id = get_icehockey_game_data(
@@ -107,7 +108,7 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
                 # train_writer.add_summary(summary_train, global_step=global_counter)
                 s_t0 = s_tl
 
-                print ("cost of the network: kl:{0} and ll:{1}".format(str(kl_loss), str(likelihood_loss)))
+                print ("cost of the network: kl:{0} and ll:{1}".format(str(np.mean(kl_loss)), str(np.mean(likelihood_loss))))
                 # home_avg = sum(q0[:, 0]) / len(q0[:, 0])
                 # away_avg = sum(q0[:, 1]) / len(q0[:, 1])
                 # end_avg = sum(q0[:, 2]) / len(q0[:, 2])
@@ -151,7 +152,7 @@ def run():
     sess = tf.Session()
     cvrnn = CVRNN(config=icehockey_cvrnn_config)
     cvrnn.call()
-
+    sess.run(tf.global_variables_initializer())
     train_network(sess=sess, model=cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
                   saved_network=saved_network_dir, data_store=data_store_dir, dir_games_all=dir_games_all)
     sess.close()
