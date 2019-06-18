@@ -98,7 +98,7 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
                 )
 
                 for i in range(0, len(batch_return)):
-                    terminal = batch_return[i][7]
+                    terminal = batch_return[i][-2]
                     # cut = batch_return[i][8]
 
                 # perform gradient step
