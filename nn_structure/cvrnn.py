@@ -97,10 +97,10 @@ class CVRNN():
     def __init__(self, config):
         self.config = config
         self.target_data_ph = tf.placeholder(dtype=tf.float32,
-                                             shape=[self.config.Learn.batch_size, self.config.Learn.max_seq_length,
+                                             shape=[None, self.config.Learn.max_seq_length,
                                                     self.config.Arch.CVRNN.x_dim], name='target_data')
         self.input_data_ph = tf.placeholder(dtype=tf.float32,
-                                            shape=[self.config.Learn.batch_size, self.config.Learn.max_seq_length,
+                                            shape=[None, self.config.Learn.max_seq_length,
                                                    self.config.Arch.CVRNN.x_dim + self.config.Arch.CVRNN.y_dim],
                                             name='input_data')
         self.trace_length_ph = tf.placeholder(dtype=tf.int32, shape=[self.config.Learn.batch_size], name='trace_length')
