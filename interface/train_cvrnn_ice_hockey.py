@@ -1,7 +1,7 @@
-# import sys
-#
-# print sys.path
-# sys.path.append('/Local-Scratch/PycharmProjects/Sport-Analytic-NN/')
+import sys
+
+print sys.path
+sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
