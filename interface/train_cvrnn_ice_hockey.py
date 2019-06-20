@@ -85,10 +85,12 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
                 target_data = np.asarray(action_id_t0)
                 trace_length = trace_t0_batch
                 [
+                    output_x,
                     kl_loss,
                     likelihood_loss,
                     _
                 ] = sess.run([
+                    model.dec_x,
                     model.kl_loss,
                     model.likelihood_loss,
                     model.train_op],
@@ -139,7 +141,7 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
 
 
 def run():
-    test_flag = False
+    test_flag = True
     icehockey_cvrnn_config_path = "../icehockey_cvrnn_config.yaml"
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
 

@@ -149,12 +149,19 @@ def transfer2seq(data, trace_length, max_length):
         # print(index)
         tl = max_length if tl > max_length else tl
         seq_line = data[index:index + tl].tolist()
-        for i in range(max_length-len(seq_line)):
-            seq_line.append(len(data[0])*[0])
+        for i in range(max_length - len(seq_line)):
+            seq_line.append(len(data[0]) * [0])
         # print len(seq_line)
         assert len(seq_line) == max_length
         return_data.append(seq_line)
     return np.asarray(return_data)
+
+
+def generate_selection_matrix(trace_lengths, max_trace_length):
+    selection_matrix = []
+    for trace_length in trace_lengths:
+        selection_matrix.append(trace_length * [1] + (max_trace_length - trace_length) * [0])
+    np.asarray(selection_matrix)
 
 
 def get_icehockey_game_data(data_store, dir_game, config):
