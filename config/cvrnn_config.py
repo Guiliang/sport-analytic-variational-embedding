@@ -17,7 +17,7 @@ class CVRNNCongfig(object):
         feature_type = None
         iterate_num = None
         model_type = None
-        number_of_total_game
+        action_number = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

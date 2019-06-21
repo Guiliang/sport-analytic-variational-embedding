@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 
 def load_nn_model(saver, sess, saved_network_dir):
@@ -26,22 +27,38 @@ def get_model_and_log_name(config, train_flag=False):
     log_dir = "{0}/oschulte/Galen/soccer-models/hybrid_sl_log_NN" \
               "/{1}Scale-tt-three-cut_together_log_feature{2}" \
               "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}".format(config.Learn.save_mother_dir,
-                                                                  train_msg,
-                                                                  str(config.Learn.feature_type),
-                                                                  str(config.Learn.batch_size),
-                                                                  str(config.Learn.iterate_num),
-                                                                  str(config.Learn.learning_rate),
-                                                                  str(config.Learn.model_type),
-                                                                  str(config.Learn.max_seq_length))
+                                                               train_msg,
+                                                               str(config.Learn.feature_type),
+                                                               str(config.Learn.batch_size),
+                                                               str(config.Learn.iterate_num),
+                                                               str(config.Learn.learning_rate),
+                                                               str(config.Learn.model_type),
+                                                               str(config.Learn.max_seq_length))
 
     saved_network = "{0}/oschulte/Galen/soccer-models/hybrid_sl_saved_NN/" \
                     "{1}Scale-tt-three-cut_together_saved_networks_feature{2}" \
                     "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}".format(config.Learn.save_mother_dir,
-                                                                        train_msg,
-                                                                        str(config.Learn.feature_type),
-                                                                        str(config.Learn.batch_size),
-                                                                        str(config.Learn.iterate_num),
-                                                                        str(config.Learn.learning_rate),
-                                                                        str(config.Learn.model_type),
-                                                                        str(config.Learn.max_seq_length))
+                                                                     train_msg,
+                                                                     str(config.Learn.feature_type),
+                                                                     str(config.Learn.batch_size),
+                                                                     str(config.Learn.iterate_num),
+                                                                     str(config.Learn.learning_rate),
+                                                                     str(config.Learn.model_type),
+                                                                     str(config.Learn.max_seq_length))
     return saved_network, log_dir
+
+
+def compute_acc(target_actions_prob, output_actions_prob, selection_matrix, config):
+    total_number = 0
+    correct_number = 0
+    for batch_index in range(0, len(selection_matrix)):
+        for trace_length_index in range(0, config.Learn.max_seq_length):
+            if selection_matrix[batch_index][trace_length_index]:
+                total_number += 1
+                output_prediction = np.argmax(output_actions_prob[batch_index][trace_length_index])
+                target_prediction = np.argmax(target_actions_prob[batch_index][trace_length_index])
+                if output_prediction == target_prediction:
+                    correct_number += 1
+
+    return float(correct_number)/float(total_number)
+

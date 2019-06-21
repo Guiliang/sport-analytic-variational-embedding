@@ -9,6 +9,7 @@ Learn:
   iterate_num: 30
   model_type: 'normal'
   number_of_total_game: 1202
+  action_number : 33
 
 Arch:
   CVRNN:

@@ -161,7 +161,7 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
     selection_matrix = []
     for trace_length in trace_lengths:
         selection_matrix.append(trace_length * [1] + (max_trace_length - trace_length) * [0])
-    np.asarray(selection_matrix)
+    return np.asarray(selection_matrix)
 
 
 def get_icehockey_game_data(data_store, dir_game, config):
@@ -308,7 +308,7 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
 
         r_t0 = s_reward_t0
         if r_t0 != float(0):
-            print 'find no-zero reward', r_t0
+            # print 'find no-zero reward', r_t0
             print_flag = True
             if r_t0 == [float(-1)]:
                 r_t0_combine = [float(0), float(1), float(0)]

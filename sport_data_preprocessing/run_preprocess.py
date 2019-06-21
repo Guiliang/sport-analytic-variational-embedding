@@ -13,4 +13,4 @@ if __name__ == '__main__':
     scaler = prep.scale_allgame_features()
     wrong_files = prep.process_all(scaler)
     process_seq_all(save_data_dir=save_data_dir)
-    print 'wrong files skipped are {0}'.format(str(wrong_files))
+    # print 'wrong files skipped are {0}'.format(str(wrong_files))

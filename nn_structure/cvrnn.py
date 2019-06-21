@@ -130,6 +130,7 @@ class CVRNN():
         self.dec_x = None
         self.prior_mu = None
         self.prior_sigma = None
+        self.output = None
 
     def call(self):
 
@@ -145,38 +146,30 @@ class CVRNN():
                 # +tf.log(tf.maximum(1e-20,1-rho),name='log_rho_inv')*(1-y[:,args.chunk_samples:]))/2, 1)
             return result
 
-        def tf_cross_entropy(target_x, dec_x, selection_matrix_ph):
+        def tf_cross_entropy(target_x, dec_x, condition):
             with tf.variable_scope('cross_entropy'):
-                ce_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=target_x, logits=dec_x)
+                ce_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=target_x,
+                                                              logits=dec_x, reduction=tf.losses.Reduction.NONE)
 
-                zero_loss_all = tf.zeros(shape=[tf.shape(ce_loss_all)[0], tf.shape(ce_loss_all)[1]])
-
-                condition = tf.cast(tf.reshape(selection_matrix_ph,
-                                               shape=[tf.shape(selection_matrix_ph)[0] *
-                                                      tf.shape(selection_matrix_ph)[1], -1]), tf.bool)
-
+                zero_loss_all = tf.zeros(shape=[tf.shape(ce_loss_all)[0]])
                 return tf.where(condition=condition, x=ce_loss_all, y=zero_loss_all)
 
-        def tf_kl_gaussgauss(mu_1, sigma_1, mu_2, sigma_2,
-                             selection_matrix_ph):
-            with tf.variable_scope("kl_gaussgauss"):
+        def tf_kl_gaussian(mu_1, sigma_1, mu_2, sigma_2, condition):
+            with tf.variable_scope("kl_gaussian"):
                 kl_loss_all = tf.reduce_sum(0.5 * (
                     2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
                     - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
                     + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
                 ), 1)
-                condition = tf.cast(tf.reshape(selection_matrix_ph,
-                                               shape=[tf.shape(selection_matrix_ph)[0] *
-                                                      tf.shape(selection_matrix_ph)[1], -1]), tf.bool)
-                zero_loss_all = tf.zeros(shape=[tf.shape(kl_loss_all)[0], tf.shape(kl_loss_all)[1]])
+                zero_loss_all = tf.zeros(shape=[tf.shape(kl_loss_all)[0]])
 
                 return tf.where(condition=condition, x=kl_loss_all, y=zero_loss_all)
 
         def get_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, target_x,
-                         selection_matrix_ph):
-            kl_loss = tf_kl_gaussgauss(enc_mu, enc_sigma, prior_mu, prior_sigma, selection_matrix_ph)
+                         condition):
+            kl_loss = tf_kl_gaussian(enc_mu, enc_sigma, prior_mu, prior_sigma, condition)
             # likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
-            likelihood_loss = tf_cross_entropy(dec_x=dec_x, target_x=target_x, selection_matrix_ph=selection_matrix_ph)
+            likelihood_loss = tf_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
 
             return tf.reduce_mean(kl_loss + likelihood_loss), kl_loss, likelihood_loss
             # return tf.reduce_mean(likelihood_loss)
@@ -236,9 +229,17 @@ class CVRNN():
          self.dec_x, self.prior_mu, self.prior_sigma] = outputs_reshape
         self.final_state_c, self.final_state_h = last_state
 
+        condition = tf.cast(tf.reshape(self.selection_matrix_ph,
+                                       shape=[tf.shape(self.selection_matrix_ph)[0] *
+                                              tf.shape(self.selection_matrix_ph)[1]]), tf.bool)
+
+        # zero_output_all = tf.zeros(shape=[tf.shape(self.dec_x)[0]])
+        # self.output = tf.where(condition=condition, x=self.dec_x, y=zero_output_all)
+        self.output = tf.reshape(tf.nn.softmax(self.dec_x), shape=[tf.shape(self.input_data_ph)[0], tf.shape(self.input_data_ph)[1], -1])
+
         lossfunc, kl_loss, likelihood_loss = get_lossfunc(self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
                                                           self.dec_x, self.prior_mu,
-                                                          self.prior_sigma, flat_target_data, self.selection_matrix_ph)
+                                                          self.prior_sigma, flat_target_data, condition)
 
         with tf.variable_scope('cost'):
             self.kl_loss = tf.reshape(kl_loss, shape=[tf.shape(self.input_data_ph)[0],
