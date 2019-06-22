@@ -9,8 +9,8 @@ if __name__ == '__main__':
     else:
         hockey_data_dir = '/cs/oschulte/2019-icehockey-data/2018-2019/'
         save_data_dir = '/cs/oschulte/Galen/Ice-hockey-data/2018-2019'
-    prep = Preprocess(hockey_data_dir=hockey_data_dir, save_data_dir=save_data_dir)
-    scaler = prep.scale_allgame_features()
-    wrong_files = prep.process_all(scaler)
+    # prep = Preprocess(hockey_data_dir=hockey_data_dir, save_data_dir=save_data_dir)
+    # scaler = prep.scale_allgame_features()
+    # wrong_files = prep.process_all(scaler)
     process_seq_all(save_data_dir=save_data_dir)
     # print 'wrong files skipped are {0}'.format(str(wrong_files))
