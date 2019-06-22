@@ -48,9 +48,10 @@ def get_model_and_log_name(config, train_flag=False):
     return saved_network, log_dir
 
 
-def compute_acc(target_actions_prob, output_actions_prob, selection_matrix, config):
+def compute_acc(target_actions_prob, output_actions_prob, selection_matrix, config, if_print=False):
     total_number = 0
     correct_number = 0
+    correct_output_all = {}
     for batch_index in range(0, len(selection_matrix)):
         for trace_length_index in range(0, config.Learn.max_seq_length):
             if selection_matrix[batch_index][trace_length_index]:
@@ -59,6 +60,13 @@ def compute_acc(target_actions_prob, output_actions_prob, selection_matrix, conf
                 target_prediction = np.argmax(target_actions_prob[batch_index][trace_length_index])
                 if output_prediction == target_prediction:
                     correct_number += 1
+                    if correct_output_all.get(output_prediction) is None:
+                        correct_output_all.update({output_prediction: 1})
+                    else:
+                        number = correct_output_all.get(output_prediction)+1
+                        correct_output_all.update({output_prediction: number})
 
-    return float(correct_number)/float(total_number)
+    if if_print:
+        print(correct_output_all)
 
+    return float(correct_number) / float(total_number)

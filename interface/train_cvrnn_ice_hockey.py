@@ -79,9 +79,9 @@ def run_network(sess, model, config, log_dir, saved_network, training_dir_games_
                 action_id_t1 = [d[6] for d in batch_return]
                 team_id_t0_batch = [d[7] for d in batch_return]
                 team_id_t1_batch = [d[8] for d in batch_return]
-
+                train_flag = np.asarray([[[1]]*config.Learn.max_seq_length]*len(s_t0_batch))
                 input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch),
-                                             np.asarray(team_id_t0_batch)], axis=2)
+                                             np.asarray(team_id_t0_batch), train_flag], axis=2)
                 target_data = np.asarray(action_id_t0)
                 trace_lengths = trace_t0_batch
                 selection_matrix = generate_selection_matrix(trace_lengths,
@@ -90,7 +90,10 @@ def run_network(sess, model, config, log_dir, saved_network, training_dir_games_
                 for i in range(0, len(batch_return)):
                     terminal = batch_return[i][-2]
                     # cut = batch_return[i][8]
-                train_model(model, sess, config, input_data, target_data, trace_lengths, selection_matrix, terminal)
+
+                pretrain_flag = True if game_number <= 50 else False
+                train_model(model, sess, config, input_data, target_data,
+                            trace_lengths, selection_matrix, terminal, pretrain_flag)
                 s_t0 = s_tl
                 if terminal:
                     # save progress after a game
@@ -99,28 +102,48 @@ def run_network(sess, model, config, log_dir, saved_network, training_dir_games_
                     # v_diff_record_average = sum(v_diff_record) / len(v_diff_record)
                     # game_diff_record_dict.update({dir_game: v_diff_record_average})
                     break
-            if game_number % 500 == 1:
+            if game_number % 10 == 1:
                 validation_model(testing_dir_games_all, data_store, config, sess, model)
 
 
-def train_model(model, sess, config, input_data, target_data, trace_lengths, selection_matrix, terminal):
-    [
-        output_x,
-        total_loss,
-        kl_loss,
-        likelihood_loss,
-        _
-    ] = sess.run([
-        model.output,
-        model.cost,
-        model.kl_loss,
-        model.likelihood_loss,
-        model.train_op],
-        feed_dict={model.input_data_ph: input_data,
-                   model.target_data_ph: target_data,
-                   model.trace_length_ph: trace_lengths,
-                   model.selection_matrix_ph: selection_matrix}
-    )
+def train_model(model, sess, config, input_data, target_data, trace_lengths, selection_matrix, terminal,
+                pretrain_flag=False):
+    if pretrain_flag:
+        [
+            output_x,
+            # total_loss,
+            kl_loss,
+            likelihood_loss,
+            _
+        ] = sess.run([
+            model.output,
+            # model.cost,
+            model.kl_loss,
+            model.likelihood_loss,
+            model.train_ll_op],
+            feed_dict={model.input_data_ph: input_data,
+                       model.target_data_ph: target_data,
+                       model.trace_length_ph: trace_lengths,
+                       model.selection_matrix_ph: selection_matrix}
+        )
+    else:
+        [
+            output_x,
+            # total_loss,
+            kl_loss,
+            likelihood_loss,
+            _
+        ] = sess.run([
+            model.output,
+            # model.cost,
+            model.kl_loss,
+            model.likelihood_loss,
+            model.train_general_op],
+            feed_dict={model.input_data_ph: input_data,
+                       model.target_data_ph: target_data,
+                       model.trace_length_ph: trace_lengths,
+                       model.selection_matrix_ph: selection_matrix}
+        )
     output_decoder = []
     for batch_index in range(0, len(output_x)):
         output_decoder_batch = []
@@ -143,10 +166,14 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
     cost_out = likelihood_loss + kl_loss
     # game_cost_record.append(cost_out)
     # train_writer.add_summary(summary_train, global_step=global_counter)
-
-    # print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-    #                                                                     str(np.mean(likelihood_loss)),
-    #                                                                     str(acc)))
+    if pretrain_flag:
+        print("cost of the network: kl:0.0 and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
+                                                                           str(np.mean(likelihood_loss)),
+                                                                           str(acc)))
+    else:
+        print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
+                                                                            str(np.mean(likelihood_loss)),
+                                                                            str(acc)))
     # home_avg = sum(q0[:, 0]) / len(q0[:, 0])
     # away_avg = sum(q0[:, 1]) / len(q0[:, 1])
     # end_avg = sum(q0[:, 2]) / len(q0[:, 2])
@@ -217,9 +244,9 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model):
             action_id_t1 = [d[6] for d in batch_return]
             team_id_t0_batch = [d[7] for d in batch_return]
             team_id_t1_batch = [d[8] for d in batch_return]
-
+            train_flag = np.asarray([[[0]] * config.Learn.max_seq_length] * len(s_t0_batch))
             input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch),
-                                         np.asarray(team_id_t0_batch)], axis=2)
+                                         np.asarray(team_id_t0_batch), train_flag], axis=2)
             target_data = np.asarray(action_id_t0)
 
             trace_lengths = trace_t0_batch
@@ -254,7 +281,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model):
             if output_decoder_all is None:
                 output_decoder_all = output_decoder
                 target_data_all = target_data
-                selection_matrix_all=selection_matrix
+                selection_matrix_all = selection_matrix
             else:
                 output_decoder_all = np.concatenate([output_decoder_all, output_decoder], axis=0)
                 target_data_all = np.concatenate([target_data_all, target_data], axis=0)
@@ -264,7 +291,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model):
                 break
 
     acc = compute_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
-                      selection_matrix=selection_matrix_all, config=config)
+                      selection_matrix=selection_matrix_all, config=config, if_print=True)
     print ("validation acc is {0}".format(str(acc)))
 
 
@@ -282,9 +309,9 @@ def run():
     else:
         data_store_dir = "/cs/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
-        training_dir_games_all = dir_games_all[0: len(dir_games_all)/10*9]
+        training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
-        testing_dir_games_all = dir_games_all[-2:]  # TODO: testing
+        testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
     number_of_total_game = len(dir_games_all)
     icehockey_cvrnn_config.Learn.number_of_total_game = number_of_total_game
 

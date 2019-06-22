@@ -17,7 +17,7 @@ def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=
             return tf.matmul(input_, matrix) + bias
 
 
-class VartiationalRNNCell(tf.contrib.rnn.RNNCell):
+class VariationalRNNCell(tf.contrib.rnn.RNNCell):
     """Variational RNN cell."""
 
     def __init__(self, x_dim, y_dim, h_dim, z_dim=100):
@@ -47,12 +47,13 @@ class VartiationalRNNCell(tf.contrib.rnn.RNNCell):
 
     def __call__(self, input, state, scope=None):
         with tf.variable_scope(scope or type(self).__name__):
-            h, c = state
-            x, y = tf.split(value=input, num_or_size_splits=[self.n_x, self.n_y], axis=1)
+            c, m = state  # TODO: why shall we apply c instead of m
+            x, y, train_flag_ph = tf.split(value=input, num_or_size_splits=[self.n_x, self.n_y, 1], axis=1)
+            train_flag_ph = tf.cast(tf.squeeze(train_flag_ph), tf.bool)
 
             with tf.variable_scope("Prior"):
                 with tf.variable_scope("hidden"):
-                    prior_hidden = tf.nn.relu(linear(h, self.n_prior_hidden))
+                    prior_hidden = tf.nn.relu(linear(c, self.n_prior_hidden))
                 with tf.variable_scope("mu"):
                     prior_mu = linear(prior_hidden, self.n_z)
                 with tf.variable_scope("sigma"):
@@ -64,7 +65,7 @@ class VartiationalRNNCell(tf.contrib.rnn.RNNCell):
 
             with tf.variable_scope("Encoder"):
                 with tf.variable_scope("hidden"):
-                    enc_hidden = tf.nn.relu(linear(tf.concat(axis=1, values=(xy_1, h)), self.n_enc_hidden))
+                    enc_hidden = tf.nn.relu(linear(tf.concat(axis=1, values=(xy_1, c)), self.n_enc_hidden))
                 with tf.variable_scope("mu"):
                     enc_mu = linear(enc_hidden, self.n_z)
                 with tf.variable_scope("sigma"):
@@ -73,20 +74,23 @@ class VartiationalRNNCell(tf.contrib.rnn.RNNCell):
             # eps = tf.random_normal((x.get_shape().as_list()[0], self.n_z), 0.0, 1.0, dtype=tf.float32)
             eps1 = tf.random_normal((tf.shape(x)[0], self.n_z), 0.0, 1.0, dtype=tf.float32)
             # z = mu + sigma*epsilon
-            z = tf.add(enc_mu, tf.multiply(enc_sigma, eps1))
-            with tf.variable_scope("phi_z"):
-                zy = tf.concat(values=(z, y), axis=1)
+            z_encoder = tf.add(enc_mu, tf.multiply(enc_sigma, eps1))
+            z_prior = tf.add(prior_mu, tf.multiply(prior_sigma, eps1))
+            with tf.variable_scope("cond_z"):
+                z = tf.where(train_flag_ph, x=z_encoder, y=z_prior)
+                zy = tf.concat(values=(z, tf.nn.relu(linear(y, self.n_y_1))), axis=1)
+            with tf.variable_scope("Phi_z"):
                 zy_1 = tf.nn.relu(linear(zy, self.n_z_1 + self.n_y_1))
 
             with tf.variable_scope("Decoder"):
                 with tf.variable_scope("hidden"):
-                    dec_hidden = tf.nn.relu(linear(tf.concat(axis=1, values=(zy_1, h)), self.n_dec_hidden))
+                    dec_hidden_enc = tf.nn.relu(linear(tf.concat(axis=1, values=(zy_1, c)), self.n_dec_hidden))
                 with tf.variable_scope("mu"):
-                    dec_mu = linear(dec_hidden, self.n_x)
+                    dec_mu = linear(dec_hidden_enc, self.n_x)
                 with tf.variable_scope("sigma"):
-                    dec_sigma = tf.nn.softplus(linear(dec_hidden, self.n_x))
+                    dec_sigma = tf.nn.softplus(linear(dec_hidden_enc, self.n_x))
                 with tf.variable_scope("rho"):
-                    dec_rho = tf.nn.sigmoid(linear(dec_hidden, self.n_x))
+                    dec_rho = tf.nn.sigmoid(linear(dec_hidden_enc, self.n_x))
 
             eps2 = tf.random_normal((tf.shape(x)[0], self.n_x), 0.0, 1.0, dtype=tf.float32)
             dec_x = tf.add(dec_mu, tf.multiply(dec_sigma, eps2))
@@ -106,7 +110,7 @@ class CVRNN():
                                                     self.config.Arch.CVRNN.x_dim], name='target_data')
         self.input_data_ph = tf.placeholder(dtype=tf.float32,
                                             shape=[None, self.config.Learn.max_seq_length,
-                                                   self.config.Arch.CVRNN.x_dim + self.config.Arch.CVRNN.y_dim],
+                                                   self.config.Arch.CVRNN.x_dim + self.config.Arch.CVRNN.y_dim + 1],
                                             name='input_data')
 
         self.selection_matrix_ph = tf.placeholder(dtype=tf.int32,
@@ -119,8 +123,8 @@ class CVRNN():
         self.initial_state_h = None
         self.kl_loss = None
         self.likelihood_loss = None
-        self.cost = None
-        self.train_op = None
+        # self.cost = None
+        self.train_ll_op = None
         self.final_state_c = None
         self.final_state_h = None
         self.enc_mu = None
@@ -131,6 +135,7 @@ class CVRNN():
         self.prior_mu = None
         self.prior_sigma = None
         self.output = None
+        self.train_general_op = None
 
     def call(self):
 
@@ -157,9 +162,9 @@ class CVRNN():
         def tf_kl_gaussian(mu_1, sigma_1, mu_2, sigma_2, condition):
             with tf.variable_scope("kl_gaussian"):
                 kl_loss_all = tf.reduce_sum(0.5 * (
-                    2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
-                    - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
-                    + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
+                        2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
+                        - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
+                        + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
                 ), 1)
                 zero_loss_all = tf.zeros(shape=[tf.shape(kl_loss_all)[0]])
 
@@ -171,17 +176,17 @@ class CVRNN():
             # likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
             likelihood_loss = tf_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
 
-            return tf.reduce_mean(kl_loss + likelihood_loss), kl_loss, likelihood_loss
-            # return tf.reduce_mean(likelihood_loss)
+            # kl_loss = tf.zeros(shape=[tf.shape(kl_loss)[0]])  # TODO: why if we only optimize likelihood_loss
+            return kl_loss, likelihood_loss
 
         # self.args = args
         # if sample:
         #     args.batch_size = 1
         #     args.seq_length = 1
 
-        self.cell = VartiationalRNNCell(x_dim=self.config.Arch.CVRNN.x_dim, y_dim=self.config.Arch.CVRNN.y_dim,
-                                        h_dim=self.config.Arch.CVRNN.hidden_dim,
-                                        z_dim=self.config.Arch.CVRNN.latent_dim)
+        self.cell = VariationalRNNCell(x_dim=self.config.Arch.CVRNN.x_dim, y_dim=self.config.Arch.CVRNN.y_dim,
+                                       h_dim=self.config.Arch.CVRNN.hidden_dim,
+                                       z_dim=self.config.Arch.CVRNN.latent_dim)
 
         self.initial_state_c, self.initial_state_h = self.cell.zero_state(batch_size=tf.shape(self.input_data_ph)[0],
                                                                           dtype=tf.float32)
@@ -235,19 +240,19 @@ class CVRNN():
 
         # zero_output_all = tf.zeros(shape=[tf.shape(self.dec_x)[0]])
         # self.output = tf.where(condition=condition, x=self.dec_x, y=zero_output_all)
-        self.output = tf.reshape(tf.nn.softmax(self.dec_x), shape=[tf.shape(self.input_data_ph)[0], tf.shape(self.input_data_ph)[1], -1])
+        self.output = tf.reshape(tf.nn.softmax(self.dec_x),
+                                 shape=[tf.shape(self.input_data_ph)[0], tf.shape(self.input_data_ph)[1], -1])
 
-        lossfunc, kl_loss, likelihood_loss = get_lossfunc(self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
-                                                          self.dec_x, self.prior_mu,
-                                                          self.prior_sigma, flat_target_data, condition)
+        kl_loss, likelihood_loss = get_lossfunc(self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
+                                                self.dec_x, self.prior_mu,
+                                                self.prior_sigma, flat_target_data, condition)
 
         with tf.variable_scope('cost'):
             self.kl_loss = tf.reshape(kl_loss, shape=[tf.shape(self.input_data_ph)[0],
                                                       self.config.Learn.max_seq_length, -1])
             self.likelihood_loss = tf.reshape(likelihood_loss, shape=[tf.shape(self.input_data_ph)[0],
                                                                       self.config.Learn.max_seq_length, -1])
-            self.cost = lossfunc
-        tf.summary.scalar('cost', self.cost)
+        # tf.summary.scalar('cost', self.cost)
         tf.summary.scalar('mu', tf.reduce_mean(self.dec_mu))
         tf.summary.scalar('sigma', tf.reduce_mean(self.dec_sigma))
 
@@ -255,63 +260,65 @@ class CVRNN():
         tvars = tf.trainable_variables()
         for t in tvars:
             print t.name
-        grads = tf.gradients(self.cost, tvars)
+        grads = tf.gradients(tf.reduce_mean(self.likelihood_loss+self.kl_loss), tvars)
+        ll_grads = tf.gradients(tf.reduce_mean(self.likelihood_loss), tvars)
         # grads = tf.cond(
         #    tf.global_norm(grads) > 1e-20,
         #    lambda: tf.clip_by_global_norm(grads, args.grad_clip)[0],
         #    lambda: grads)
         optimizer = tf.train.AdamOptimizer(self.config.Learn.learning_rate)
-        self.train_op = optimizer.apply_gradients(zip(grads, tvars))
+        self.train_ll_op = optimizer.apply_gradients(zip(ll_grads, tvars))
+        self.train_general_op = optimizer.apply_gradients(zip(grads, tvars))
         # self.saver = tf.train.Saver(tf.all_variables())
 
-    def sample(self, sess, args, num=4410, start=None):
-
-        def sample_gaussian(mu, sigma):
-            return mu + (sigma * np.random.randn(*sigma.shape))
-
-        if start is None:
-            prev_x = np.random.randn(1, 1, 2 * args.chunk_samples)
-        elif len(start.shape) == 1:
-            prev_x = start[np.newaxis, np.newaxis, :]
-        elif len(start.shape) == 2:
-            for i in range(start.shape[0] - 1):
-                prev_x = start[i, :]
-                prev_x = prev_x[np.newaxis, np.newaxis, :]
-                feed = {self.input_data_ph: prev_x,
-                        self.initial_state_c: prev_state[0],
-                        self.initial_state_h: prev_state[1]}
-
-                [o_mu, o_sigma, o_rho, prev_state_c, prev_state_h] = sess.run(
-                    [self.dec_mu, self.dec_sigma, self.dec_x,
-                     self.final_state_c, self.final_state_h], feed)
-
-            prev_x = start[-1, :]
-            prev_x = prev_x[np.newaxis, np.newaxis, :]
-
-        prev_state = sess.run(self.cell.zero_state(1, tf.float32))
-        chunks = np.zeros((num, 2 * args.chunk_samples), dtype=np.float32)
-        mus = np.zeros((num, args.chunk_samples), dtype=np.float32)
-        sigmas = np.zeros((num, args.chunk_samples), dtype=np.float32)
-
-        for i in xrange(num):
-            feed = {self.input_data_ph: prev_x,
-                    self.initial_state_c: prev_state[0],
-                    self.initial_state_h: prev_state[1]}
-            [o_mu, o_sigma, o_rho, next_state_c, next_state_h] = sess.run([self.dec_mu, self.dec_sigma,
-                                                                           self.dec_x, self.final_state_c,
-                                                                           self.final_state_h], feed)
-
-            next_x = np.hstack((sample_gaussian(o_mu, o_sigma),
-                                2. * (o_rho > np.random.random(o_rho.shape[:2])) - 1.))
-            chunks[i] = next_x
-            mus[i] = o_mu
-            sigmas[i] = o_sigma
-
-            prev_x = np.zeros((1, 1, 2 * args.chunk_samples), dtype=np.float32)
-            prev_x[0][0] = next_x
-            prev_state = next_state_c, next_state_h
-
-        return chunks, mus, sigmas
+    # def sample(self, sess, args, num=4410, start=None):
+    #
+    #     def sample_gaussian(mu, sigma):
+    #         return mu + (sigma * np.random.randn(*sigma.shape))
+    #
+    #     if start is None:
+    #         prev_x = np.random.randn(1, 1, 2 * args.chunk_samples)
+    #     elif len(start.shape) == 1:
+    #         prev_x = start[np.newaxis, np.newaxis, :]
+    #     elif len(start.shape) == 2:
+    #         for i in range(start.shape[0] - 1):
+    #             prev_x = start[i, :]
+    #             prev_x = prev_x[np.newaxis, np.newaxis, :]
+    #             feed = {self.input_data_ph: prev_x,
+    #                     self.initial_state_c: prev_state[0],
+    #                     self.initial_state_h: prev_state[1]}
+    #
+    #             [o_mu, o_sigma, o_rho, prev_state_c, prev_state_h] = sess.run(
+    #                 [self.dec_mu, self.dec_sigma, self.dec_x,
+    #                  self.final_state_c, self.final_state_h], feed)
+    #
+    #         prev_x = start[-1, :]
+    #         prev_x = prev_x[np.newaxis, np.newaxis, :]
+    #
+    #     prev_state = sess.run(self.cell.zero_state(1, tf.float32))
+    #     chunks = np.zeros((num, 2 * args.chunk_samples), dtype=np.float32)
+    #     mus = np.zeros((num, args.chunk_samples), dtype=np.float32)
+    #     sigmas = np.zeros((num, args.chunk_samples), dtype=np.float32)
+    #
+    #     for i in xrange(num):
+    #         feed = {self.input_data_ph: prev_x,
+    #                 self.initial_state_c: prev_state[0],
+    #                 self.initial_state_h: prev_state[1]}
+    #         [o_mu, o_sigma, o_rho, next_state_c, next_state_h] = sess.run([self.dec_mu, self.dec_sigma,
+    #                                                                        self.dec_x, self.final_state_c,
+    #                                                                        self.final_state_h], feed)
+    #
+    #         next_x = np.hstack((sample_gaussian(o_mu, o_sigma),
+    #                             2. * (o_rho > np.random.random(o_rho.shape[:2])) - 1.))
+    #         chunks[i] = next_x
+    #         mus[i] = o_mu
+    #         sigmas[i] = o_sigma
+    #
+    #         prev_x = np.zeros((1, 1, 2 * args.chunk_samples), dtype=np.float32)
+    #         prev_x[0][0] = next_x
+    #         prev_state = next_state_c, next_state_h
+    #
+    #     return chunks, mus, sigmas
 
 
 if __name__ == '__main__':
