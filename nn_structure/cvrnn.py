@@ -136,6 +136,7 @@ class CVRNN():
         self.prior_sigma = None
         self.output = None
         self.train_general_op = None
+        self.deterministic_decoder = True
 
     def call(self):
 
@@ -171,10 +172,13 @@ class CVRNN():
                 return tf.where(condition=condition, x=kl_loss_all, y=zero_loss_all)
 
         def get_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, target_x,
-                         condition):
+                         condition, deterministci_decoder):
+            if deterministci_decoder:
+                likelihood_loss = tf_cross_entropy(dec_x=dec_mu, target_x=target_x, condition=condition)
+            else:
+                likelihood_loss = tf_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
             kl_loss = tf_kl_gaussian(enc_mu, enc_sigma, prior_mu, prior_sigma, condition)
             # likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
-            likelihood_loss = tf_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
 
             # kl_loss = tf.zeros(shape=[tf.shape(kl_loss)[0]])  # TODO: why if we only optimize likelihood_loss
             return kl_loss, likelihood_loss
@@ -240,12 +244,16 @@ class CVRNN():
 
         # zero_output_all = tf.zeros(shape=[tf.shape(self.dec_x)[0]])
         # self.output = tf.where(condition=condition, x=self.dec_x, y=zero_output_all)
-        self.output = tf.reshape(tf.nn.softmax(self.dec_x),
+        if self.deterministic_decoder:
+            decoder_output = self.dec_mu
+        else:
+            decoder_output = self.dec_x
+        self.output = tf.reshape(tf.nn.softmax(decoder_output),
                                  shape=[tf.shape(self.input_data_ph)[0], tf.shape(self.input_data_ph)[1], -1])
 
         kl_loss, likelihood_loss = get_lossfunc(self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
                                                 self.dec_x, self.prior_mu,
-                                                self.prior_sigma, flat_target_data, condition)
+                                                self.prior_sigma, flat_target_data, condition, self.deterministic_decoder)
 
         with tf.variable_scope('cost'):
             self.kl_loss = tf.reshape(kl_loss, shape=[tf.shape(self.input_data_ph)[0],

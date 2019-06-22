@@ -91,7 +91,7 @@ def run_network(sess, model, config, log_dir, saved_network, training_dir_games_
                     terminal = batch_return[i][-2]
                     # cut = batch_return[i][8]
 
-                pretrain_flag = True if game_number <= 50 else False
+                pretrain_flag = True if game_number <= 10 else False
                 train_model(model, sess, config, input_data, target_data,
                             trace_lengths, selection_matrix, terminal, pretrain_flag)
                 s_t0 = s_tl
