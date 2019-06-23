@@ -184,6 +184,8 @@ def get_icehockey_game_data(data_store, dir_game, config):
         elif 'team' in filename:
             team_id_name = filename
         elif 'action' in filename:
+            if 'action_feature_seq' in filename:
+                continue
             action_id_name = filename
     if reward_name is not None:
         reward = sio.loadmat(data_store + "/" + dir_game + "/" + reward_name)

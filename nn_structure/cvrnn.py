@@ -53,7 +53,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
             with tf.variable_scope("Prior"):
                 with tf.variable_scope("hidden"):
-                    prior_hidden = tf.nn.relu(linear(c, self.n_prior_hidden))
+                    prior_hidden = tf.nn.relu(linear(m, self.n_prior_hidden))
                 with tf.variable_scope("mu"):
                     prior_mu = linear(prior_hidden, self.n_z)
                 with tf.variable_scope("sigma"):
@@ -65,7 +65,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
             with tf.variable_scope("Encoder"):
                 with tf.variable_scope("hidden"):
-                    enc_hidden = tf.nn.relu(linear(tf.concat(axis=1, values=(xy_1, c)), self.n_enc_hidden))
+                    enc_hidden = tf.nn.relu(linear(tf.concat(axis=1, values=(xy_1, m)), self.n_enc_hidden))
                 with tf.variable_scope("mu"):
                     enc_mu = linear(enc_hidden, self.n_z)
                 with tf.variable_scope("sigma"):
@@ -84,7 +84,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
             with tf.variable_scope("Decoder"):
                 with tf.variable_scope("hidden"):
-                    dec_hidden_enc = tf.nn.relu(linear(tf.concat(axis=1, values=(zy_1, c)), self.n_dec_hidden))
+                    dec_hidden_enc = tf.nn.relu(linear(tf.concat(axis=1, values=(zy_1, m)), self.n_dec_hidden))
                 with tf.variable_scope("mu"):
                     dec_mu = linear(dec_hidden_enc, self.n_x)
                 with tf.variable_scope("sigma"):
