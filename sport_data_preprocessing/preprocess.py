@@ -15,7 +15,47 @@ class Preprocess:
         with open(self.hockey_data_dir + data_dir) as f:
             data = json.load(f)
             events = data.get('events')
-            return events
+        return events
+
+    def get_player_name(self, data_dir):
+        players_info_dict = {}
+        with open(self.hockey_data_dir + data_dir) as f:
+            data = json.load(f)
+            rosters = data.get('rosters')
+        for teamId in rosters.keys():
+            players = rosters.get(teamId)
+            if len(players) == 0:
+                continue
+            for player_info in players:
+                first_name = player_info.get('firstName')
+                last_name = player_info.get('lastName')
+                position = player_info.get('position')
+                id = player_info.get('id')
+                players_info_dict.update(
+                    {int(id): {'first_name': first_name, 'last_name': last_name, 'position': position,
+                               'teamId': int(teamId)}})
+
+        return players_info_dict
+
+    def generate_player_information(self, store_player_info_dir):
+        files_all = os.listdir(self.hockey_data_dir)
+        players_info_dict_all = {}
+        for file in files_all:
+            print("### handling player name in file: ", file)
+            if file == '.Rhistory' or file == '.DS_Store':
+                continue
+            players_info_dict = self.get_player_name(file)
+            players_info_dict_all.update(players_info_dict)
+
+        player_global_index = 0
+        for player_id in players_info_dict_all.keys():
+            player_info = players_info_dict_all.get(player_id)
+            player_info.update({'index': player_global_index})
+            # players_info_dict_all.update({player_id: player_info})
+            player_global_index += 1
+
+        with open(store_player_info_dir, 'w') as f:
+            json.dump(players_info_dict_all, f)
 
     def action_one_hot(self, action):
         one_hot = [0] * len(action_all)  # total 33 action
@@ -209,7 +249,7 @@ class Preprocess:
         features_allgame = []
         for file in files_all:
             print("### Scale file: ", file)
-            if file == '.Rhistory':
+            if file == '.Rhistory' or file == '.DS_Store':
                 continue
             events = self.get_events(file)
             state_feature_game, _, _, _, _ = self.process_game_events(events)
@@ -225,7 +265,7 @@ class Preprocess:
         files_all = os.listdir(self.hockey_data_dir)
         wrong_files = []
         for file in files_all:
-            if file == '.Rhistory':
+            if file == '.Rhistory' or file == '.DS_Store':
                 continue
             file_name = file.split('.')[0]
             game_name = file_name.split('-')[0]
@@ -253,7 +293,7 @@ class Preprocess:
 
 
 if __name__ == '__main__':
-    hockey_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/'
+    hockey_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
     # hockey_data_dir = '/cs/oschulte/2019-icehockey-data/2018-2019/'
     save_data_dir = '/cs/oschulte/Galen/Ice-hockey-data/2018-2019'
     prep = Preprocess(hockey_data_dir=hockey_data_dir, save_data_dir=save_data_dir)

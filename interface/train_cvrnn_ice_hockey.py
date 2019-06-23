@@ -166,14 +166,14 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
     cost_out = likelihood_loss + kl_loss
     # game_cost_record.append(cost_out)
     # train_writer.add_summary(summary_train, global_step=global_counter)
-    if pretrain_flag:
-        print("cost of the network: kl:0.0 and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-                                                                           str(np.mean(likelihood_loss)),
-                                                                           str(acc)))
-    else:
-        print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-                                                                            str(np.mean(likelihood_loss)),
-                                                                            str(acc)))
+    # if pretrain_flag:
+    #     print("cost of the network: kl:0.0 and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
+    #                                                                        str(np.mean(likelihood_loss)),
+    #                                                                        str(acc)))
+    # else:
+    #     print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
+    #                                                                         str(np.mean(likelihood_loss)),
+    #                                                                         str(acc)))
     # home_avg = sum(q0[:, 0]) / len(q0[:, 0])
     # away_avg = sum(q0[:, 1]) / len(q0[:, 1])
     # end_avg = sum(q0[:, 2]) / len(q0[:, 2])
