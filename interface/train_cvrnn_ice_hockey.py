@@ -296,7 +296,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model):
 
 
 def run():
-    test_flag = True
+    test_flag = False
     icehockey_cvrnn_config_path = "../icehockey_cvrnn_config.yaml"
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
 
