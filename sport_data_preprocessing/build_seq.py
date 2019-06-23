@@ -36,6 +36,8 @@ def process_seq_all(save_data_dir):
         for file in file_all:
             if "state_feature_seq" in file:
                 continue
+            if "action_feature_seq" in file:
+                continue
             if "state" in file:
                 state_feature_path = folder_path + '/' + file
             if "action" in file:

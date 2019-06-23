@@ -51,9 +51,12 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
             x, y, train_flag_ph = tf.split(value=input, num_or_size_splits=[self.n_x, self.n_y, 1], axis=1)
             train_flag_ph = tf.cast(tf.squeeze(train_flag_ph), tf.bool)
 
+            with tf.variable_scope("phi_y"):
+                y_phi = linear(y, self.n_y)
+
             with tf.variable_scope("Prior"):
                 with tf.variable_scope("hidden"):
-                    prior_hidden = tf.nn.relu(linear(m, self.n_prior_hidden))
+                    prior_hidden = tf.nn.relu(linear(tf.concat(values=[y_phi, m], axis=1), self.n_prior_hidden))
                 with tf.variable_scope("mu"):
                     prior_mu = linear(prior_hidden, self.n_z)
                 with tf.variable_scope("sigma"):
@@ -61,11 +64,11 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
             with tf.variable_scope("phi_x_y"):
                 xy = tf.concat(values=(x, y), axis=1)
-                xy_1 = tf.nn.relu(linear(xy, self.n_x_1 + self.n_y_1))
+                xy_phi = tf.nn.relu(linear(xy, self.n_x_1 + self.n_y_1))
 
             with tf.variable_scope("Encoder"):
                 with tf.variable_scope("hidden"):
-                    enc_hidden = tf.nn.relu(linear(tf.concat(axis=1, values=(xy_1, m)), self.n_enc_hidden))
+                    enc_hidden = tf.nn.relu(linear(tf.concat(axis=1, values=(xy_phi, m)), self.n_enc_hidden))
                 with tf.variable_scope("mu"):
                     enc_mu = linear(enc_hidden, self.n_z)
                 with tf.variable_scope("sigma"):
@@ -95,7 +98,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
             eps2 = tf.random_normal((tf.shape(x)[0], self.n_x), 0.0, 1.0, dtype=tf.float32)
             dec_x = tf.add(dec_mu, tf.multiply(dec_sigma, eps2))
 
-            output, state2 = self.lstm(tf.concat(axis=1, values=(xy_1, zy_1)), state)  # TODO: recheck it
+            output, state2 = self.lstm(tf.concat(axis=1, values=(xy_phi, zy_1)), state)  # TODO: recheck it
         # return tf.nn.rnn_cell.LSTMStateTuple(h=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), c=state2)
         cell_output = tf.concat(values=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma), axis=1)
         # return (enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), state2
