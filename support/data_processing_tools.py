@@ -5,7 +5,7 @@ import math
 import json
 import scipy.io as sio
 import unicodedata
-
+from resource.ice_hockey_201819.player_name_matching_dir import name_matching, team_matching
 
 # from config.icehockey_feature_setting import select_feature_setting
 
@@ -564,3 +564,66 @@ def normalize_data(game_value_home, game_value_away, game_value_end):
         game_value_end_normalized.append(float(end_value) / (home_value + away_value + end_value))
     return np.asarray(game_value_home_normalized), np.asarray(game_value_away_normalized), np.asarray(
         game_value_end_normalized)
+
+
+def read_player_stats(player_scoring_stats_dir):
+    with open(player_scoring_stats_dir, 'r') as f:
+        data_all = f.readlines()
+    return data_all
+
+
+def match_player_name_id(player_basic_info, player_scoring_stats):
+    # TODO: fix 3 duplicated name with team name, but player might transfer team
+    for id in player_basic_info.keys():
+        player_first_name_basic = player_basic_info.get(id).get('first_name')
+        player_last_name_basic = player_basic_info.get(id).get('last_name')
+        player_team_basic = player_basic_info.get(id).get('teamName')
+
+        if name_matching.get(player_first_name_basic+'|'+player_last_name_basic):
+            player_name_basic_match = name_matching.get(player_first_name_basic+'|'+player_last_name_basic)
+            player_first_name_basic = player_name_basic_match.split('|')[0]
+            player_last_name_basic = player_name_basic_match.split('|')[1]
+        if team_matching.get(player_team_basic):
+            player_team_basic = team_matching.get(player_team_basic)
+        match_id = None
+        match_name = None
+        possible_name_list = []
+        for player_scoring_stat in player_scoring_stats[1:]:
+            player_scoring_stat_split = player_scoring_stat.split(',')
+            player_first_name_score = player_scoring_stat_split[1].replace('"', '')
+            player_last_name_score = player_scoring_stat_split[0].replace('"', '')
+            player_team_score = player_scoring_stat_split[2]
+            if player_first_name_basic == player_first_name_score and player_last_name_basic == player_last_name_score:
+                    # and player_team_basic==player_team_score:
+                match_id = id
+                match_name = player_first_name_score + ' ' + player_last_name_score
+                break
+            if player_first_name_basic == player_first_name_score or player_last_name_basic == player_last_name_score:
+                possible_name_list.append(player_first_name_score + '|' + player_last_name_score)
+
+        # print match_name
+        if match_name is None:
+            print player_first_name_basic + '|' + player_last_name_basic + ' possible:' + str(possible_name_list)
+
+
+def check_duplicate_name(player_scoring_stats):
+    player_name_dict_frequency = {}
+    for player_scoring_stat in player_scoring_stats[1:]:
+        player_scoring_stat_split = player_scoring_stat.split(',')
+        player_first_name_score = player_scoring_stat_split[1].replace('"', '')
+        player_last_name_score = player_scoring_stat_split[0].replace('"', '')
+        if player_name_dict_frequency.get(player_first_name_score + ' ' + player_last_name_score) is not None:
+            print player_first_name_score + ' ' + player_last_name_score
+        else:
+            player_name_dict_frequency.update({player_first_name_score + ' ' + player_last_name_score: 1})
+
+
+if __name__ == '__main__':
+    player_scoring_stats_dir = '../resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
+    player_scoring_stats = read_player_stats(player_scoring_stats_dir)
+    # check_duplicate_name(player_scoring_stats)
+
+    player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+    with open(player_basic_info_dir, 'rb') as f:
+        player_basic_info = json.load(f)
+    match_player_name_id(player_basic_info, player_scoring_stats)

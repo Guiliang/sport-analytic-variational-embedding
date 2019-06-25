@@ -7,9 +7,11 @@ from data_config import action_all, interested_raw_features, interested_compute_
 
 
 class Preprocess:
-    def __init__(self, hockey_data_dir, save_data_dir):
+    def __init__(self, hockey_data_dir, save_data_dir, player_basic_info_dict, team_info_dict):
         self.hockey_data_dir = hockey_data_dir
         self.save_data_dir = save_data_dir
+        self.player_basic_info_dict = player_basic_info_dict
+        self.team_info_list = team_info_dict
 
     def get_events(self, data_dir):
         with open(self.hockey_data_dir + data_dir) as f:
@@ -23,6 +25,12 @@ class Preprocess:
             data = json.load(f)
             rosters = data.get('rosters')
         for teamId in rosters.keys():
+            teamName = None
+            for teaminfo in self.team_info_list:
+                if teaminfo.get('teamid') == int(teamId):
+                    teamName = teaminfo.get('shorthand')
+                    break
+            assert teamName is not None
             players = rosters.get(teamId)
             if len(players) == 0:
                 continue
@@ -33,7 +41,7 @@ class Preprocess:
                 id = player_info.get('id')
                 players_info_dict.update(
                     {int(id): {'first_name': first_name, 'last_name': last_name, 'position': position,
-                               'teamId': int(teamId)}})
+                               'teamId': int(teamId), 'teamName': teamName}})
 
         return players_info_dict
 
@@ -171,6 +179,8 @@ class Preprocess:
         action_game = []
         team_game = []
         lt_game = []
+        player_id_game = []
+        player_index_game = []
 
         lt = 0
         # reward = []
@@ -179,12 +189,20 @@ class Preprocess:
             teamId = event.get('teamId')
             teamId = int(teamId)
             action = event.get('name')
+            player_id = event.get('playerId')
+            player_index = self.player_basic_info_dict.get(player_id).get('index')
+            player_id_one_hot = [0] * len(self.player_basic_info_dict)
+            player_id_one_hot[player_index] = 1
+            player_index_game.append(player_id_one_hot)
+            player_id_game.append(player_id)
+
             if self.is_switch_possession(events, idx):
                 lt = 1
             else:
                 lt = lt + 1
 
             action_one_hot_vector = self.action_one_hot(action)
+            player_id
             team_one_hot_vector = self.team_one_hot(teamId)
             features_all = []
             # add raw features
@@ -242,7 +260,7 @@ class Preprocess:
             action_game.append(np.asarray(action_one_hot_vector))
             team_game.append(np.asarray(team_one_hot_vector))
             lt_game.append(lt)
-        return state_feature_game, action_game, team_game, lt_game, rewards_game
+        return state_feature_game, action_game, team_game, lt_game, rewards_game, player_id_game, player_index_game
 
     def scale_allgame_features(self):
         files_all = os.listdir(self.hockey_data_dir)
@@ -252,7 +270,7 @@ class Preprocess:
             if file == '.Rhistory' or file == '.DS_Store':
                 continue
             events = self.get_events(file)
-            state_feature_game, _, _, _, _ = self.process_game_events(events)
+            state_feature_game, _, _, _, _, _, _ = self.process_game_events(events)
             features_allgame += state_feature_game
 
         scaler = preprocessing.StandardScaler().fit(np.asarray(features_allgame))
@@ -271,7 +289,8 @@ class Preprocess:
             game_name = file_name.split('-')[0]
             save_game_dir = self.save_data_dir + '/' + game_name
             events = self.get_events(file)
-            state_feature_game, action_game, team_game, lt_game, rewards_game = self.process_game_events(events)
+            state_feature_game, action_game, team_game, \
+            lt_game, rewards_game, player_id_game, player_index_game = self.process_game_events(events)
             try:
                 state_feature_game_scale = scaler.transform(state_feature_game)
             except:
@@ -288,6 +307,10 @@ class Preprocess:
             sio.savemat(save_game_dir + "/" + "action_" + file_name + ".mat", {'action': np.asarray(action_game)})
             sio.savemat(save_game_dir + "/" + "lt_" + file_name + ".mat", {'lt': np.asarray(lt_game)})
             sio.savemat(save_game_dir + "/" + "team_" + file_name + ".mat", {'team': np.asarray(team_game)})
+            sio.savemat(save_game_dir + "/" + "player_id_game_" + file_name + ".mat",
+                        {'player_id': np.asarray(player_id_game)})
+            sio.savemat(save_game_dir + "/" + "player_index_game_" + file_name + ".mat",
+                        {'player_index': np.asarray(player_index_game)})
 
         return wrong_files
 

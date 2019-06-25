@@ -23,11 +23,16 @@ def construct_seq_state_action_feature(s_f, a_f, lt):
     return state_feature_seq, action_feature_seq
 
 
-def process_seq_all(save_data_dir):
+def process_seq_all(save_data_dir, start_folder='16752'):
+    # start_flag = False
     folder_all = os.listdir(save_data_dir)
     for folder in folder_all:
         if folder == '.DS_Store':
             continue
+        # if folder == start_folder:
+        #     start_flag = True
+        # if not start_flag:
+        #     continue
         folder_path = save_data_dir + '/' + folder
         file_all = os.listdir(folder_path)
         state_feature_path = None
@@ -44,6 +49,7 @@ def process_seq_all(save_data_dir):
                 action_feature_path = folder_path + '/' + file
             if "lt" in file:
                 lt_path = folder_path + '/' + file
+            # if 'player'
         if state_feature_path is None:
             print ('wrong files in {0}'.format(folder))
             continue
@@ -67,5 +73,5 @@ def process_seq_all(save_data_dir):
 
 
 if __name__ == '__main__':
-    save_data_dir = '/cs/oschulte/Galen/Ice-hockey-data/2018-2019'
+    save_data_dir = '/Local_Scratch/oschulte/Galen/Ice-hockey-data/2018-2019'
     process_seq_all(save_data_dir)

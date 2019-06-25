@@ -52,7 +52,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
             train_flag_ph = tf.cast(tf.squeeze(train_flag_ph), tf.bool)
 
             with tf.variable_scope("phi_y"):
-                y_phi = linear(y, self.n_y)
+                y_phi = linear(y, self.n_h)
 
             with tf.variable_scope("Prior"):
                 with tf.variable_scope("hidden"):
@@ -62,9 +62,10 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
                 with tf.variable_scope("sigma"):
                     prior_sigma = tf.nn.softplus(linear(prior_hidden, self.n_z))
 
-            with tf.variable_scope("phi_x_y"):
-                xy = tf.concat(values=(x, y), axis=1)
-                xy_phi = tf.nn.relu(linear(xy, self.n_x_1 + self.n_y_1))
+            with tf.variable_scope("cond_x"):
+                xy = tf.concat(values=(x, linear(y, self.n_h)), axis=1)
+            with tf.variable_scope("phi_x"):
+                xy_phi = tf.nn.relu(linear(xy, self.n_h))
 
             with tf.variable_scope("Encoder"):
                 with tf.variable_scope("hidden"):
@@ -81,13 +82,13 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
             z_prior = tf.add(prior_mu, tf.multiply(prior_sigma, eps1))
             with tf.variable_scope("cond_z"):
                 z = tf.where(train_flag_ph, x=z_encoder, y=z_prior)
-                zy = tf.concat(values=(z, tf.nn.relu(linear(y, self.n_y_1))), axis=1)
+                zy = tf.concat(values=(z, linear(y, self.n_h)), axis=1)
             with tf.variable_scope("Phi_z"):
-                zy_1 = tf.nn.relu(linear(zy, self.n_z_1 + self.n_y_1))
+                zy_phi = tf.nn.relu(linear(zy, self.n_h))
 
             with tf.variable_scope("Decoder"):
                 with tf.variable_scope("hidden"):
-                    dec_hidden_enc = tf.nn.relu(linear(tf.concat(axis=1, values=(zy_1, m)), self.n_dec_hidden))
+                    dec_hidden_enc = tf.nn.relu(linear(tf.concat(axis=1, values=(zy_phi, m)), self.n_dec_hidden))
                 with tf.variable_scope("mu"):
                     dec_mu = linear(dec_hidden_enc, self.n_x)
                 with tf.variable_scope("sigma"):
@@ -98,7 +99,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
             eps2 = tf.random_normal((tf.shape(x)[0], self.n_x), 0.0, 1.0, dtype=tf.float32)
             dec_x = tf.add(dec_mu, tf.multiply(dec_sigma, eps2))
 
-            output, state2 = self.lstm(tf.concat(axis=1, values=(xy_phi, zy_1)), state)  # TODO: recheck it
+            output, state2 = self.lstm(tf.concat(axis=1, values=(xy_phi, zy_phi)), state)  # TODO: recheck it
         # return tf.nn.rnn_cell.LSTMStateTuple(h=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), c=state2)
         cell_output = tf.concat(values=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma), axis=1)
         # return (enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), state2
