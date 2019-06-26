@@ -11,9 +11,9 @@ Learn:
   iterate_num : 1
   model_type : 'v1'
   embed_size : 1024
-  output_layer_size : 1003
+  output_layer_size : 5
   apply_softmax : 1
-  predict_target: 'PlayerId'
+  predict_target: 'PlayerPosition'
 
 Arch:
   LSTM:

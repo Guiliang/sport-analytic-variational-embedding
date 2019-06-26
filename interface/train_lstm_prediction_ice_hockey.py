@@ -219,10 +219,11 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
 
 
 def run():
-    tt_lstm_config_path = "../ice_hockey_playerId_prediction.yaml"
+    predicted_target = 'playerposition'  # playerId_
+    tt_lstm_config_path = "../ice_hockey_{0}_prediction.yaml".format(predicted_target)
     lstm_prediction_config = LSTMCongfig.load(tt_lstm_config_path)
 
-    test_flag = False
+    test_flag = True
     # saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config)
     if test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"

@@ -5,6 +5,7 @@ import math
 import json
 import scipy.io as sio
 import unicodedata
+from ice_hockey_data_config import player_position_index_dict
 
 
 # from config.icehockey_feature_setting import select_feature_setting
@@ -165,6 +166,11 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
 
 
 def get_icehockey_game_data(data_store, dir_game, config):
+
+    player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+    with open(player_basic_info_dir, 'rb') as f:
+        player_basic_info = json.load(f)
+
     game_files = os.listdir(data_store + "/" + dir_game)
     reward_name = None
     state_input_name = None
@@ -173,6 +179,13 @@ def get_icehockey_game_data(data_store, dir_game, config):
     team_id_name = None
     action_id_name = None
     player_index_name = None
+
+    if config.Learn.predict_target == 'PlayerId':
+        player_index_select = 'player_index'
+    elif config.Learn.predict_target == 'PlayerPosition':
+        player_index_select = 'player_id'
+    else:
+        raise ValueError('unknown predict_target:' + config.Learn.predict_target)
 
     for filename in game_files:
         if "reward" in filename:
@@ -185,7 +198,7 @@ def get_icehockey_game_data(data_store, dir_game, config):
         #     ha_id_name = filename
         elif 'team' in filename:
             team_id_name = filename
-        elif 'player_index' in filename:
+        elif player_index_select in filename:
             player_index_name = filename
         elif 'action' in filename:
             if 'action_feature_seq' in filename:
@@ -203,7 +216,7 @@ def get_icehockey_game_data(data_store, dir_game, config):
     if action_id_name is not None:
         action = sio.loadmat(data_store + "/" + dir_game + "/" + action_id_name)['action']
     if player_index_name is not None:
-        player_index = sio.loadmat(data_store + "/" + dir_game + "/" + player_index_name)['player_index']
+        player_index_all = sio.loadmat(data_store + "/" + dir_game + "/" + player_index_name)[player_index_select]
         # state_input = (state_input['dynamic_feature_input'])
     # state_output = sio.loadmat(DATA_STORE + "/" + dir_game + "/" + state_output_name)
     # state_output = state_output['hybrid_output_state']
@@ -211,7 +224,21 @@ def get_icehockey_game_data(data_store, dir_game, config):
         state_trace_length = sio.loadmat(
             data_store + "/" + dir_game + "/" + trace_length_name)['lt'][0]
 
-    return state_trace_length, state_input, reward, action, team_id, player_index
+    if config.Learn.predict_target == 'PlayerPosition':
+        player_position_index_all = []
+        for player_id in player_index_all:
+            player_id = str(int(player_id))
+            try:
+                player_position = player_basic_info.get(player_id).get('position')
+            except:
+                print player_id
+            player_position_one_hot = [0]*len(player_position_index_dict)
+            index = player_position_index_dict.get(player_position)
+            player_position_one_hot[index]=1
+            player_position_index_all.append(player_position_one_hot)
+        player_index_all = np.asarray(player_position_index_all)
+
+    return state_trace_length, state_input, reward, action, team_id, player_index_all
 
 
 def id2onehot(id, dimension_num):
@@ -636,4 +663,7 @@ if __name__ == '__main__':
     player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
+    position_set = set()
+    for player_info in player_basic_info.values():
+        position_set.add(player_info.get('position'))
     match_player_name_id(player_basic_info, player_scoring_stats)
