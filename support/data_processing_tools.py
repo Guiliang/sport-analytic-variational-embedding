@@ -166,7 +166,6 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
 
 
 def get_icehockey_game_data(data_store, dir_game, config):
-
     player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
@@ -232,9 +231,9 @@ def get_icehockey_game_data(data_store, dir_game, config):
                 player_position = player_basic_info.get(player_id).get('position')
             except:
                 print player_id
-            player_position_one_hot = [0]*len(player_position_index_dict)
+            player_position_one_hot = [0] * len(player_position_index_dict)
             index = player_position_index_dict.get(player_position)
-            player_position_one_hot[index]=1
+            player_position_one_hot[index] = 1
             player_position_index_all.append(player_position_one_hot)
         player_index_all = np.asarray(player_position_index_all)
 
@@ -608,13 +607,24 @@ def read_player_stats(player_scoring_stats_dir):
     return data_all
 
 
-def match_player_name_id(player_basic_info, player_scoring_stats):
+def generate_player_name_id_features(player_basic_info, player_scoring_stats, interest_features=[]):
     from resource.ice_hockey_201819.player_name_matching_dir import name_matching, team_matching
     # TODO: fix 3 duplicated name with team name, but player might transfer team
+
+    feature_name = player_scoring_stats[0].split(',')
+    feature_indices_all = []
+    for feature in interest_features:
+        for feature_index in range(0, len(feature_name)):
+            if feature == feature_name[feature_index]:
+                feature_indices_all.append(feature_index)
+
+    returning_player_id_stats_info_dict = {}
+
     for id in player_basic_info.keys():
         player_first_name_basic = player_basic_info.get(id).get('first_name')
         player_last_name_basic = player_basic_info.get(id).get('last_name')
         player_team_basic = player_basic_info.get(id).get('teamName')
+        player_position_basic = player_basic_info.get(id).get('position')
 
         if name_matching.get(player_first_name_basic + '|' + player_last_name_basic):
             player_name_basic_match = name_matching.get(player_first_name_basic + '|' + player_last_name_basic)
@@ -634,13 +644,28 @@ def match_player_name_id(player_basic_info, player_scoring_stats):
                 # and player_team_basic==player_team_score:
                 match_id = id
                 match_name = player_first_name_score + ' ' + player_last_name_score
+
+                returning_player_id_stats = {'name': match_name, 'position': player_position_basic}
+                for index in range(0, len(interest_features)):
+                    feature_value = player_scoring_stat_split[feature_indices_all[index] + 1]
+                    returning_player_id_stats.update({interest_features[index]: feature_value})
+                returning_player_id_stats_info_dict.update({match_id: returning_player_id_stats})
+
                 break
             if player_first_name_basic == player_first_name_score or player_last_name_basic == player_last_name_score:
                 possible_name_list.append(player_first_name_score + '|' + player_last_name_score)
 
         # print match_name
-        if match_name is None:
+        if match_name is None:  # TODO: how to deal with the umatched player
+            returning_player_id_stats = {'name': match_name, 'position': player_position_basic}
+            for index in range(0, len(interest_features)):
+                feature_value = 0
+                returning_player_id_stats.update({interest_features[index]: feature_value})
+            returning_player_id_stats_info_dict.update({match_id: returning_player_id_stats})
+
             print player_first_name_basic + '|' + player_last_name_basic + ' possible:' + str(possible_name_list)
+
+    return returning_player_id_stats_info_dict
 
 
 def check_duplicate_name(player_scoring_stats):
@@ -666,4 +691,5 @@ if __name__ == '__main__':
     position_set = set()
     for player_info in player_basic_info.values():
         position_set.add(player_info.get('position'))
-    match_player_name_id(player_basic_info, player_scoring_stats)
+    returning_player_id_stats_info_dict = generate_player_name_id_features(player_basic_info, player_scoring_stats,
+                                                                           interest_features=['Goals', 'Assists'])
