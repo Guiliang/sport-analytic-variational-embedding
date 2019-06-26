@@ -1,3 +1,9 @@
+import sys
+import traceback
+
+print sys.path
+sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
+
 import tensorflow as tf
 import numpy as np
 import os
