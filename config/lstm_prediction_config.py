@@ -22,6 +22,7 @@ class LSTMCongfig(object):
         embed_size = None
         output_layer_size = None
         apply_softmax = None
+        predict_target = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
