@@ -5,7 +5,6 @@ import math
 import json
 import scipy.io as sio
 import unicodedata
-from resource.ice_hockey_201819.player_name_matching_dir import name_matching, team_matching
 
 
 # from config.icehockey_feature_setting import select_feature_setting
@@ -583,6 +582,7 @@ def read_player_stats(player_scoring_stats_dir):
 
 
 def match_player_name_id(player_basic_info, player_scoring_stats):
+    from resource.ice_hockey_201819.player_name_matching_dir import name_matching, team_matching
     # TODO: fix 3 duplicated name with team name, but player might transfer team
     for id in player_basic_info.keys():
         player_first_name_basic = player_basic_info.get(id).get('first_name')
