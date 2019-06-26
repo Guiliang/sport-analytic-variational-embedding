@@ -13,7 +13,7 @@ from nn_structure.cvrnn import CVRNN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
     get_together_training_batch, write_game_average_csv
 from support.data_processing_tools import get_icehockey_game_data, transfer2seq, generate_selection_matrix
-from support.model_tools import get_model_and_log_name, compute_acc
+from support.model_tools import get_model_and_log_name, compute_rnn_acc
 
 
 def run_network(sess, model, config, log_dir, saved_network, training_dir_games_all, testing_dir_games_all, data_store):
@@ -35,7 +35,7 @@ def run_network(sess, model, config, log_dir, saved_network, training_dir_games_
                 continue
             game_number += 1
             game_cost_record = []
-            state_trace_length, state_input, reward, action, team_id = get_icehockey_game_data(
+            state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
                 data_store=data_store, dir_game=dir_game, config=config)
             action_seq = transfer2seq(data=action, trace_length=state_trace_length,
                                       max_length=config.Learn.max_seq_length)
@@ -60,6 +60,7 @@ def run_network(sess, model, config, log_dir, saved_network, training_dir_games_
                 print_flag = get_together_training_batch(s_t0=s_t0,
                                                          state_input=state_input,
                                                          reward=reward,
+                                                         player_index=player_index,
                                                          train_number=train_number,
                                                          train_len=train_len,
                                                          state_trace_length=state_trace_length,
@@ -155,8 +156,8 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
         output_decoder.append(output_decoder_batch)
     output_decoder = np.asarray(output_decoder)
 
-    acc = compute_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
-                      selection_matrix=selection_matrix, config=config)
+    acc = compute_rnn_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
+                          selection_matrix=selection_matrix, config=config)
 
     # perform gradient step
     # v_diff_record.append(td_loss)
@@ -197,7 +198,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model):
         if dir_game == '.DS_Store':
             continue
         try:
-            state_trace_length, state_input, reward, action, team_id = get_icehockey_game_data(
+            state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
                 data_store=data_store, dir_game=dir_game, config=config)
             action_seq = transfer2seq(data=action, trace_length=state_trace_length,
                                       max_length=config.Learn.max_seq_length)
@@ -225,6 +226,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model):
             print_flag = get_together_training_batch(s_t0=s_t0,
                                                      state_input=state_input,
                                                      reward=reward,
+                                                     player_index=player_index,
                                                      train_number=train_number,
                                                      train_len=train_len,
                                                      state_trace_length=state_trace_length,
@@ -287,11 +289,12 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model):
                 target_data_all = np.concatenate([target_data_all, target_data], axis=0)
                 selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix], axis=0)
 
+            s_t0 = s_tl
             if terminal:
                 break
 
-    acc = compute_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
-                      selection_matrix=selection_matrix_all, config=config, if_print=True)
+    acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
+                          selection_matrix=selection_matrix_all, config=config, if_print=True)
     print ("validation acc is {0}".format(str(acc)))
 
 

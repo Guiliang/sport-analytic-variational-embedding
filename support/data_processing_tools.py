@@ -7,6 +7,7 @@ import scipy.io as sio
 import unicodedata
 from resource.ice_hockey_201819.player_name_matching_dir import name_matching, team_matching
 
+
 # from config.icehockey_feature_setting import select_feature_setting
 
 
@@ -172,6 +173,8 @@ def get_icehockey_game_data(data_store, dir_game, config):
     # ha_id_name = None
     team_id_name = None
     action_id_name = None
+    player_index_name = None
+
     for filename in game_files:
         if "reward" in filename:
             reward_name = filename
@@ -183,6 +186,8 @@ def get_icehockey_game_data(data_store, dir_game, config):
         #     ha_id_name = filename
         elif 'team' in filename:
             team_id_name = filename
+        elif 'player_index' in filename:
+            player_index_name = filename
         elif 'action' in filename:
             if 'action_feature_seq' in filename:
                 continue
@@ -198,6 +203,8 @@ def get_icehockey_game_data(data_store, dir_game, config):
         state_input = sio.loadmat(data_store + "/" + dir_game + "/" + state_input_name)['state_feature_seq']
     if action_id_name is not None:
         action = sio.loadmat(data_store + "/" + dir_game + "/" + action_id_name)['action']
+    if player_index_name is not None:
+        player_index = sio.loadmat(data_store + "/" + dir_game + "/" + player_index_name)['player_index']
         # state_input = (state_input['dynamic_feature_input'])
     # state_output = sio.loadmat(DATA_STORE + "/" + dir_game + "/" + state_output_name)
     # state_output = state_output['hybrid_output_state']
@@ -205,7 +212,7 @@ def get_icehockey_game_data(data_store, dir_game, config):
         state_trace_length = sio.loadmat(
             data_store + "/" + dir_game + "/" + trace_length_name)['lt'][0]
 
-    return state_trace_length, state_input, reward, action, team_id
+    return state_trace_length, state_input, reward, action, team_id, player_index
 
 
 def id2onehot(id, dimension_num):
@@ -214,7 +221,8 @@ def id2onehot(id, dimension_num):
     return onehot
 
 
-def get_together_training_batch(s_t0, state_input, reward, train_number, train_len, state_trace_length, action,
+def get_together_training_batch(s_t0, state_input, reward, player_index, train_number, train_len, state_trace_length,
+                                action,
                                 team_id, config):
     """
     combine training data to a batch
@@ -236,6 +244,8 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
         action_id_t0 = action[train_number - 1]
         team_id_t1 = team_id[train_number]
         team_id_t0 = team_id[train_number - 1]
+        player_index_t1 = player_index[train_number]
+        player_index_t0 = player_index[train_number - 1]
         # team_id_t1 = id2onehot(team_id[train_number], config.learn.team_number)
         # team_id_t0 = id2onehot(team_id[train_number - 1], config.learn.team_number)
         if s_length_t1 > 10:  # if trace length is too long
@@ -255,7 +265,7 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                 r_t0_combine = [float(0), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
                 elif r_t1 == float(-1):
@@ -266,13 +276,13 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, 1, 0))
 
             elif r_t0 == float(-1):
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
                 elif r_t1 == float(-1):
@@ -283,13 +293,13 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, 1, 0))
 
             elif r_t0 == float(1):
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, 0, 0))
 
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
@@ -301,7 +311,7 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, 1, 0))
             else:
                 raise ValueError("r_t0 wrong value")
 
@@ -316,12 +326,12 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, 0, 1))
+                     team_id_t1, player_index_t0, player_index_t1, 0, 1))
             elif r_t0 == [float(1)]:
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, 0, 1))
+                     team_id_t1, player_index_t0, player_index_t1, 0, 1))
             else:
                 raise ValueError("r_t0 wrong value")
             s_t0 = s_t1
@@ -329,7 +339,7 @@ def get_together_training_batch(s_t0, state_input, reward, train_number, train_l
         r_t0_combine = [float(0), float(0), float(0)]
         batch_return.append(
             (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-             team_id_t1, 0, 0))
+             team_id_t1, player_index_t0, player_index_t1, 0, 0))
         current_batch_length += 1
         s_t0 = s_t1
 
@@ -579,8 +589,8 @@ def match_player_name_id(player_basic_info, player_scoring_stats):
         player_last_name_basic = player_basic_info.get(id).get('last_name')
         player_team_basic = player_basic_info.get(id).get('teamName')
 
-        if name_matching.get(player_first_name_basic+'|'+player_last_name_basic):
-            player_name_basic_match = name_matching.get(player_first_name_basic+'|'+player_last_name_basic)
+        if name_matching.get(player_first_name_basic + '|' + player_last_name_basic):
+            player_name_basic_match = name_matching.get(player_first_name_basic + '|' + player_last_name_basic)
             player_first_name_basic = player_name_basic_match.split('|')[0]
             player_last_name_basic = player_name_basic_match.split('|')[1]
         if team_matching.get(player_team_basic):
@@ -594,7 +604,7 @@ def match_player_name_id(player_basic_info, player_scoring_stats):
             player_last_name_score = player_scoring_stat_split[0].replace('"', '')
             player_team_score = player_scoring_stat_split[2]
             if player_first_name_basic == player_first_name_score and player_last_name_basic == player_last_name_score:
-                    # and player_team_basic==player_team_score:
+                # and player_team_basic==player_team_score:
                 match_id = id
                 match_name = player_first_name_score + ' ' + player_last_name_score
                 break

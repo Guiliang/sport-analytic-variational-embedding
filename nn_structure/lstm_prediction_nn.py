@@ -41,6 +41,7 @@ class Td_Prediction_NN:
         self.embed_w = None
         self.embed_b = None
         self.read_out = None
+        self.train_op = None
 
     def build(self):
         """
@@ -104,17 +105,15 @@ class Td_Prediction_NN:
                     dense_output = tf.matmul(dense_input, self.dense_layer_weights[i]) + self.dense_layer_bias[i]
                     if i < self.dense_layer_num - 1:
                         dense_output = tf.nn.relu(dense_output, name='activation_{0}'.format(str(i)))
-            if self.apply_softmax:
-                self.read_out = tf.nn.softmax(dense_output)
-            else:
-                self.read_out = dense_output
-            with tf.name_scope("cost"):
-                self.cost = tf.reduce_mean(tf.square(self.y_ph - self.read_out))
-                self.diff = tf.reduce_mean(tf.abs(self.y_ph - self.read_out))
+
+            self.read_out = tf.nn.softmax(dense_output)
+            with tf.variable_scope('cross_entropy'):
+                self.cost = tf.losses.softmax_cross_entropy(onehot_labels=self.y_ph,
+                                                            logits=dense_output)
             tf.summary.histogram('cost', self.cost)
 
             with tf.name_scope("train"):
-                self.train_step = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+                self.train_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
 
     def initialize_ph(self):
         """
@@ -129,5 +128,3 @@ class Td_Prediction_NN:
         self.rnn_input_ph = rnn_input_ph
         self.trace_lengths_ph = trace_lengths_ph
         self.y_ph = y_ph
-
-
