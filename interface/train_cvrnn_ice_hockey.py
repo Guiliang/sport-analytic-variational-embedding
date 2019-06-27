@@ -160,7 +160,7 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
             if selection_matrix[batch_index][trace_length_index]:
                 output_decoder_batch.append(output_x[batch_index][trace_length_index])
             else:
-                output_decoder_batch.append(np.asarray([0] * config.Learn.action_number))
+                output_decoder_batch.append(np.asarray([0] * config.Arch.CVRNN.x_dim))
         output_decoder.append(output_decoder_batch)
     output_decoder = np.asarray(output_decoder)
 
@@ -181,8 +181,8 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
     #                                                                        str(acc)))
     # else:
     # print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-    #                                                                    str(np.mean(likelihood_loss)),
-    #                                                                    str(acc)))
+    #                                                                     str(np.mean(likelihood_loss)),
+    #                                                                     str(acc)))
     # home_avg = sum(q0[:, 0]) / len(q0[:, 0])
     # away_avg = sum(q0[:, 1]) / len(q0[:, 1])
     # end_avg = sum(q0[:, 2]) / len(q0[:, 2])
@@ -286,7 +286,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                     if selection_matrix[batch_index][trace_length_index]:
                         output_decoder_batch.append(output_x[batch_index][trace_length_index])
                     else:
-                        output_decoder_batch.append(np.asarray([0] * config.Learn.action_number))
+                        output_decoder_batch.append(np.asarray([0] * config.Arch.CVRNN.x_dim))
                 output_decoder.append(output_decoder_batch)
             output_decoder = np.asarray(output_decoder)
 
@@ -295,11 +295,11 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                 target_data_all = target_data
                 selection_matrix_all = selection_matrix
             else:
-                try:
-                    output_decoder_all = np.concatenate([output_decoder_all, output_decoder], axis=0)
-                except:
-                    print output_decoder_all.shape
-                    print  output_decoder.shape
+                # try:
+                output_decoder_all = np.concatenate([output_decoder_all, output_decoder], axis=0)
+                # except:
+                #     print output_decoder_all.shape
+                #     print  output_decoder.shape
                 target_data_all = np.concatenate([target_data_all, target_data], axis=0)
                 selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix], axis=0)
 
@@ -313,7 +313,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
 
 
 def run():
-    test_flag = False
+    test_flag = True
     cluster = 'km'
     if cluster == 'ap':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -335,7 +335,7 @@ def run():
         training_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
     else:
-        data_store_dir = icehockey_cvrnn_config.Learn.save_mother_dir+"/oschulte/Galen/Ice-hockey-data/2018-2019/"
+        data_store_dir = icehockey_cvrnn_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
