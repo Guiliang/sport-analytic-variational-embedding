@@ -165,7 +165,7 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
     return np.asarray(selection_matrix)
 
 
-def get_icehockey_game_data(data_store, dir_game, config):
+def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=None):
     player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
@@ -181,7 +181,7 @@ def get_icehockey_game_data(data_store, dir_game, config):
 
     if config.Learn.predict_target == 'PlayerId':
         player_index_select = 'player_index'
-    elif config.Learn.predict_target == 'PlayerPosition':
+    elif config.Learn.predict_target == 'PlayerPosition' or config.Learn.predict_target == 'PlayerPositionCluster':
         player_index_select = 'player_id'
     else:
         raise ValueError('unknown predict_target:' + config.Learn.predict_target)
@@ -227,12 +227,25 @@ def get_icehockey_game_data(data_store, dir_game, config):
         player_position_index_all = []
         for player_id in player_index_all:
             player_id = str(int(player_id))
-            try:
-                player_position = player_basic_info.get(player_id).get('position')
-            except:
-                print player_id
+            player_position_cluster = player_basic_info.get(player_id).get('position')
             player_position_one_hot = [0] * len(player_position_index_dict)
-            index = player_position_index_dict.get(player_position)
+            index = player_position_index_dict.get(player_position_cluster)
+            player_position_one_hot[index] = 1
+            player_position_index_all.append(player_position_one_hot)
+        player_index_all = np.asarray(player_position_index_all)
+    elif config.Learn.predict_target == 'PlayerPositionCluster':
+
+        with open(player_id_cluster_dir, 'r') as f:
+            player_id_cluster = json.load(f)
+        cluster_number = max(player_id_cluster.values())+2
+        player_position_index_all = []
+        for player_id in player_index_all:
+            player_id = str(int(player_id))
+            index = player_id_cluster.get(player_id)
+            if index is None:
+                # print("can't find player_id {0}".format(str(player_id)))
+                index = cluster_number -1
+            player_position_one_hot = [0] * cluster_number
             player_position_one_hot[index] = 1
             player_position_index_all.append(player_position_one_hot)
         player_index_all = np.asarray(player_position_index_all)
