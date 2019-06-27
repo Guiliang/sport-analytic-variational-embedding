@@ -180,9 +180,9 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
     #                                                                        str(np.mean(likelihood_loss)),
     #                                                                        str(acc)))
     # else:
-    print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-                                                                        str(np.mean(likelihood_loss)),
-                                                                        str(acc)))
+    # print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
+    #                                                                    str(np.mean(likelihood_loss)),
+    #                                                                    str(acc)))
     # home_avg = sum(q0[:, 0]) / len(q0[:, 0])
     # away_avg = sum(q0[:, 1]) / len(q0[:, 1])
     # end_avg = sum(q0[:, 2]) / len(q0[:, 2])
@@ -331,7 +331,7 @@ def run():
         training_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
     else:
-        data_store_dir = "/cs/oschulte/Galen/Ice-hockey-data/2018-2019/"
+        data_store_dir = icehockey_cvrnn_config.Learn.save_mother_dir+"/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
