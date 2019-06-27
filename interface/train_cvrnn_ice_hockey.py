@@ -295,7 +295,11 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                 target_data_all = target_data
                 selection_matrix_all = selection_matrix
             else:
-                output_decoder_all = np.concatenate([output_decoder_all, output_decoder], axis=0)
+                try:
+                    output_decoder_all = np.concatenate([output_decoder_all, output_decoder], axis=0)
+                except:
+                    print output_decoder_all.shape
+                    print  output_decoder.shape
                 target_data_all = np.concatenate([target_data_all, target_data], axis=0)
                 selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix], axis=0)
 
