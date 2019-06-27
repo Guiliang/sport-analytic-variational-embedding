@@ -18,6 +18,7 @@ class CVRNNCongfig(object):
         iterate_num = None
         model_type = None
         action_number = None
+        predict_target = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

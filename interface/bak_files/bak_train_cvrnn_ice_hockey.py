@@ -43,8 +43,6 @@ def run_network(sess, model, config, log_dir, saved_network,
                                       max_length=config.Learn.max_seq_length)
             team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
                                        max_length=config.Learn.max_seq_length)
-            player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
-                                            max_length=config.Learn.max_seq_length)
             print ("\n training file" + str(dir_game))
             # reward_count = sum(reward)
             # print ("reward number" + str(reward_count))
@@ -64,7 +62,7 @@ def run_network(sess, model, config, log_dir, saved_network,
                 print_flag = get_together_training_batch(s_t0=s_t0,
                                                          state_input=state_input,
                                                          reward=reward,
-                                                         player_index=player_index_seq,
+                                                         player_index=player_index,
                                                          train_number=train_number,
                                                          train_len=train_len,
                                                          state_trace_length=state_trace_length,
@@ -84,14 +82,10 @@ def run_network(sess, model, config, log_dir, saved_network,
                 action_id_t1 = [d[6] for d in batch_return]
                 team_id_t0_batch = [d[7] for d in batch_return]
                 team_id_t1_batch = [d[8] for d in batch_return]
-                player_id_t0_batch = [d[9] for d in batch_return]
-                player_id_t1_batch = [d[10] for d in batch_return]
-
-                train_flag = np.asarray([[[1]] * config.Learn.max_seq_length] * len(s_t0_batch))
-                # (player_id, state ,action flag)
-                input_data = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
-                                             np.asarray(action_id_t0), train_flag], axis=2)
-                target_data = np.asarray(np.asarray(player_id_t0_batch))
+                train_flag = np.asarray([[[1]]*config.Learn.max_seq_length]*len(s_t0_batch))
+                input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch),
+                                             np.asarray(team_id_t0_batch), train_flag], axis=2)
+                target_data = np.asarray(action_id_t0)
                 trace_lengths = trace_t0_batch
                 selection_matrix = generate_selection_matrix(trace_lengths,
                                                              max_trace_length=config.Learn.max_seq_length)
@@ -100,7 +94,7 @@ def run_network(sess, model, config, log_dir, saved_network,
                     terminal = batch_return[i][-2]
                     # cut = batch_return[i][8]
 
-                pretrain_flag = False
+                pretrain_flag = True if game_number <= 10 else False
                 train_model(model, sess, config, input_data, target_data,
                             trace_lengths, selection_matrix, terminal, pretrain_flag)
                 s_t0 = s_tl
@@ -180,9 +174,9 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
     #                                                                        str(np.mean(likelihood_loss)),
     #                                                                        str(acc)))
     # else:
-    print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-                                                                        str(np.mean(likelihood_loss)),
-                                                                        str(acc)))
+    #     print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
+    #                                                                         str(np.mean(likelihood_loss)),
+    #                                                                         str(acc)))
     # home_avg = sum(q0[:, 0]) / len(q0[:, 0])
     # away_avg = sum(q0[:, 1]) / len(q0[:, 1])
     # end_avg = sum(q0[:, 2]) / len(q0[:, 2])
@@ -212,8 +206,6 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                                       max_length=config.Learn.max_seq_length)
             team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
                                        max_length=config.Learn.max_seq_length)
-            player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
-                                            max_length=config.Learn.max_seq_length)
         except:
             print(dir_game)
             traceback.print_exc(file=sys.stdout)
@@ -236,7 +228,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
             print_flag = get_together_training_batch(s_t0=s_t0,
                                                      state_input=state_input,
                                                      reward=reward,
-                                                     player_index=player_index_seq,
+                                                     player_index=player_index,
                                                      train_number=train_number,
                                                      train_len=train_len,
                                                      state_trace_length=state_trace_length,
@@ -256,14 +248,14 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
             action_id_t1 = [d[6] for d in batch_return]
             team_id_t0_batch = [d[7] for d in batch_return]
             team_id_t1_batch = [d[8] for d in batch_return]
-            player_id_t0_batch = [d[9] for d in batch_return]
-            player_id_t1_batch = [d[10] for d in batch_return]
             train_flag = np.asarray([[[0]] * config.Learn.max_seq_length] * len(s_t0_batch))
-            input_data = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
-                                         np.asarray(action_id_t0), train_flag], axis=2)
-            target_data = np.asarray(np.asarray(player_id_t0_batch))
+            input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch),
+                                         np.asarray(team_id_t0_batch), train_flag], axis=2)
+            target_data = np.asarray(action_id_t0)
+
             trace_lengths = trace_t0_batch
-            selection_matrix = generate_selection_matrix(trace_lengths,  # handle dynamic trace length
+
+            selection_matrix = generate_selection_matrix(trace_lengths,
                                                          max_trace_length=config.Learn.max_seq_length)
 
             for i in range(0, len(batch_return)):
@@ -309,8 +301,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
 
 
 def run():
-    test_flag = False
-    cluster = 'km'
+    cluster='km'
     if cluster == 'ap':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
@@ -321,6 +312,7 @@ def run():
         player_id_cluster_dir = None
         predicted_target = ''
 
+    test_flag = True
     icehockey_cvrnn_config_path = "../icehockey_cvrnn{0}_config.yaml".format(predicted_target)
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
 
