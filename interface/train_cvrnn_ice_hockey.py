@@ -12,13 +12,14 @@ from config.cvrnn_config import CVRNNCongfig
 from nn_structure.cvrnn import CVRNN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
     get_together_training_batch, write_game_average_csv
-from support.data_processing_tools import get_icehockey_game_data, transfer2seq, generate_selection_matrix
+from support.data_processing_tools import get_icehockey_game_data, transfer2seq, generate_selection_matrix, \
+    safely_expand_reward
 from support.model_tools import get_model_and_log_name, compute_rnn_acc
 
 
 def run_network(sess, model, config, log_dir, saved_network,
                 training_dir_games_all, testing_dir_games_all,
-                data_store, player_id_cluster_dir):
+                data_store, player_id_cluster_dir, compute_embedding=False):
     game_number = 0
     converge_flag = False
 
@@ -89,20 +90,31 @@ def run_network(sess, model, config, log_dir, saved_network,
 
                 train_flag = np.asarray([[[1]] * config.Learn.max_seq_length] * len(s_t0_batch))
                 # (player_id, state ,action flag)
-                input_data = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
-                                             np.asarray(action_id_t0), train_flag], axis=2)
-                target_data = np.asarray(np.asarray(player_id_t0_batch))
-                trace_lengths = trace_t0_batch
-                selection_matrix = generate_selection_matrix(trace_lengths,
-                                                             max_trace_length=config.Learn.max_seq_length)
+                input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
+                                                np.asarray(action_id_t0), train_flag], axis=2)
+                target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
+                trace_lengths_t0 = trace_t0_batch
+                selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
+                                                                max_trace_length=config.Learn.max_seq_length)
+
+                input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch), np.asarray(s_t1_batch),
+                                                np.asarray(action_id_t1), train_flag], axis=2)
+                target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+                trace_lengths_t1 = trace_t1_batch
+                selection_matrix_t1 = generate_selection_matrix(trace_t1_batch,
+                                                                max_trace_length=config.Learn.max_seq_length)
 
                 for i in range(0, len(batch_return)):
                     terminal = batch_return[i][-2]
-                    # cut = batch_return[i][8]
+                    cut = batch_return[i][-1]
 
                 pretrain_flag = False
-                train_model(model, sess, config, input_data, target_data,
-                            trace_lengths, selection_matrix, terminal, pretrain_flag)
+                if compute_embedding:
+                    train_cvrnn_model(model, sess, config, input_data_t0, target_data_t0,
+                                      trace_lengths_t0, selection_matrix_t0, terminal, pretrain_flag)
+                else:
+                    train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
+                                   input_data_t1, trace_lengths_t1, selection_matrix_t1, r_t_batch, terminal, cut)
                 s_t0 = s_tl
                 if terminal:
                     # save progress after a game
@@ -112,11 +124,50 @@ def run_network(sess, model, config, log_dir, saved_network,
                     # game_diff_record_dict.update({dir_game: v_diff_record_average})
                     break
             if game_number % 10 == 1:
-                validation_model(testing_dir_games_all, data_store, config, sess, model, player_id_cluster_dir)
+                validation_cvrnn_model(testing_dir_games_all, data_store, config, sess, model, player_id_cluster_dir)
 
 
-def train_model(model, sess, config, input_data, target_data, trace_lengths, selection_matrix, terminal,
-                pretrain_flag=False):
+def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
+                   input_data_t1, trace_lengths_t1, selection_matrix_t1, r_t_batch, terminal, cut):
+    [readout_t1_batch] = sess.run([model.sarsa_output],
+                                  feed_dict={model.input_data_ph: input_data_t0,
+                                             model.trace_length_ph: trace_lengths_t0,
+                                             model.selection_matrix_ph: selection_matrix_t0
+                                             })
+    r_t_batch = safely_expand_reward(reward_batch=r_t_batch, max_trace_length=config.Learn.max_seq_length)
+    y_batch = []
+    for i in range(0, len(r_t_batch)):
+
+        if i == len(r_t_batch) - 1:
+            if terminal or cut:
+                y_home = float((r_t_batch[i])[0])
+                y_away = float((r_t_batch[i])[1])
+                y_end = float((r_t_batch[i])[2])
+                y_batch.append([y_home, y_away, y_end])
+        else:
+            y_home = float((r_t_batch[i])[0]) + config.Learn.gamma * \
+                     ((readout_t1_batch[i]).tolist())[0]
+            y_away = float((r_t_batch[i])[1]) + config.Learn.gamma * \
+                     ((readout_t1_batch[i]).tolist())[1]
+            y_end = float((r_t_batch[i])[2]) + config.Learn.gamma * \
+                    ((readout_t1_batch[i]).tolist())[2]
+            y_batch.append([y_home, y_away, y_end])
+
+    # perform gradient step
+    y_batch = np.asarray(y_batch)
+    [read_out, _] = sess.run(
+        [model.train_yd_op, model.sarsa_output],
+        feed_dict={model.sarsa_target_ph: y_batch,
+                   model.trace_length_ph: trace_lengths_t1,
+                   model.input_data_ph: input_data_t1,
+                   model.selection_matrix_ph: selection_matrix_t1,
+                   })
+
+    pass
+
+
+def train_cvrnn_model(model, sess, config, input_data, target_data, trace_lengths, selection_matrix, terminal,
+                      pretrain_flag=False):
     if pretrain_flag:
         [
             output_x,
@@ -196,7 +247,7 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
     #         log_dir=log_dir)
 
 
-def validation_model(testing_dir_games_all, data_store, config, sess, model, player_id_cluster_dir):
+def validation_cvrnn_model(testing_dir_games_all, data_store, config, sess, model, player_id_cluster_dir):
     output_decoder_all = None
     target_data_all = None
     selection_matrix_all = None
@@ -268,6 +319,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
 
             for i in range(0, len(batch_return)):
                 terminal = batch_return[i][-2]
+                cut = batch_return[i][-1]
 
             [
                 output_x,
@@ -345,7 +397,7 @@ def run():
 
     sess = tf.Session()
     cvrnn = CVRNN(config=icehockey_cvrnn_config)
-    cvrnn.call()
+    cvrnn.call
     sess.run(tf.global_variables_initializer())
     run_network(sess=sess, model=cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
                 saved_network=saved_network_dir, data_store=data_store_dir,

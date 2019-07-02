@@ -19,3 +19,6 @@ Arch:
   LSTM:
     h_size : 512
     lstm_layer_num : 1
+  SARSA:
+    dense_layer_number : 2
+    dense_layer_size : 256

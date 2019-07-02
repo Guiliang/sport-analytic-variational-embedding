@@ -20,7 +20,7 @@ def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=
 class VariationalRNNCell(tf.contrib.rnn.RNNCell):
     """Variational RNN cell."""
 
-    def __init__(self, x_dim, y_dim, h_dim, z_dim=100):
+    def __init__(self, x_dim, y_dim, h_dim, z_dim=100, output_dim_list=[]):
         self.n_h = h_dim
         self.n_x = x_dim
         self.n_y = y_dim
@@ -33,7 +33,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
         self.n_prior_hidden = z_dim
         # self.lstm = tf.contrib.rnn.LSTMCell(self.n_h, state_is_tuple=True)
         self.lstm = tf.nn.rnn_cell.LSTMCell(num_units=self.n_h, state_is_tuple=True)
-        self.output_dim_list = [self.n_z, self.n_z, self.n_x, self.n_x, self.n_x, self.n_z, self.n_z]
+        self.output_dim_list = [self.n_z, self.n_z, self.n_x, self.n_x, self.n_x, self.n_z, self.n_z, self.n_z]
 
     @property
     def state_size(self):
@@ -101,7 +101,8 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
             output, state2 = self.lstm(tf.concat(axis=1, values=(xy_phi, zy_phi)), state)  # TODO: recheck it
         # return tf.nn.rnn_cell.LSTMStateTuple(h=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), c=state2)
-        cell_output = tf.concat(values=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma), axis=1)
+        cell_output = tf.concat(values=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, z_encoder),
+                                axis=1)
         # return (enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), state2
         return cell_output, state2
 
@@ -120,6 +121,8 @@ class CVRNN():
         self.selection_matrix_ph = tf.placeholder(dtype=tf.int32,
                                                   shape=[None, self.config.Learn.max_seq_length],
                                                   name='selection_matrix')
+        self.sarsa_target_ph = tf.placeholder(dtype=tf.float32,
+                                              shape=[None, 3], name='sarsa_target')
 
         self.trace_length_ph = tf.placeholder(dtype=tf.int32, shape=[None], name='trace_length')
         self.cell = None
@@ -140,8 +143,18 @@ class CVRNN():
         self.prior_sigma = None
         self.output = None
         self.train_general_op = None
+        self.train_yd_op = None
+        self.sarsa_output = None
+        self.td_loss = None
         self.deterministic_decoder = True
+        self.cell_output_dim_list = [self.config.Arch.CVRNN.latent_dim, self.config.Arch.CVRNN.latent_dim,
+                                     self.config.Arch.CVRNN.x_dim, self.config.Arch.CVRNN.x_dim,
+                                     self.config.Arch.CVRNN.x_dim, self.config.Arch.CVRNN.latent_dim,
+                                     self.config.Arch.CVRNN.latent_dim, self.config.Arch.CVRNN.latent_dim]
+        self.cell_output_names = ["enc_mu", "enc_sigma", "dec_mu", "dec_sigma",
+                                  "dec_x", "prior_mu", "prior_sigma", "z_encoder"]
 
+    @property
     def call(self):
 
         def tf_normal(target_x, mu, s, rho):  # TODO: bug, bug, bug, dynamic_rnn has zero-out, but anyway we ignore it
@@ -156,6 +169,12 @@ class CVRNN():
                 # +tf.log(tf.maximum(1e-20,1-rho),name='log_rho_inv')*(1-y[:,args.chunk_samples:]))/2, 1)
             return result
 
+        def tf_td_loss(sarsa_output, sarsa_target_ph, condition):
+            with tf.variable_scope('n2_loss'):
+                td_loss_all = tf.reduce_mean(tf.square(sarsa_output - sarsa_target_ph), axis=-1)
+                zero_loss_all = tf.zeros(shape=[tf.shape(td_loss_all)[0]])
+                return tf.where(condition=condition, x=td_loss_all, y=zero_loss_all)
+
         def tf_cross_entropy(target_x, dec_x, condition):
             with tf.variable_scope('cross_entropy'):
                 ce_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=target_x,
@@ -167,16 +186,16 @@ class CVRNN():
         def tf_kl_gaussian(mu_1, sigma_1, mu_2, sigma_2, condition):
             with tf.variable_scope("kl_gaussian"):
                 kl_loss_all = tf.reduce_sum(0.5 * (
-                    2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
-                    - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
-                    + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
+                        2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
+                        - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
+                        + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
                 ), 1)
                 zero_loss_all = tf.zeros(shape=[tf.shape(kl_loss_all)[0]])
 
                 return tf.where(condition=condition, x=kl_loss_all, y=zero_loss_all)
 
-        def get_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, target_x,
-                         condition, deterministci_decoder):
+        def get_cvrnn_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, target_x,
+                               condition, deterministci_decoder):
             if deterministci_decoder:
                 likelihood_loss = tf_cross_entropy(dec_x=dec_mu, target_x=target_x, condition=condition)
             else:
@@ -187,60 +206,57 @@ class CVRNN():
             # kl_loss = tf.zeros(shape=[tf.shape(kl_loss)[0]])  # TODO: why if we only optimize likelihood_loss
             return kl_loss, likelihood_loss
 
+        def get_td_lossfunc(sarsa_output, sarsa_target_ph, condition):
+            td_loss = tf_td_loss(sarsa_output, sarsa_target_ph, condition)
+            return td_loss
+
         # self.args = args
         # if sample:
         #     args.batch_size = 1
         #     args.seq_length = 1
 
-        self.cell = VariationalRNNCell(x_dim=self.config.Arch.CVRNN.x_dim, y_dim=self.config.Arch.CVRNN.y_dim,
-                                       h_dim=self.config.Arch.CVRNN.hidden_dim,
-                                       z_dim=self.config.Arch.CVRNN.latent_dim)
+        with tf.variable_scope('cvrnn'):
 
-        self.initial_state_c, self.initial_state_h = self.cell.zero_state(batch_size=tf.shape(self.input_data_ph)[0],
-                                                                          dtype=tf.float32)
+            self.cell = VariationalRNNCell(x_dim=self.config.Arch.CVRNN.x_dim, y_dim=self.config.Arch.CVRNN.y_dim,
+                                           h_dim=self.config.Arch.CVRNN.hidden_dim,
+                                           z_dim=self.config.Arch.CVRNN.latent_dim,
+                                           output_dim_list=self.cell_output_dim_list)
 
-        # input shape: (batch_size, n_steps, n_input)
-        # with tf.variable_scope("inputs"):
-        #     inputs = tf.transpose(self.input_data, [1, 0, 2])  # permute n_steps and batch_size
-        #     inputs = tf.reshape(inputs, [-1, 2 * args.chunk_samples])  # (n_steps*batch_size, n_input)
-        #
-        #     Split data because rnn cell needs a list of inputs for the RNN inner loop
-        #     inputs = tf.split(axis=0, num_or_size_splits=args.seq_length,
-        #                       value=inputs)  # n_steps * (batch_size, n_hidden)
-        flat_target_data = tf.reshape(self.target_data_ph, [-1, self.config.Arch.CVRNN.x_dim])
+            self.initial_state_c, self.initial_state_h = self.cell.zero_state(
+                batch_size=tf.shape(self.input_data_ph)[0],
+                dtype=tf.float32)
 
-        # self.target = flat_target_data
-        # self.flat_input = tf.reshape(tf.transpose(tf.stack(inputs), [1, 0, 2]), [args.batch_size * args.seq_length, -1])
-        # self.input = tf.stack(inputs)
-        # Get vrnn cell output
-        # outputs, last_state = tf.contrib.rnn.static_rnn(self.cell, inputs,
-        #                                                 initial_state=(self.initial_state_c, self.initial_state_h))
-        outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
-                                                sequence_length=self.trace_length_ph,
-                                                initial_state=tf.contrib.rnn.LSTMStateTuple(self.initial_state_c,
-                                                                                            self.initial_state_h))
+            flat_target_data = tf.reshape(self.target_data_ph, [-1, self.config.Arch.CVRNN.x_dim])
+            outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
+                                                    sequence_length=self.trace_length_ph,
+                                                    initial_state=tf.contrib.rnn.LSTMStateTuple(self.initial_state_c,
+                                                                                                self.initial_state_h))
         # print outputs
         # outputs = map(tf.pack,zip(*outputs))
         outputs = tf.split(value=tf.transpose(a=outputs, perm=[1, 0, 2]),
                            num_or_size_splits=[1] * self.config.Learn.max_seq_length, axis=0)
         outputs_reshape = []
-        names = ["enc_mu", "enc_sigma", "dec_mu", "dec_sigma", "dec_x", "prior_mu", "prior_sigma"]
         outputs_all = []
         for output in outputs:
             output = tf.squeeze(output, axis=0)
             output = tf.split(value=output, num_or_size_splits=self.cell.output_dim_list, axis=1)
             outputs_all.append(output)
 
-        for n, name in enumerate(names):
+        for n, name in enumerate(self.cell_output_names):
             with tf.variable_scope(name):
                 x = tf.stack([o[n] for o in outputs_all])
                 x = tf.transpose(x, [1, 0, 2])
-                x = tf.reshape(x, [tf.shape(x)[0] * self.config.Learn.max_seq_length, -1])
+                x = tf.reshape(x, [tf.shape(x)[0] * self.config.Learn.max_seq_length, self.cell_output_dim_list[n]])
                 outputs_reshape.append(x)
 
         [self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
-         self.dec_x, self.prior_mu, self.prior_sigma] = outputs_reshape
+         self.dec_x, self.prior_mu, self.prior_sigma, z_encoder] = outputs_reshape
         self.final_state_c, self.final_state_h = last_state
+
+        sarsa_y = tf.reshape(
+            self.input_data_ph[
+            :, :, self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim],
+            [tf.shape(self.input_data_ph)[0] * self.config.Learn.max_seq_length, self.config.Arch.CVRNN.y_dim])
 
         condition = tf.cast(tf.reshape(self.selection_matrix_ph,
                                        shape=[tf.shape(self.selection_matrix_ph)[0] *
@@ -255,34 +271,50 @@ class CVRNN():
         self.output = tf.reshape(tf.nn.softmax(decoder_output),
                                  shape=[tf.shape(self.input_data_ph)[0], tf.shape(self.input_data_ph)[1], -1])
 
-        kl_loss, likelihood_loss = get_lossfunc(self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
-                                                self.dec_x, self.prior_mu,
-                                                self.prior_sigma, flat_target_data, condition,
-                                                self.deterministic_decoder)
+        kl_loss, likelihood_loss = get_cvrnn_lossfunc(self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
+                                                      self.dec_x, self.prior_mu,
+                                                      self.prior_sigma, flat_target_data, condition,
+                                                      self.deterministic_decoder)
 
-        with tf.variable_scope('cost'):
+        with tf.variable_scope('cvrnn_cost'):
             self.kl_loss = tf.reshape(kl_loss, shape=[tf.shape(self.input_data_ph)[0],
                                                       self.config.Learn.max_seq_length, -1])
             self.likelihood_loss = tf.reshape(likelihood_loss, shape=[tf.shape(self.input_data_ph)[0],
                                                                       self.config.Learn.max_seq_length, -1])
-        # tf.summary.scalar('cost', self.cost)
-        tf.summary.scalar('mu', tf.reduce_mean(self.dec_mu))
-        tf.summary.scalar('sigma', tf.reduce_mean(self.dec_sigma))
 
-        # self.lr = tf.Variable(0.0, trainable=False)
-        tvars = tf.trainable_variables()
-        for t in tvars:
-            print t.name
-        grads = tf.gradients(tf.reduce_mean(self.likelihood_loss + self.kl_loss), tvars)
-        ll_grads = tf.gradients(tf.reduce_mean(self.likelihood_loss), tvars)
+        tvars_cvrnn = tf.trainable_variables(scope='cvrnn')
+        for t in tvars_cvrnn:
+            print ('cvrnn_var: ' + str(t.name))
+        cvrnn_grads = tf.gradients(tf.reduce_mean(self.likelihood_loss + self.kl_loss), tvars_cvrnn)
+        ll_grads = tf.gradients(tf.reduce_mean(self.likelihood_loss), tvars_cvrnn)
         # grads = tf.cond(
         #    tf.global_norm(grads) > 1e-20,
         #    lambda: tf.clip_by_global_norm(grads, args.grad_clip)[0],
         #    lambda: grads)
         optimizer = tf.train.AdamOptimizer(self.config.Learn.learning_rate)
-        self.train_ll_op = optimizer.apply_gradients(zip(ll_grads, tvars))
-        self.train_general_op = optimizer.apply_gradients(zip(grads, tvars))
+        self.train_ll_op = optimizer.apply_gradients(zip(ll_grads, tvars_cvrnn))
+        self.train_general_op = optimizer.apply_gradients(zip(cvrnn_grads, tvars_cvrnn))
         # self.saver = tf.train.Saver(tf.all_variables())
+
+        with tf.variable_scope('sarsa'):
+            for i in range(self.config.Arch.SARSA.dense_layer_number - 1):
+                sarsa_input = tf.concat([z_encoder, sarsa_y], axis=1) if i == 0 else sarsa_output
+                sarsa_output = tf.nn.relu(linear(sarsa_input, output_size=self.config.Arch.SARSA.dense_layer_size,
+                                                 scope='dense_Linear'))
+            sarsa_input = tf.concat([z_encoder, sarsa_y],
+                                    axis=1) if self.config.Arch.SARSA.dense_layer_number == 1 else sarsa_output
+            self.sarsa_output = linear(sarsa_input, output_size=3, scope='output_Linear')
+
+        with tf.variable_scope('td_cost'):
+            td_loss = get_td_lossfunc(self.sarsa_output, self.sarsa_target_ph, condition)
+            self.td_loss = tf.reshape(td_loss, shape=[tf.shape(self.input_data_ph)[0],
+                                                      self.config.Learn.max_seq_length, -1])
+
+        tvars_td = tf.trainable_variables(scope='sarsa')
+        for t in tvars_td:
+            print ('td_var: ' + str(t.name))
+        td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_td)
+        self.train_yd_op = optimizer.apply_gradients(zip(td_grads, tvars_td))
 
         # def sample(self, sess, args, num=4410, start=None):
         #
@@ -338,4 +370,4 @@ if __name__ == '__main__':
     cvrnn_config_path = "../icehockey_cvrnn_config.yaml"
     cvrnn_config = CVRNNCongfig.load(cvrnn_config_path)
     cvrnn = CVRNN(config=cvrnn_config)
-    cvrnn.call()
+    cvrnn.call

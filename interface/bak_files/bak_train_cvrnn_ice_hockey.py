@@ -333,7 +333,7 @@ def run():
 
     sess = tf.Session()
     cvrnn = CVRNN(config=icehockey_cvrnn_config)
-    cvrnn.call()
+    cvrnn.call
     sess.run(tf.global_variables_initializer())
     run_network(sess=sess, model=cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
                 saved_network=saved_network_dir, data_store=data_store_dir,

@@ -149,7 +149,7 @@ def transfer2seq(data, trace_length, max_length):
         tl = trace_length[index]
         # print(index)
         tl = max_length if tl > max_length else tl
-        seq_line = data[index:index + tl].tolist()
+        seq_line = data[index - tl + 1:index + 1].tolist()
         for i in range(max_length - len(seq_line)):
             seq_line.append(len(data[0]) * [0])
         # print len(seq_line)
@@ -237,14 +237,14 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
 
         with open(player_id_cluster_dir, 'r') as f:
             player_id_cluster = json.load(f)
-        cluster_number = max(player_id_cluster.values())+2
+        cluster_number = max(player_id_cluster.values()) + 2
         player_position_index_all = []
         for player_id in player_index_all:
             player_id = str(int(player_id))
             index = player_id_cluster.get(player_id)
             if index is None:
                 # print("can't find player_id {0}".format(str(player_id)))
-                index = cluster_number -1
+                index = cluster_number - 1
             player_position_one_hot = [0] * cluster_number
             player_position_one_hot[index] = 1
             player_position_index_all.append(player_position_one_hot)
@@ -257,6 +257,19 @@ def id2onehot(id, dimension_num):
     onehot = [0] * dimension_num
     onehot[id] = 1
     return onehot
+
+
+def safely_expand_reward(reward_batch, max_trace_length):
+    """this works because reward!=0 only if in the end of batch"""
+    reward_expanded = []
+
+    for reward in reward_batch:
+        if reward == [0, 0, 0]:
+            reward_expanded += [0, 0, 0] * max_trace_length
+        else:
+            reward_expanded += [0, 0, 0] * (max_trace_length - 1)
+            reward_expanded += reward
+    return reward_expanded
 
 
 def get_together_training_batch(s_t0, state_input, reward, player_index, train_number, train_len, state_trace_length,

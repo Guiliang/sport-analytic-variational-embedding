@@ -19,3 +19,6 @@ Arch:
     x_dim : 26
     y_dim : 45 # 33(action)+12
     z_dim : 256
+  SARSA:
+    dense_layer_number : 2
+    dense_layer_size : 256

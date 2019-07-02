@@ -19,11 +19,13 @@ class CVRNNCongfig(object):
         model_type = None
         action_number = None
         predict_target = None
+        gamma = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
             # super(TTLSTMCongfig.Arch, self).__init__(init)
             self.CVRNN = CVRNNCongfig.Arch.CVRNN(init["CVRNN"])
+            self.SARSA = CVRNNCongfig.Arch.SARSA(init["SARSA"])
 
         class CVRNN(InitWithDict):
             hidden_dim = None
@@ -32,6 +34,9 @@ class CVRNNCongfig(object):
             y_dim = None
             z_dim = None
 
+        class SARSA(InitWithDict):
+            dense_layer_number = None
+            dense_layer_size = None
 
     @staticmethod
     def load(file_path):
