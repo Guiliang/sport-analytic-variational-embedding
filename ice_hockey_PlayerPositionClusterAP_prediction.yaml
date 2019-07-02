@@ -14,6 +14,7 @@ Learn:
   output_layer_size : 51
   apply_softmax : 1
   predict_target: 'PlayerPositionCluster'
+  gamma : 1
 
 Arch:
   LSTM:

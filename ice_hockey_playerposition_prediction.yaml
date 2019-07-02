@@ -14,6 +14,7 @@ Learn:
   output_layer_size : 5
   apply_softmax : 1
   predict_target: 'PlayerPosition'
+  gamma : 1
 
 Arch:
   LSTM:
