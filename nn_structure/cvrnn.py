@@ -146,6 +146,7 @@ class CVRNN():
         self.train_yd_op = None
         self.sarsa_output = None
         self.td_loss = None
+        self.td_avg_diff = None
         self.deterministic_decoder = True
         self.cell_output_dim_list = [self.config.Arch.CVRNN.latent_dim, self.config.Arch.CVRNN.latent_dim,
                                      self.config.Arch.CVRNN.x_dim, self.config.Arch.CVRNN.x_dim,
@@ -172,6 +173,12 @@ class CVRNN():
         def tf_td_loss(sarsa_output, sarsa_target_ph, condition):
             with tf.variable_scope('n2_loss'):
                 td_loss_all = tf.reduce_mean(tf.square(sarsa_output - sarsa_target_ph), axis=-1)
+                zero_loss_all = tf.zeros(shape=[tf.shape(td_loss_all)[0]])
+                return tf.where(condition=condition, x=td_loss_all, y=zero_loss_all)
+
+        def tf_td_diff(sarsa_output, sarsa_target_ph, condition):
+            with tf.variable_scope('n1_loss'):
+                td_loss_all = tf.reduce_mean(tf.abs(sarsa_output - sarsa_target_ph), axis=-1)
                 zero_loss_all = tf.zeros(shape=[tf.shape(td_loss_all)[0]])
                 return tf.where(condition=condition, x=td_loss_all, y=zero_loss_all)
 
@@ -208,7 +215,8 @@ class CVRNN():
 
         def get_td_lossfunc(sarsa_output, sarsa_target_ph, condition):
             td_loss = tf_td_loss(sarsa_output, sarsa_target_ph, condition)
-            return td_loss
+            td_diff = tf_td_diff(sarsa_output, sarsa_target_ph, condition)
+            return td_loss, td_diff
 
         # self.args = args
         # if sample:
@@ -255,8 +263,8 @@ class CVRNN():
 
         sarsa_y = tf.reshape(
             self.input_data_ph[
-            :, :, self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim],
-            [tf.shape(self.input_data_ph)[0] * self.config.Learn.max_seq_length, self.config.Arch.CVRNN.y_dim])
+                :, :, self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim],
+                [tf.shape(self.input_data_ph)[0] * self.config.Learn.max_seq_length, self.config.Arch.CVRNN.y_dim])
 
         condition = tf.cast(tf.reshape(self.selection_matrix_ph,
                                        shape=[tf.shape(self.selection_matrix_ph)[0] *
@@ -306,9 +314,10 @@ class CVRNN():
             self.sarsa_output = linear(sarsa_input, output_size=3, scope='output_Linear')
 
         with tf.variable_scope('td_cost'):
-            td_loss = get_td_lossfunc(self.sarsa_output, self.sarsa_target_ph, condition)
+            td_loss, td_diff = get_td_lossfunc(self.sarsa_output, self.sarsa_target_ph, condition)
             self.td_loss = tf.reshape(td_loss, shape=[tf.shape(self.input_data_ph)[0],
                                                       self.config.Learn.max_seq_length, -1])
+            self.td_avg_diff = tf.reduce_mean(td_diff)
 
         tvars_td = tf.trainable_variables(scope='sarsa')
         for t in tvars_td:

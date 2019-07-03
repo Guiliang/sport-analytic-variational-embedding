@@ -133,6 +133,7 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
 
 
 def run():
+    raise EnvironmentError('I am not ready, ignore me')
     icehockey_cvae_config_path = "./icehockey_cvae_config.yaml"
     icehockey_cvae_config = CVAECongfig.load(icehockey_cvae_config_path)
 

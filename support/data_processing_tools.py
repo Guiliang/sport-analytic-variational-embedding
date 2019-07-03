@@ -259,16 +259,39 @@ def id2onehot(id, dimension_num):
     return onehot
 
 
+def q_values_output_mask(trace_lengths, max_trace_length, q_values):
+    q_value_select_all = []
+    for i in range(len(trace_lengths)):
+        q_value_select = q_values[i * max_trace_length:i * max_trace_length + trace_lengths[i]]
+
+        q_value_select_all += q_value_select.tolist()
+
+    return np.asarray(q_value_select_all)
+
+
+def generate_diff_player_cluster_id(player_id_batch):
+    player_cluster_id_all = []
+    player_number = len(player_id_batch[0][0])
+    trace_length = len(player_id_batch[0])
+    batch_length = len(player_id_batch)
+    for i in range(player_number):
+        player_id = player_number * [0]
+        player_id[i] = 1
+        player_id_trace = trace_length * [player_id]
+        player_cluster_id_all.append([player_id_trace] * batch_length)
+    return np.asarray(player_cluster_id_all)
+
+
 def safely_expand_reward(reward_batch, max_trace_length):
     """this works because reward!=0 only if in the end of batch"""
     reward_expanded = []
 
     for reward in reward_batch:
         if reward == [0, 0, 0]:
-            reward_expanded += [0, 0, 0] * max_trace_length
+            reward_expanded += [[0, 0, 0]] * max_trace_length
         else:
-            reward_expanded += [0, 0, 0] * (max_trace_length - 1)
-            reward_expanded += reward
+            reward_expanded += [[0, 0, 0]] * (max_trace_length - 1)
+            reward_expanded += [reward]
     return reward_expanded
 
 

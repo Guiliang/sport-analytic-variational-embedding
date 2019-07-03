@@ -217,7 +217,7 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
 
 
 def run():
-    cluster = 'ap'
+    cluster = 'km'
     if cluster == 'ap':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = 'PlayerPositionClusterAP'  # playerId_
