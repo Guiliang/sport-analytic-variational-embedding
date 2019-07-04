@@ -25,7 +25,7 @@ if __name__ == '__main__':
                       player_basic_info_dict=player_basic_info_dict, team_info_dict=team_info_dict)
     scaler = prep.scale_allgame_features()
     wrong_files = prep.process_all(scaler)
-    # process_seq_all(save_data_dir=save_data_dir)
+    process_seq_all(save_data_dir=save_data_dir)
     print 'wrong files skipped are {0}'.format(str(wrong_files))
 
     # prep.generate_player_information(store_player_info_dir='../resource/ice_hockey_201819/player_info_2018_2019.json')

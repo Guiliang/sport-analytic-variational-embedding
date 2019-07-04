@@ -264,19 +264,31 @@ class Preprocess:
 
     def scale_allgame_features(self):
         files_all = os.listdir(self.hockey_data_dir)
-        features_allgame = []
+        features_allgame = None
         for file in files_all:
             print("### Scale file: ", file)
             if file == '.Rhistory' or file == '.DS_Store':
                 continue
             events = self.get_events(file)
-            state_feature_game, _, _, _, _, _, _ = self.process_game_events(events)
-            features_allgame += state_feature_game
+            state_feature_game, action_feature_game, _, _, _, _, _ = self.process_game_events(events)
+            if len(state_feature_game) == 0:
+                continue
+            game_features = np.concatenate([np.asarray(state_feature_game), np.asarray(action_feature_game)], axis=1)
+            if features_allgame is None:
+                features_allgame = game_features
+            else:
+                features_allgame = np.concatenate([state_feature_game, game_features], axis=0)
 
-        scaler = preprocessing.StandardScaler().fit(np.asarray(features_allgame))
+        scaler = preprocessing.StandardScaler().fit(features_allgame)
         print("### Scaler ###")
         print(scaler.mean_)
         print(scaler.scale_)
+
+        with open('./feature_mean.txt', 'w') as f:
+            f.write(str(scaler.mean_))
+        with open('./feature_var.txt', 'w') as f:
+            f.write(str(scaler.var_))
+
         return scaler
 
     def process_all(self, scaler):
@@ -292,7 +304,10 @@ class Preprocess:
             state_feature_game, action_game, team_game, \
             lt_game, rewards_game, player_id_game, player_index_game = self.process_game_events(events)
             try:
-                state_feature_game_scale = scaler.transform(state_feature_game)
+                game_features = np.concatenate([np.asarray(state_feature_game), np.asarray(action_game)], axis=1)
+                feature_game_scale = scaler.transform(game_features)
+                state_feature_game_scale = feature_game_scale[:, :len(state_feature_game[0])]
+                action_feature_game_scale = feature_game_scale[:, len(state_feature_game[0]):]
             except:
                 print 'skip wrong file {0}'.format(file)
                 wrong_files.append(file)
@@ -304,7 +319,8 @@ class Preprocess:
             sio.savemat(save_game_dir + "/" + "reward_" + file_name + ".mat", {'reward': np.asarray(rewards_game)})
             sio.savemat(save_game_dir + "/" + "state_feature_" + file_name + ".mat",
                         {'state_feature': np.asarray(state_feature_game_scale)})
-            sio.savemat(save_game_dir + "/" + "action_" + file_name + ".mat", {'action': np.asarray(action_game)})
+            sio.savemat(save_game_dir + "/" + "action_" + file_name + ".mat",
+                        {'action': np.asarray(action_feature_game_scale)})
             sio.savemat(save_game_dir + "/" + "lt_" + file_name + ".mat", {'lt': np.asarray(lt_game)})
             sio.savemat(save_game_dir + "/" + "team_" + file_name + ".mat", {'team': np.asarray(team_game)})
             sio.savemat(save_game_dir + "/" + "player_id_game_" + file_name + ".mat",
