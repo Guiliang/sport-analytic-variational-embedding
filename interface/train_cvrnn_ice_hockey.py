@@ -408,7 +408,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
 
 
 def run():
-    test_flag = True
+    test_flag = False
     cluster = 'km'
     if cluster == 'ap':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
