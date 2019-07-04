@@ -311,7 +311,8 @@ class CVRNN():
                                                  scope='dense_Linear'))
             sarsa_input = tf.concat([z_encoder, sarsa_y],
                                     axis=1) if self.config.Arch.SARSA.dense_layer_number == 1 else sarsa_output
-            self.sarsa_output = linear(sarsa_input, output_size=3, scope='output_Linear')
+            sarsa_output = linear(sarsa_input, output_size=3, scope='output_Linear')
+            self.sarsa_output = tf.nn.softmax(sarsa_output)
 
         with tf.variable_scope('td_cost'):
             td_loss, td_diff = get_td_lossfunc(self.sarsa_output, self.sarsa_target_ph, condition)

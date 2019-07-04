@@ -20,6 +20,7 @@ class CVRNNCongfig(object):
         action_number = None
         predict_target = None
         gamma = None
+        player_cluster_number = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

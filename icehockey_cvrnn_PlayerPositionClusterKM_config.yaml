@@ -12,6 +12,7 @@ Learn:
   action_number : 33
   predict_target: 'PlayerPositionCluster'
   gamma : 1
+  player_cluster_number: 26
 
 Arch:
   CVRNN:

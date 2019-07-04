@@ -15,12 +15,22 @@ from support.data_processing_tools import handle_trace_length, compromise_state_
 from support.data_processing_tools import get_icehockey_game_data, transfer2seq, generate_selection_matrix, \
     safely_expand_reward, generate_diff_player_cluster_id, q_values_output_mask
 from support.model_tools import get_model_and_log_name, compute_rnn_acc
+from support.plot_tools import plot_players_games
 
 
 def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_store,
                               model, sess, training_flag, validate_cvrnn_flag=False,
-                              validate_td_flag=False, output_decoder_all=None,
-                              target_data_all=None, selection_matrix_all=None, q_values_all=None):
+                              validate_td_flag=False, validate_variance_flag=False,
+                              output_decoder_all=None,
+                              target_data_all=None, selection_matrix_all=None,
+                              q_values_all=None):
+    if validate_variance_flag:
+        match_q_values_players_dict = {}
+        for i in range(config.Learn.player_cluster_number):
+            match_q_values_players_dict.update({i: []})
+    else:
+        match_q_values_players_dict = None
+
     state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
         data_store=data_store, dir_game=dir_game, config=config, player_id_cluster_dir=player_id_cluster_dir)
     action_seq = transfer2seq(data=action, trace_length=state_trace_length,
@@ -38,7 +48,6 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
     train_number = 0
     s_t0 = state_input[train_number]
     train_number += 1
-    validate_variance_flag = True
     while True:
         # try:
         batch_return, \
@@ -118,9 +127,11 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                     selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix_t0], axis=0)
 
             if validate_td_flag:
-                q_values, validate_variance_flag = td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
-                                                                 player_id_t0_batch, s_t0_batch, action_id_t0,
-                                                                 train_mask, config, validate_variance_flag)
+                validate_variance_flag = True if train_number <= 200 else False
+                q_values, match_q_values_players_dict = \
+                    td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
+                                  player_id_t0_batch, s_t0_batch, action_id_t0,
+                                  train_mask, config, match_q_values_players_dict, validate_variance_flag)
 
                 if q_values_all is None:
                     q_values_all = q_values
@@ -131,7 +142,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         if terminal:
             break
 
-    return [output_decoder_all, target_data_all, selection_matrix_all, q_values_all]
+    return [output_decoder_all, target_data_all, selection_matrix_all, q_values_all, match_q_values_players_dict]
 
 
 def run_network(sess, model, config, log_dir, saved_network,
@@ -158,7 +169,8 @@ def run_network(sess, model, config, log_dir, saved_network,
             gathering_running_and_run(dir_game, config,
                                       player_id_cluster_dir, data_store, model, sess, training_flag=True)
             if game_number % 10 == 1:
-                validate_model(testing_dir_games_all, data_store, config, sess, model, player_id_cluster_dir)
+                validate_model(testing_dir_games_all, data_store, config,
+                               sess, model, player_id_cluster_dir, train_game_number=game_number)
 
 
 def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
@@ -182,11 +194,11 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
                 y_batch.append([y_home, y_away, y_end])
                 break
         y_home = float((r_t_batch[i])[0]) + config.Learn.gamma * \
-                 ((readout_t1_batch[i]).tolist())[0]
+                                            ((readout_t1_batch[i]).tolist())[0]
         y_away = float((r_t_batch[i])[1]) + config.Learn.gamma * \
-                 ((readout_t1_batch[i]).tolist())[1]
+                                            ((readout_t1_batch[i]).tolist())[1]
         y_end = float((r_t_batch[i])[2]) + config.Learn.gamma * \
-                ((readout_t1_batch[i]).tolist())[2]
+                                           ((readout_t1_batch[i]).tolist())[2]
         y_batch.append([y_home, y_away, y_end])
 
     # perform gradient step
@@ -313,11 +325,14 @@ def cvrnn_validation(sess, model, input_data_t0, target_data_t0, trace_lengths_t
 
 
 def td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
-                  player_id_t0_batch, s_t0_batch, action_id_t0, train_mask, config, validate_variance_flag):
+                  player_id_t0_batch, s_t0_batch, action_id_t0, train_mask, config,
+                  match_q_values_players_dict, validate_variance_flag):
     if validate_variance_flag:
         all_player_id = generate_diff_player_cluster_id(player_id_t0_batch)
         readout_var_all = []
-        for player_id_batch in all_player_id:
+        for index in range(0, len(all_player_id)):
+            player_id_batch = all_player_id[index]
+            match_q_values = []
             input_data_var = np.concatenate([np.asarray(player_id_batch), np.asarray(s_t0_batch),
                                              np.asarray(action_id_t0), train_mask], axis=2)
             [readout_var] = sess.run([model.sarsa_output],
@@ -325,6 +340,12 @@ def td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
                                                 model.trace_length_ph: trace_lengths_t0,
                                                 model.selection_matrix_ph: selection_matrix_t0
                                                 })
+            for i in range(len(input_data_var)):
+                match_q_values.append(readout_var[i * config.Learn.max_seq_length + trace_lengths_t0[i] - 1])
+            match_q_values_player = match_q_values_players_dict.get(index)
+            match_q_values_player += match_q_values
+            match_q_values_players_dict.update({index: match_q_values_player})
+
             readout_var_masked = q_values_output_mask(q_values=readout_var, trace_lengths=trace_lengths_t0,
                                                       max_trace_length=config.Learn.max_seq_length)
             readout_var_all.append(readout_var_masked)
@@ -342,15 +363,16 @@ def td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
                                     })
     readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
                                           max_trace_length=config.Learn.max_seq_length)
-    return readout_masked, False
+    return readout_masked, match_q_values_players_dict
 
 
 def validate_model(testing_dir_games_all, data_store, config, sess, model,
-                   player_id_cluster_dir, validate_cvrnn_flag=True, validate_td_flag=True):
+                   player_id_cluster_dir, train_game_number, validate_cvrnn_flag=True, validate_td_flag=True):
     output_decoder_all = None
     target_data_all = None
     selection_matrix_all = None
     q_values_all = None
+    validate_variance_flag = True
     print('validating model')
     for dir_game in testing_dir_games_all:
 
@@ -360,17 +382,22 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
         [output_decoder_all,
          target_data_all,
          selection_matrix_all,
-         q_values_all] = gathering_running_and_run(dir_game, config,
-                                                   player_id_cluster_dir,
-                                                   data_store,
-                                                   model, sess,
-                                                   training_flag=False,
-                                                   validate_cvrnn_flag=True,
-                                                   validate_td_flag=True,
-                                                   output_decoder_all=output_decoder_all,
-                                                   target_data_all=target_data_all,
-                                                   selection_matrix_all=selection_matrix_all,
-                                                   q_values_all=q_values_all)
+         q_values_all,
+         match_q_values_players_dict] = gathering_running_and_run(dir_game, config,
+                                                                  player_id_cluster_dir,
+                                                                  data_store,
+                                                                  model, sess,
+                                                                  training_flag=False,
+                                                                  validate_cvrnn_flag=True,
+                                                                  validate_td_flag=True,
+                                                                  validate_variance_flag=validate_variance_flag,
+                                                                  output_decoder_all=output_decoder_all,
+                                                                  target_data_all=target_data_all,
+                                                                  selection_matrix_all=selection_matrix_all,
+                                                                  q_values_all=q_values_all)
+        validate_variance_flag = False
+        if match_q_values_players_dict is not None:
+            plot_players_games(match_q_values_players_dict, train_game_number)
 
     if validate_cvrnn_flag:
         acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
@@ -381,7 +408,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
 
 
 def run():
-    test_flag = False
+    test_flag = True
     cluster = 'km'
     if cluster == 'ap':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'

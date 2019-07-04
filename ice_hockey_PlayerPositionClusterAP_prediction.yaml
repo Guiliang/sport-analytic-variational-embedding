@@ -12,6 +12,7 @@ Learn:
   model_type : 'v1'
   embed_size : 1024
   output_layer_size : 51
+  player_cluster_number: 51
   apply_softmax : 1
   predict_target: 'PlayerPositionCluster'
   gamma : 1
