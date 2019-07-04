@@ -127,7 +127,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                     selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix_t0], axis=0)
 
             if validate_td_flag:
-                validate_variance_flag = True if train_number <= 200 else False
+                validate_variance_flag = validate_variance_flag if train_number <= 200 else False
                 q_values, match_q_values_players_dict = \
                     td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
                                   player_id_t0_batch, s_t0_batch, action_id_t0,
