@@ -277,7 +277,7 @@ class Preprocess:
             if features_allgame is None:
                 features_allgame = game_features
             else:
-                features_allgame = np.concatenate([state_feature_game, game_features], axis=0)
+                features_allgame = np.concatenate([features_allgame, game_features], axis=0)
 
         scaler = preprocessing.StandardScaler().fit(features_allgame)
         print("### Scaler ###")

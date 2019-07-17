@@ -4,7 +4,7 @@ from preprocess import Preprocess
 from build_seq import process_seq_all
 
 if __name__ == '__main__':
-    test_flag = True
+    test_flag = False
     if test_flag:
         hockey_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
         save_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample'

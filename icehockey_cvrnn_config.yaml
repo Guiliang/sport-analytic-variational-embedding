@@ -11,6 +11,7 @@ Learn:
   number_of_total_game: 1202
   action_number : 33
   gamma : 1
+  data_name: ice_hockey-2019
 
 Arch:
   CVRNN:
@@ -18,7 +19,6 @@ Arch:
     latent_dim : 128
     x_dim : 33
     y_dim : 43 # 12+31
-    z_dim : 256
   SARSA:
     dense_layer_number : 2
     dense_layer_size : 256

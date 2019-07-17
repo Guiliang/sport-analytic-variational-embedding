@@ -21,6 +21,7 @@ class CVRNNCongfig(object):
         predict_target = None
         gamma = None
         player_cluster_number = None
+        data_name = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

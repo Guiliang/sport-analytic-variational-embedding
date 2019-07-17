@@ -24,27 +24,37 @@ def get_model_and_log_name(config, train_flag=False):
         train_msg = 'Train_'
     else:
         train_msg = ''
-    log_dir = "{0}/oschulte/Galen/soccer-models/hybrid_sl_log_NN" \
-              "/{1}Scale-tt-three-cut_together_log_feature{2}" \
-              "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}".format(config.Learn.save_mother_dir,
-                                                               train_msg,
-                                                               str(config.Learn.feature_type),
-                                                               str(config.Learn.batch_size),
-                                                               str(config.Learn.iterate_num),
-                                                               str(config.Learn.learning_rate),
-                                                               str(config.Learn.model_type),
-                                                               str(config.Learn.max_seq_length))
+    log_dir = "{0}/oschulte/Galen/icehockey-models/cvrnn_log_NN" \
+              "/{1}cvrnn_log_feature{2}_latent{8}_x{9}_y{10}" \
+              "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}".format(config.Learn.save_mother_dir,
+                                                                        train_msg,
+                                                                        str(config.Learn.feature_type),
+                                                                        str(config.Learn.batch_size),
+                                                                        str(config.Learn.iterate_num),
+                                                                        str(config.Learn.learning_rate),
+                                                                        str(config.Learn.model_type),
+                                                                        str(config.Learn.max_seq_length),
+                                                                        str(config.Arch.CVRNN.latent_dim),
+                                                                        str(config.Arch.CVRNN.y_dim),
+                                                                        str(config.Arch.CVRNN.x_dim),
+                                                                        str(config.Arch.CVRNN.hidden_dim)
+                                                                        )
 
-    saved_network = "{0}/oschulte/Galen/soccer-models/hybrid_sl_saved_NN/" \
-                    "{1}Scale-tt-three-cut_together_saved_networks_feature{2}" \
-                    "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}".format(config.Learn.save_mother_dir,
-                                                                     train_msg,
-                                                                     str(config.Learn.feature_type),
-                                                                     str(config.Learn.batch_size),
-                                                                     str(config.Learn.iterate_num),
-                                                                     str(config.Learn.learning_rate),
-                                                                     str(config.Learn.model_type),
-                                                                     str(config.Learn.max_seq_length))
+    saved_network = "{0}/oschulte/Galen/icehockey-models/cvrnn_saved_NN/" \
+                    "{1}cvrnn-saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
+                    "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}".format(config.Learn.save_mother_dir,
+                                                                              train_msg,
+                                                                              str(config.Learn.feature_type),
+                                                                              str(config.Learn.batch_size),
+                                                                              str(config.Learn.iterate_num),
+                                                                              str(config.Learn.learning_rate),
+                                                                              str(config.Learn.model_type),
+                                                                              str(config.Learn.max_seq_length),
+                                                                              str(config.Arch.CVRNN.latent_dim),
+                                                                              str(config.Arch.CVRNN.y_dim),
+                                                                              str(config.Arch.CVRNN.x_dim),
+                                                                              str(config.Arch.CVRNN.hidden_dim)
+                                                                              )
     return saved_network, log_dir
 
 
