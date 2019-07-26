@@ -10,7 +10,6 @@ class DECongfig(object):
         self.Arch = DECongfig.Arch(init["Arch"])
 
     class Learn(InitWithDict):
-        feature_number = None
         save_mother_dir = None
         batch_size = None
         keep_prob = None
@@ -27,10 +26,12 @@ class DECongfig(object):
             self.LSTM = DECongfig.Arch.LSTM(init["LSTM"])
             self.Encode = DECongfig.Arch.Encode(init["Encode"])
             self.Dense = DECongfig.Arch.Dense(init["Dense"])
+            self.Feature = DECongfig.Arch.Feature(init["Feature"])
 
         class LSTM(InitWithDict):
             h_size = None
             lstm_layer_num = None
+            feature_number = None
 
         class Encode(InitWithDict):
             latent_size = None
@@ -45,6 +46,7 @@ class DECongfig(object):
         class Feature(InitWithDict):
             feature_layer_num = None
             hidden_node_size = None
+            feature_size = None
 
     @staticmethod
     def load(file_path):

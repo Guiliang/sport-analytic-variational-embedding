@@ -6,7 +6,7 @@ import json
 import scipy.io as sio
 import unicodedata
 from ice_hockey_data_config import player_position_index_dict
-
+import copy
 
 # from config.icehockey_feature_setting import select_feature_setting
 
@@ -260,7 +260,7 @@ def handle_de_history(data_seq_all, trace_lengths):
         trace_length = trace_lengths[batch_index]
         data_seq = data_seq_all[batch_index]
         data_seq = np.asarray(data_seq) if type(data_seq) is not np.ndarray else data_seq
-        current_obs = data_seq[trace_length - 1]
+        current_obs = copy.deepcopy(data_seq[trace_length - 1])
         current_obs_seq.append(current_obs)
         zero_out_obs = np.zeros(shape=current_obs.shape)
         data_seq[trace_length - 1] = zero_out_obs

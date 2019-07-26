@@ -27,7 +27,7 @@ def train_model(model, sess, config, input_seq_data, input_obs_data, target_data
         feed_dict={model.rnn_input_ph: input_seq_data,
                    model.feature_input_ph: input_obs_data,
                    model.y_ph: target_data,
-                   model.embed_label_placeholder: embed_data,
+                   model.embed_label_ph: embed_data,
                    model.trace_lengths_ph: trace_lengths}
     )
     # acc = compute_acc(output_prob, target_data, if_print=False)
@@ -47,7 +47,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
         game_number += 1
         state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
             data_store=data_store, dir_game=dir_game, config=config)
-        state_trace_length = np.asarray([10] * len(state_trace_length))
+        # state_trace_length = np.asarray([10] * len(state_trace_length))
         action_seq = transfer2seq(data=action, trace_length=state_trace_length,
                                   max_length=config.Learn.max_seq_length)
         team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
@@ -170,7 +170,7 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
             game_cost_record = []
             state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
                 data_store=data_store, dir_game=dir_game, config=config)
-            state_trace_length = np.asarray([10] * len(state_trace_length))
+            # state_trace_length = np.asarray([10] * len(state_trace_length))
             action_seq = transfer2seq(data=action, trace_length=state_trace_length,
                                       max_length=config.Learn.max_seq_length)
             team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
@@ -263,7 +263,7 @@ def run():
     de_config_path = "../ice_hockey_{0}_de.yaml".format(predicted_target)
     de_config = DECongfig.load(de_config_path)
 
-    test_flag = False
+    test_flag = True
     # saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config)
     if test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"

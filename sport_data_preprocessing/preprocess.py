@@ -312,6 +312,10 @@ class Preprocess:
             # try:
             game_features = np.asarray(state_feature_game)
             # game_features = np.concatenate([np.asarray(state_feature_game), np.asarray(action_game)], axis=1)
+            if len(game_features) == 0:
+                print 'skip wrong file {0}'.format(file)
+                wrong_files.append(file)
+                continue
             feature_game_scale = scaler.transform(game_features)
             state_feature_game_scale = feature_game_scale
             # state_feature_game_scale = feature_game_scale[:, :len(state_feature_game[0])]

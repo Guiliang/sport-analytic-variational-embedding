@@ -11,7 +11,7 @@ class DeterministicEmbedding():
         self.feature_input_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
         self.trace_lengths_ph = tf.placeholder(dtype=tf.int32, shape=[None])
         self.rnn_input_ph = tf.placeholder(dtype=tf.float32, shape=[None, self.config.Learn.max_seq_length,
-                                                                    self.config.Learn.feature_number])
+                                                                    self.config.Arch.LSTM.feature_number])
         config = DECongfig
         self.dense_layer_bias = []
         self.dense_layer_weights = []
@@ -32,8 +32,7 @@ class DeterministicEmbedding():
                     self.lstm_cell_all.append(
                         tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.LSTM.h_size, state_is_tuple=True,
                                                 initializer=tf.random_uniform_initializer(-0.05, 0.05)))
-
-                    lstm_cell_tmp = tf.nn.rnn_cell.LSTMCell(num_units=256)
+                    # lstm_cell_tmp = tf.nn.rnn_cell.LSTMCell(num_units=256)
 
             with tf.name_scope("Embed_layers"):
                 self.embed_w = tf.get_variable('w_embed_home', [self.config.Arch.Encode.label_size,
@@ -43,7 +42,7 @@ class DeterministicEmbedding():
 
             with tf.name_scope("Feature_layers"):
                 for i in range(self.config.Arch.Feature.feature_layer_num):
-                    w_input_size = self.config.Feature.feature_size \
+                    w_input_size = self.config.Arch.Feature.feature_size \
                         if i == 0 else self.config.Arch.Feature.hidden_node_size
                     w_output_size = self.config.Arch.Feature.hidden_node_size
                     self.feature_layer_weights.append(tf.get_variable('w{0}_xaiver'.format(str(i)),
@@ -60,10 +59,10 @@ class DeterministicEmbedding():
                         w_input_size = self.config.Arch.Dense.hidden_node_size
                     w_output_size = self.config.Arch.Dense.hidden_node_size \
                         if i < self.config.Arch.Dense.dense_layer_num - 1 else self.config.Arch.Dense.output_layer_size
-                    self.dense_layer_weights.append(tf.get_variable('w{0}_xaiver'.format(str(i)),
+                    self.dense_layer_weights.append(tf.get_variable('fw{0}_xaiver'.format(str(i)),
                                                                     [w_input_size, w_output_size],
                                                                     initializer=tf.contrib.layers.xavier_initializer()))
-                    self.dense_layer_bias.append(tf.Variable(tf.zeros([w_output_size]), name="b_{0}".format(str(i))))
+                    self.dense_layer_bias.append(tf.Variable(tf.zeros([w_output_size]), name="fb_{0}".format(str(i))))
 
     def __call__(self):
         with tf.name_scope(self.config.Learn.model_type):
