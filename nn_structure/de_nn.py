@@ -3,12 +3,12 @@ from config.de_config import DECongfig
 
 
 class DeterministicEmbedding():
-
     def __init__(self, config, is_probability):
         self.config = config
         self.is_probability = is_probability
         self.y_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
-        self.embed_label_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, None])
+        self.embed_label_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
+        self.feature_input_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
         self.trace_lengths_ph = tf.placeholder(dtype=tf.int32, shape=[None])
         self.rnn_input_ph = tf.placeholder(dtype=tf.float32, shape=[None, self.config.Learn.max_seq_length,
                                                                     self.config.Learn.feature_number])
@@ -18,6 +18,8 @@ class DeterministicEmbedding():
         self.lstm_cell_all = []
         self.embed_w = None
         self.embed_b = None
+        self.feature_layer_weights = []
+        self.feature_layer_bias = []
 
     def build(self):
         """
@@ -30,16 +32,32 @@ class DeterministicEmbedding():
                     self.lstm_cell_all.append(
                         tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.LSTM.h_size, state_is_tuple=True,
                                                 initializer=tf.random_uniform_initializer(-0.05, 0.05)))
+
+                    lstm_cell_tmp = tf.nn.rnn_cell.LSTMCell(num_units=256)
+
             with tf.name_scope("Embed_layers"):
                 self.embed_w = tf.get_variable('w_embed_home', [self.config.Arch.Encode.label_size,
                                                                 self.config.Arch.Encode.latent_size],
                                                initializer=tf.contrib.layers.xavier_initializer())
                 self.embed_b = tf.Variable(tf.zeros([self.config.Arch.Encode.latent_size]), name="b_embed_home")
 
+            with tf.name_scope("Feature_layers"):
+                for i in range(self.config.Arch.Feature.feature_layer_num):
+                    w_input_size = self.config.Feature.feature_size \
+                        if i == 0 else self.config.Arch.Feature.hidden_node_size
+                    w_output_size = self.config.Arch.Feature.hidden_node_size
+                    self.feature_layer_weights.append(tf.get_variable('w{0}_xaiver'.format(str(i)),
+                                                                      [w_input_size, w_output_size],
+                                                                      initializer=tf.contrib.layers.xavier_initializer()))
+                    self.feature_layer_bias.append(tf.Variable(tf.zeros([w_output_size]), name="b_{0}".format(str(i))))
+
             with tf.name_scope("Dense_layers"):
                 for i in range(self.config.Arch.Dense.dense_layer_num):
-                    w_input_size = self.config.Arch.LSTM.h_size + self.config.Arch.Encode.latent_size \
-                        if i == 0 else self.config.Arch.Dense.hidden_node_size
+                    if i == 0:
+                        w_input_size = self.config.Arch.Feature.hidden_node_size + self.config.Arch.Encode.latent_size \
+                                       + self.config.Arch.LSTM.h_size
+                    else:
+                        w_input_size = self.config.Arch.Dense.hidden_node_size
                     w_output_size = self.config.Arch.Dense.hidden_node_size \
                         if i < self.config.Arch.Dense.dense_layer_num - 1 else self.config.Arch.Dense.output_layer_size
                     self.dense_layer_weights.append(tf.get_variable('w{0}_xaiver'.format(str(i)),
@@ -57,25 +75,37 @@ class DeterministicEmbedding():
                         inputs=rnn_input, cell=self.lstm_cell_all[i],
                         sequence_length=self.trace_lengths_ph, dtype=tf.float32,
                         scope=self.config.Learn.model_type + '_home_rnn_{0}'.format(str(i)))
+
                 outputs = tf.stack(rnn_output)
                 # Hack to build the indexing and retrieve the right output.
                 self.batch_size = tf.shape(outputs)[0]
                 # Start indices for each sample
                 self.index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length + (
-                            self.trace_lengths_ph - 1)
+                    self.trace_lengths_ph - 1)
                 # Indexing
                 rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Arch.LSTM.h_size]), self.index)
 
             with tf.name_scope("Embed_layers"):
-                self.embed_layer = tf.matmul(self.embed_label_placeholder, self.embed_w) + self.embed_b
+                self.embed_layer = tf.matmul(self.embed_label_ph, self.embed_w) + self.embed_b
 
             # embed_layer = tf.concat([self.home_embed_layer, self.away_embed_layer], axis=1)
             # embed_layer = self.home_embed_layer
 
+            with tf.name_scope("Feature_layers"):
+                feature_output = None
+                for i in range(self.config.Arch.Dense.dense_layer_num):
+                    feature_input = self.feature_input_ph if i == 0 else feature_output
+                    # dense_input = embed_layer
+                    feature_output = tf.matmul(feature_input, self.feature_layer_weights[i]) + self.feature_layer_bias[
+                        i]
+                    if i < self.config.Arch.Feature.feature_layer_num - 1:
+                        feature_output = tf.nn.relu(feature_output, name='activation_{0}'.format(str(i)))
+
             with tf.name_scope('Dense_layers'):
                 dense_output = None
                 for i in range(self.config.Arch.Dense.dense_layer_num):
-                    dense_input = tf.concat([self.embed_layer, rnn_last], axis=1) if i == 0 else dense_output
+                    dense_input = tf.concat([feature_output, self.embed_layer, rnn_last],
+                                            axis=1) if i == 0 else dense_output
                     # dense_input = embed_layer
                     dense_output = tf.matmul(dense_input, self.dense_layer_weights[i]) + self.dense_layer_bias[i]
                     if i < self.config.Arch.Dense.dense_layer_num - 1:

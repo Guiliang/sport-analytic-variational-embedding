@@ -253,6 +253,21 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
     return state_trace_length, state_input, reward, action, team_id, player_index_all
 
 
+def handle_de_history(data_seq_all, trace_lengths):
+    current_obs_seq = []
+    history_seq = []
+    for batch_index in range(0, len(trace_lengths)):
+        trace_length = trace_lengths[batch_index]
+        data_seq = data_seq_all[batch_index]
+        data_seq = np.asarray(data_seq) if type(data_seq) is not np.ndarray else data_seq
+        current_obs = data_seq[trace_length - 1]
+        current_obs_seq.append(current_obs)
+        zero_out_obs = np.zeros(shape=current_obs.shape)
+        data_seq[trace_length - 1] = zero_out_obs
+        history_seq.append(data_seq)
+    return current_obs_seq, history_seq
+
+
 def id2onehot(id, dimension_num):
     onehot = [0] * dimension_num
     onehot[id] = 1

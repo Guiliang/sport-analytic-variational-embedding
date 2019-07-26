@@ -98,9 +98,10 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
 
             if predicted_target == 'action':
                 action_id_tm1 = copy.deepcopy(action_id_t0)  # TODO: require scaling
-                for batch_index in range(len(action_id_tm1)):
-                    action_id_tm1[batch_index][0] = np.zeros(len(action_id_tm1[0][0]))
-                # input_data = np.concatenate([np.asarray(action_id_tm1), np.asarray(s_t0_batch), r_t_seq_batch], axis=2)
+
+
+
+                input_data = np.concatenate([np.asarray(action_id_tm1), np.asarray(s_t0_batch), r_t_seq_batch], axis=2)
                 input_data = np.asarray(s_t0_batch)
                 embed_data = np.asarray(player_id_t0_batch)
                 target_data = np.asarray(action_id_t0)[:, 0, :]

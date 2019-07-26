@@ -23,3 +23,7 @@ Arch:
     output_layer_size: 33
     apply_softmax: True
     hidden_node_size: 256
+
+  Feature:
+    feature_layer_num : 2
+    hidden_node_size : 256

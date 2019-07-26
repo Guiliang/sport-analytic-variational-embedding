@@ -42,6 +42,10 @@ class DECongfig(object):
             apply_softmax = None
             hidden_node_size = None
 
+        class Feature(InitWithDict):
+            feature_layer_num = None
+            hidden_node_size = None
+
     @staticmethod
     def load(file_path):
         config = yaml.load(open(file_path, 'r'))
