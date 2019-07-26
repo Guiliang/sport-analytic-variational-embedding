@@ -9,13 +9,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
 import os
-from support.data_processing_tools import transfer2seq, get_icehockey_game_data, get_together_training_batch
+from support.data_processing_tools import transfer2seq, get_icehockey_game_data, \
+    get_together_training_batch, handle_de_history
 from nn_structure.de_nn import DeterministicEmbedding
 from config.de_config import DECongfig
 from support.model_tools import compute_acc
 
 
-def train_model(model, sess, config, input_data, target_data,
+def train_model(model, sess, config, input_seq_data, input_obs_data, target_data,
                 trace_lengths, embed_data, terminal):
     [
         output_prob,
@@ -23,7 +24,8 @@ def train_model(model, sess, config, input_data, target_data,
     ] = sess.run([
         model.read_out,
         model.train_op],
-        feed_dict={model.rnn_input_ph: input_data,
+        feed_dict={model.rnn_input_ph: input_seq_data,
+                   model.feature_input_ph: input_obs_data,
                    model.y_ph: target_data,
                    model.embed_label_placeholder: embed_data,
                    model.trace_lengths_ph: trace_lengths}
@@ -87,8 +89,8 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
             r_t_batch = [d[2] for d in batch_return]
             trace_t0_batch = [d[3] for d in batch_return]
             trace_t1_batch = [d[4] for d in batch_return]
-            action_id_t0 = [d[5] for d in batch_return]
-            action_id_t1 = [d[6] for d in batch_return]
+            action_id_t0_batch = [d[5] for d in batch_return]
+            action_id_t1_batch = [d[6] for d in batch_return]
             team_id_t0_batch = [d[7] for d in batch_return]
             team_id_t1_batch = [d[8] for d in batch_return]
             player_id_t0_batch = [d[9] for d in batch_return]
@@ -97,14 +99,19 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
                                          max_length=config.Learn.max_seq_length)
 
             if predicted_target == 'action':
-                action_id_tm1 = copy.deepcopy(action_id_t0)  # TODO: require scaling
+                current_state, history_state = handle_de_history(
+                    data_seq_all=s_t0_batch, trace_lengths=trace_t0_batch)
+                current_action, history_action = handle_de_history(
+                    data_seq_all=action_id_t0_batch, trace_lengths=trace_t0_batch)
+                current_reward, history_reward = handle_de_history(
+                    data_seq_all=r_t_seq_batch, trace_lengths=trace_t0_batch)
 
-
-
-                input_data = np.concatenate([np.asarray(action_id_tm1), np.asarray(s_t0_batch), r_t_seq_batch], axis=2)
-                input_data = np.asarray(s_t0_batch)
+                input_seq_data = np.concatenate([np.asarray(history_state),
+                                                 np.asarray(history_action), np.asarray(history_reward)], axis=2)
+                input_obs_data = np.concatenate([np.asarray(current_state),
+                                                 np.asarray(current_reward)], axis=1)
                 embed_data = np.asarray(player_id_t0_batch)
-                target_data = np.asarray(action_id_t0)[:, 0, :]
+                target_data = np.asarray(current_action)
                 trace_lengths = trace_t0_batch
 
             for i in range(0, len(batch_return)):
@@ -117,7 +124,8 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
             ] = sess.run([
                 model.read_out,
                 model.train_op],
-                feed_dict={model.rnn_input_ph: input_data,
+                feed_dict={model.rnn_input_ph: input_seq_data,
+                           model.feature_input_ph: input_obs_data,
                            model.y_ph: target_data,
                            model.embed_label_placeholder: embed_data,
                            model.trace_lengths_ph: trace_lengths}
@@ -162,7 +170,7 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
             game_cost_record = []
             state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
                 data_store=data_store, dir_game=dir_game, config=config)
-            state_trace_length = np.asarray([10]*len(state_trace_length))
+            state_trace_length = np.asarray([10] * len(state_trace_length))
             action_seq = transfer2seq(data=action, trace_length=state_trace_length,
                                       max_length=config.Learn.max_seq_length)
             team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
@@ -204,8 +212,8 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                 r_t_batch = [d[2] for d in batch_return]
                 trace_t0_batch = [d[3] for d in batch_return]
                 trace_t1_batch = [d[4] for d in batch_return]
-                action_id_t0 = [d[5] for d in batch_return]
-                action_id_t1 = [d[6] for d in batch_return]
+                action_id_t0_batch = [d[5] for d in batch_return]
+                action_id_t1_batch = [d[6] for d in batch_return]
                 team_id_t0_batch = [d[7] for d in batch_return]
                 team_id_t1_batch = [d[8] for d in batch_return]
                 player_id_t0_batch = [d[9] for d in batch_return]
@@ -215,13 +223,19 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                                              max_length=config.Learn.max_seq_length)
 
                 if predicted_target == 'action':
-                    action_id_tm1 = copy.deepcopy(action_id_t0)  # TODO: require scaling
-                    for batch_index in range(len(action_id_tm1)):
-                        action_id_tm1[batch_index][0] = np.zeros(len(action_id_tm1[0][0]))
-                    # input_data = np.concatenate([np.asarray(action_id_tm1), np.asarray(s_t0_batch), r_t_seq_batch], axis=2)
-                    input_data = np.asarray(s_t0_batch)
+                    current_state, history_state = handle_de_history(
+                        data_seq_all=s_t0_batch, trace_lengths=trace_t0_batch)
+                    current_action, history_action = handle_de_history(
+                        data_seq_all=action_id_t0_batch, trace_lengths=trace_t0_batch)
+                    current_reward, history_reward = handle_de_history(
+                        data_seq_all=r_t_seq_batch, trace_lengths=trace_t0_batch)
+
+                    input_seq_data = np.concatenate([np.asarray(history_state),
+                                                     np.asarray(history_action), np.asarray(history_reward)], axis=2)
+                    input_obs_data = np.concatenate([np.asarray(current_state),
+                                                     np.asarray(current_reward)], axis=1)
                     embed_data = np.asarray(player_id_t0_batch)
-                    target_data = np.asarray(action_id_t0)[:, 0, :]
+                    target_data = np.asarray(current_action)
                     trace_lengths = trace_t0_batch
 
                 for i in range(0, len(batch_return)):
@@ -229,7 +243,7 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                     # cut = batch_return[i][8]
 
                 pretrain_flag = True if game_number <= 10 else False
-                train_model(model, sess, config, input_data, target_data,
+                train_model(model, sess, config, input_seq_data, input_obs_data, target_data,
                             trace_lengths, embed_data, terminal)
                 s_t0 = s_tl
                 if terminal:
