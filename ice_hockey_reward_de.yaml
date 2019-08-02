@@ -14,16 +14,16 @@ Arch:
   LSTM:
     h_size: 512
     lstm_layer_num: 1
-    feature_number: 48 #12
+    feature_number: 48 #33+12+3
   Encode:
     latent_size: 1024
     label_size: 1003
   Dense:
     dense_layer_num : 2
-    output_layer_size: 33
-    apply_softmax: True
+    output_layer_size: 3
+    apply_softmax: False
     hidden_node_size: 256
   Feature:
     feature_layer_num : 2
     hidden_node_size : 256
-    feature_size : 15 # 12 + 3
+    feature_size : 45 # 33 + 12

@@ -82,6 +82,17 @@ def compute_rnn_acc(target_actions_prob, output_actions_prob, selection_matrix, 
     return float(correct_number) / float(total_number)
 
 
+def compute_mae(target_actions_prob, output_actions_prob, if_print=False):
+    total_number = 0
+    total_mae = 0
+    for batch_index in range(0, len(target_actions_prob)):
+        total_number += 1
+        mae = abs(output_actions_prob[batch_index] - target_actions_prob[batch_index])
+        # print mae
+        total_mae += mae
+    return total_mae / float(total_number)
+
+
 def compute_acc(target_actions_prob, output_actions_prob, if_print=False):
     total_number = 0
     correct_number = 0

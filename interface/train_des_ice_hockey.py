@@ -13,7 +13,7 @@ from support.data_processing_tools import transfer2seq, get_icehockey_game_data,
     get_together_training_batch, handle_de_history
 from nn_structure.de_nn import DeterministicEmbedding
 from config.de_config import DECongfig
-from support.model_tools import compute_acc
+from support.model_tools import compute_acc, compute_mae
 
 
 def train_model(model, sess, config, input_seq_data, input_obs_data, target_data,
@@ -97,22 +97,39 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
             player_id_t1_batch = [d[10] for d in batch_return]
             r_t_seq_batch = transfer2seq(data=np.asarray(r_t_batch), trace_length=trace_t0_batch,
                                          max_length=config.Learn.max_seq_length)
+            current_state, history_state = handle_de_history(
+                data_seq_all=s_t0_batch, trace_lengths=trace_t0_batch)
+            current_action, history_action = handle_de_history(
+                data_seq_all=action_id_t0_batch, trace_lengths=trace_t0_batch)
+            current_reward, history_reward = handle_de_history(
+                data_seq_all=r_t_seq_batch, trace_lengths=trace_t0_batch)
 
             if predicted_target == 'action':
-                current_state, history_state = handle_de_history(
-                    data_seq_all=s_t0_batch, trace_lengths=trace_t0_batch)
-                current_action, history_action = handle_de_history(
-                    data_seq_all=action_id_t0_batch, trace_lengths=trace_t0_batch)
-                current_reward, history_reward = handle_de_history(
-                    data_seq_all=r_t_seq_batch, trace_lengths=trace_t0_batch)
-
                 input_seq_data = np.concatenate([np.asarray(history_state),
                                                  np.asarray(history_action), np.asarray(history_reward)], axis=2)
                 input_obs_data = np.concatenate([np.asarray(current_state),
                                                  np.asarray(current_reward)], axis=1)
                 embed_data = np.asarray(player_id_t0_batch)
                 target_data = np.asarray(current_action)
-                trace_lengths = trace_t0_batch
+                trace_lengths = [tl - 1 for tl in trace_t0_batch]  # reduce 1 from trace length
+            elif predicted_target == 'state':
+                input_seq_data = np.concatenate([np.asarray(history_state),
+                                                 np.asarray(history_action), np.asarray(history_reward)], axis=2)
+                input_obs_data = np.concatenate([np.asarray(current_action),
+                                                 np.asarray(current_reward)], axis=1)
+                embed_data = np.asarray(player_id_t0_batch)
+                target_data = np.asarray(current_state)
+                trace_lengths = [tl - 1 for tl in trace_t0_batch]  # reduce 1 from trace length
+            elif predicted_target == 'reward':
+                input_seq_data = np.concatenate([np.asarray(history_state),
+                                                 np.asarray(history_action), np.asarray(history_reward)], axis=2)
+                input_obs_data = np.concatenate([np.asarray(current_state),
+                                                 np.asarray(current_action)], axis=1)
+                embed_data = np.asarray(player_id_t0_batch)
+                target_data = np.asarray(current_reward)
+                trace_lengths = [tl - 1 for tl in trace_t0_batch]  # reduce 1 from trace length
+            else:
+                raise ValueError('undefined predicted target')
 
             for i in range(0, len(batch_return)):
                 terminal = batch_return[i][-2]
@@ -127,7 +144,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
                 feed_dict={model.rnn_input_ph: input_seq_data,
                            model.feature_input_ph: input_obs_data,
                            model.y_ph: target_data,
-                           model.embed_label_placeholder: embed_data,
+                           model.embed_label_ph: embed_data,
                            model.trace_lengths_ph: trace_lengths}
             )
             if model_output_all is None:
@@ -144,9 +161,12 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
                 # v_diff_record_average = sum(v_diff_record) / len(v_diff_record)
                 # game_diff_record_dict.update({dir_game: v_diff_record_average})
                 break
-
-    acc = compute_acc(output_actions_prob=model_output_all, target_actions_prob=target_data_all, if_print=True)
-    print ("validation acc is {0}".format(str(acc)))
+    if predicted_target == 'action':
+        acc = compute_acc(output_actions_prob=model_output_all, target_actions_prob=target_data_all, if_print=True)
+        print ("validation acc is {0}".format(str(acc)))
+    else:
+        mae = compute_mae(output_actions_prob=model_output_all, target_actions_prob=target_data_all, if_print=True)
+        print ("mae is {0}".format(str(mae)))
 
 
 def run_network(sess, model, config, training_dir_games_all, testing_dir_games_all, data_store, predicted_target):
@@ -222,21 +242,39 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                 r_t_seq_batch = transfer2seq(data=np.asarray(r_t_batch), trace_length=trace_t0_batch,
                                              max_length=config.Learn.max_seq_length)
 
-                if predicted_target == 'action':
-                    current_state, history_state = handle_de_history(
-                        data_seq_all=s_t0_batch, trace_lengths=trace_t0_batch)
-                    current_action, history_action = handle_de_history(
-                        data_seq_all=action_id_t0_batch, trace_lengths=trace_t0_batch)
-                    current_reward, history_reward = handle_de_history(
-                        data_seq_all=r_t_seq_batch, trace_lengths=trace_t0_batch)
+                current_state, history_state = handle_de_history(
+                    data_seq_all=s_t0_batch, trace_lengths=trace_t0_batch)
+                current_action, history_action = handle_de_history(
+                    data_seq_all=action_id_t0_batch, trace_lengths=trace_t0_batch)
+                current_reward, history_reward = handle_de_history(
+                    data_seq_all=r_t_seq_batch, trace_lengths=trace_t0_batch)
 
+                if predicted_target == 'action':
                     input_seq_data = np.concatenate([np.asarray(history_state),
                                                      np.asarray(history_action), np.asarray(history_reward)], axis=2)
                     input_obs_data = np.concatenate([np.asarray(current_state),
                                                      np.asarray(current_reward)], axis=1)
                     embed_data = np.asarray(player_id_t0_batch)
                     target_data = np.asarray(current_action)
-                    trace_lengths = trace_t0_batch
+                    trace_lengths = [tl-1 for tl in trace_t0_batch]  # reduce 1 from trace length
+                elif predicted_target == 'state':
+                    input_seq_data = np.concatenate([np.asarray(history_state),
+                                                     np.asarray(history_action), np.asarray(history_reward)], axis=2)
+                    input_obs_data = np.concatenate([np.asarray(current_action),
+                                                     np.asarray(current_reward)], axis=1)
+                    embed_data = np.asarray(player_id_t0_batch)
+                    target_data = np.asarray(current_state)
+                    trace_lengths = [tl-1 for tl in trace_t0_batch]  # reduce 1 from trace length
+                elif predicted_target == 'reward':
+                    input_seq_data = np.concatenate([np.asarray(history_state),
+                                                     np.asarray(history_action), np.asarray(history_reward)], axis=2)
+                    input_obs_data = np.concatenate([np.asarray(current_state),
+                                                     np.asarray(current_action)], axis=1)
+                    embed_data = np.asarray(player_id_t0_batch)
+                    target_data = np.asarray(current_reward)
+                    trace_lengths = [tl-1 for tl in trace_t0_batch]  # reduce 1 from trace length
+                else:
+                    raise ValueError('undefined predicted target')
 
                 for i in range(0, len(batch_return)):
                     terminal = batch_return[i][-2]
@@ -258,12 +296,12 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
 
 
 def run():
-    predicted_target = 'action'
+    predicted_target = 'reward'
     is_probability = True if predicted_target == 'action' else False
     de_config_path = "../ice_hockey_{0}_de.yaml".format(predicted_target)
     de_config = DECongfig.load(de_config_path)
 
-    test_flag = True
+    test_flag = False
     # saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config)
     if test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
