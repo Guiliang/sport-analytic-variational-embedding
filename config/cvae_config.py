@@ -11,6 +11,8 @@ class CVAECongfig(object):
         keep_prob = None
         learning_rate = None
         number_of_total_game = None
+        player_Id_style = None
+        sport = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

@@ -8,7 +8,9 @@ Learn:
   feature_type: 'v1'
   iterate_num: 1
   model_type: 'v1'
-  predict_target : 'PlayerId'
+  player_Id_style : 'PlayerId'
+  predict_target : 'action'
+  sport : 'Ice-Hockey'
 
 Arch:
   LSTM:

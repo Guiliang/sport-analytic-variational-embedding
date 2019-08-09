@@ -4,10 +4,10 @@ from support.config_tools import InitWithDict
 """Deterministic Encoding Config"""
 
 
-class DECongfig(object):
+class DEQsCongfig(object):
     def __init__(self, init):
-        self.Learn = DECongfig.Learn(init["Learn"])
-        self.Arch = DECongfig.Arch(init["Arch"])
+        self.Learn = DEQsCongfig.Learn(init["Learn"])
+        self.Arch = DEQsCongfig.Arch(init["Arch"])
 
     class Learn(InitWithDict):
         save_mother_dir = None
@@ -20,22 +20,24 @@ class DECongfig(object):
         iterate_num = None
         model_type = None
         predict_target = None
+        player_Id_style = None
+        sport = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
-            self.LSTM = DECongfig.Arch.LSTM(init["LSTM"])
-            self.Encode = DECongfig.Arch.Encode(init["Encode"])
-            self.Dense = DECongfig.Arch.Dense(init["Dense"])
-            self.Feature = DECongfig.Arch.Feature(init["Feature"])
+            self.LSTM = DEQsCongfig.Arch.LSTM(init["LSTM"])
+            self.Embed = DEQsCongfig.Arch.Embed(init["Embed"])
+            self.Dense = DEQsCongfig.Arch.Dense(init["Dense"])
 
         class LSTM(InitWithDict):
             h_size = None
             lstm_layer_num = None
             feature_number = None
 
-        class Encode(InitWithDict):
+        class Embed(InitWithDict):
+            embed_size = None
+            embed_layer_num = None
             latent_size = None
-            label_size = None
 
         class Dense(InitWithDict):
             dense_layer_num = None
@@ -43,12 +45,7 @@ class DECongfig(object):
             apply_softmax = None
             hidden_node_size = None
 
-        class Feature(InitWithDict):
-            feature_layer_num = None
-            hidden_node_size = None
-            feature_size = None
-
     @staticmethod
     def load(file_path):
         config = yaml.load(open(file_path, 'r'))
-        return DECongfig(config)
+        return DEQsCongfig(config)

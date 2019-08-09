@@ -10,10 +10,11 @@ Learn:
   model_type: 'normal'
   number_of_total_game: 1202
   action_number : 33
-  predict_target: 'PlayerPositionCluster'
+  player_Id_style: 'PlayerPositionCluster'
   gamma : 1
   player_cluster_number: 26
   data_name: ice_hockey-2019
+  sport : 'Ice-Hockey'
 
 Arch:
   CVRNN:

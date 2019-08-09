@@ -22,6 +22,8 @@ class CVRNNCongfig(object):
         gamma = None
         player_cluster_number = None
         data_name = None
+        player_Id_style = None
+        sport = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

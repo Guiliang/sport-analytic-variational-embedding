@@ -14,7 +14,8 @@ Learn:
   output_layer_size : 5
   player_cluster_number: 5
   apply_softmax : 1
-  predict_target: 'PlayerPosition'
+  player_Id_style: 'PlayerPosition'
+  sport : 'Ice-Hockey'
   gamma : 1
 
 Arch:

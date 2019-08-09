@@ -1,4 +1,5 @@
 import copy
+import csv
 import sys
 
 print sys.path
@@ -12,8 +13,8 @@ import os
 from support.data_processing_tools import transfer2seq, get_icehockey_game_data, \
     get_together_training_batch, handle_de_history
 from nn_structure.de_nn import DeterministicEmbedding
-from config.de_config import DECongfig
-from support.model_tools import compute_acc, compute_mae
+from config.de_embed_config import DEEmbedCongfig
+from support.model_tools import compute_acc, compute_mae, get_model_and_log_name
 
 
 def train_model(model, sess, config, input_seq_data, input_obs_data, target_data,
@@ -169,9 +170,14 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
         print ("mae is {0}".format(str(mae)))
 
 
-def run_network(sess, model, config, training_dir_games_all, testing_dir_games_all, data_store, predicted_target):
+def run_network(sess, model, config,
+                training_dir_games_all, testing_dir_games_all,
+                data_store, predicted_target,
+                save_network_dir
+                ):
     game_number = 0
     converge_flag = False
+    saver = tf.train.Saver(max_to_keep=300)
 
     while True:
         game_diff_record_dict = {}
@@ -256,7 +262,7 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                                                      np.asarray(current_reward)], axis=1)
                     embed_data = np.asarray(player_id_t0_batch)
                     target_data = np.asarray(current_action)
-                    trace_lengths = [tl-1 for tl in trace_t0_batch]  # reduce 1 from trace length
+                    trace_lengths = [tl - 1 for tl in trace_t0_batch]  # reduce 1 from trace length
                 elif predicted_target == 'state':
                     input_seq_data = np.concatenate([np.asarray(history_state),
                                                      np.asarray(history_action), np.asarray(history_reward)], axis=2)
@@ -264,7 +270,7 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                                                      np.asarray(current_reward)], axis=1)
                     embed_data = np.asarray(player_id_t0_batch)
                     target_data = np.asarray(current_state)
-                    trace_lengths = [tl-1 for tl in trace_t0_batch]  # reduce 1 from trace length
+                    trace_lengths = [tl - 1 for tl in trace_t0_batch]  # reduce 1 from trace length
                 elif predicted_target == 'reward':
                     input_seq_data = np.concatenate([np.asarray(history_state),
                                                      np.asarray(history_action), np.asarray(history_reward)], axis=2)
@@ -272,7 +278,7 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                                                      np.asarray(current_action)], axis=1)
                     embed_data = np.asarray(player_id_t0_batch)
                     target_data = np.asarray(current_reward)
-                    trace_lengths = [tl-1 for tl in trace_t0_batch]  # reduce 1 from trace length
+                    trace_lengths = [tl - 1 for tl in trace_t0_batch]  # reduce 1 from trace length
                 else:
                     raise ValueError('undefined predicted target')
 
@@ -291,15 +297,35 @@ def run_network(sess, model, config, training_dir_games_all, testing_dir_games_a
                     # v_diff_record_average = sum(v_diff_record) / len(v_diff_record)
                     # game_diff_record_dict.update({dir_game: v_diff_record_average})
                     break
+            if game_number % 100 == 1:
+                collect_de_player_embeddings(sess=sess, model=model, save_network_dir=save_network_dir,
+                                             game_number=game_number)
+                if save_network_dir is not None:
+                    print 'saving game', game_number
+                    saver.save(sess, save_network_dir + '/' + config.Learn.sport + '-game-',
+                               global_step=game_number)
             if game_number % 10 == 1:
                 validation_model(testing_dir_games_all, data_store, config, sess, model, predicted_target)
+
+
+def collect_de_player_embeddings(sess, model, save_network_dir, game_number):
+    save_embed_dir = save_network_dir.replace('de_embed_saved_networks', 'store_embedding'). \
+        replace('de_model_saved_NN', 'de_model_save_embedding')
+    if not os.path.exists(save_embed_dir):
+        os.mkdir(save_embed_dir)
+    player_embeddings = sess.run(model.embed_w)
+    with open(save_embed_dir + '/embedding_matrix_game{0}.csv'.format(str(game_number)), 'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(player_embeddings.tolist())
+
+    # return player_embeddings
 
 
 def run():
     predicted_target = 'reward'
     is_probability = True if predicted_target == 'action' else False
     de_config_path = "../ice_hockey_{0}_de.yaml".format(predicted_target)
-    de_config = DECongfig.load(de_config_path)
+    de_config = DEEmbedCongfig.load(de_config_path)
 
     test_flag = False
     # saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config)
@@ -308,12 +334,14 @@ def run():
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
+        saved_network = None
     else:
         data_store_dir = de_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
+        saved_network, log_dir = get_model_and_log_name(config=de_config, model_catagoery='de_embed', train_flag=False)
     number_of_total_game = len(dir_games_all)
     de_config.Learn.number_of_total_game = number_of_total_game
 
@@ -324,7 +352,7 @@ def run():
     sess.run(tf.global_variables_initializer())
     run_network(sess=sess, model=model, config=de_config,
                 training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
-                data_store=data_store_dir, predicted_target=predicted_target)
+                data_store=data_store_dir, predicted_target=predicted_target, save_network_dir=saved_network)
     sess.close()
 
 

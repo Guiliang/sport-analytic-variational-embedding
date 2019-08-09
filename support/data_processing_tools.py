@@ -179,9 +179,9 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
     action_id_name = None
     player_index_name = None
 
-    if config.Learn.predict_target == 'PlayerId':
+    if config.Learn.player_Id_style == 'PlayerId':
         player_index_select = 'player_index'
-    elif config.Learn.predict_target == 'PlayerPosition' or config.Learn.predict_target == 'PlayerPositionCluster':
+    elif config.Learn.player_Id_style == 'PlayerPosition' or config.Learn.predict_target == 'PlayerPositionCluster':
         player_index_select = 'player_id'
     else:
         raise ValueError('unknown predict_target:' + config.Learn.predict_target)

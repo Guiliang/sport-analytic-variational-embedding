@@ -23,6 +23,8 @@ class LSTMCongfig(object):
         output_layer_size = None
         apply_softmax = None
         predict_target = None
+        player_Id_style = None
+        sport = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
