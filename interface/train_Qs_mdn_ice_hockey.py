@@ -194,7 +194,7 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
 
 
 def run():
-    test_flag = True
+    test_flag = False
     icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_mdn.yaml"
     icehockey_mdn_Qs_config = MDNQsCongfig.load(icehockey_mdn_Qs_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config, model_catagoery='mdn_Qs')
