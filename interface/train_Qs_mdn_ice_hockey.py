@@ -92,8 +92,9 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             cut = batch_return[i][-1]
 
         if training_flag:
+            pretrain_flag = True if game_number < 500 else True
             train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
-                           input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut)
+                           input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut, pretrain_flag)
 
         else:
             pass
@@ -107,7 +108,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
 def run_network(sess, model, config, log_dir, save_network_dir,
                 training_dir_games_all, testing_dir_games_all,
-                data_store, player_id_cluster_dir, compute_embedding=True):
+                data_store, player_id_cluster_dir, save_flag=True):
     game_number = 0
     converge_flag = False
     saver = tf.train.Saver(max_to_keep=300)
@@ -130,7 +131,7 @@ def run_network(sess, model, config, log_dir, save_network_dir,
             gathering_running_and_run(dir_game, config,
                                       player_id_cluster_dir, data_store, model, sess,
                                       training_flag=True, game_number=game_number)
-            if game_number % 100 == 1:
+            if game_number % 100 == 1 and save_flag:
                 save_model(game_number, saver, sess, save_network_dir, config)
                 # validate_model(testing_dir_games_all, data_store, config,
                 #                sess, model, player_id_cluster_dir, train_game_number=game_number)
@@ -145,7 +146,7 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 
 
 def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
-                   input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut):
+                   input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut, pretrain_flag):
     [mu1, var1] = sess.run([model.mu_out, model.var_out],
                            feed_dict={model.rnn_input_ph: input_data_t1,
                                       model.trace_lengths_ph: trace_lengths_t1})
@@ -154,20 +155,23 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
     for reward in r_t_batch:
         if reward[0] == 1 or reward[1] == 1 or reward[2] == 1:
             print reward
+
+    train_list = [
+        model.mu_out,
+        model.var_out,
+    ]
+    if pretrain_flag:
+        train_list += [model.train_pretrain_step, model.td_loss]
+    else:
+        train_list += [model.train_normal_step, model.normal_loss]
+
     [
         mu0,
         var0,
         _,
-        normal_diff,
         loss
     ] = sess.run(
-        [
-            model.mu_out,
-            model.var_out,
-            model.train_step,
-            model.normal_loss,
-            model.loss
-        ],
+        train_list,
         feed_dict={model.rnn_input_ph: input_data_t0,
                    model.trace_lengths_ph: trace_lengths_t0,
                    model.y_mu_ph: mu1,
@@ -183,11 +187,14 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
     #     print (r_t_batch)
     #     print("loss:{0} gaussian diff:{1}".format(str(loss), str(normal_diff)))
     #     raise ValueError('loss error')
-    print("loss:{0} gaussian diff:{1}".format(str(loss), str(normal_diff)))
+    if pretrain_flag:
+        print("pre train loss:{0}".format(str(loss)))
+    else:
+        print("train loss:{0}".format(str(loss)))
 
 
 def run():
-    test_flag = False
+    test_flag = True
     icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_mdn.yaml"
     icehockey_mdn_Qs_config = MDNQsCongfig.load(icehockey_mdn_Qs_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config, model_catagoery='mdn_Qs')
@@ -197,12 +204,14 @@ def run():
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
+        save_flag = False
     else:
         data_store_dir = icehockey_mdn_Qs_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
+        save_flag = True
     number_of_total_game = len(dir_games_all)
     icehockey_mdn_Qs_config.Learn.number_of_total_game = number_of_total_game
 
@@ -213,7 +222,7 @@ def run():
     run_network(sess=sess, model=model, config=icehockey_mdn_Qs_config, log_dir=log_dir,
                 save_network_dir=saved_network_dir, data_store=data_store_dir,
                 training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
-                player_id_cluster_dir=None)
+                player_id_cluster_dir=None, save_flag=save_flag)
     sess.close()
 
 

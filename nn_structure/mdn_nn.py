@@ -4,7 +4,6 @@ from support.model_tools import normal_td, calc_pdf
 
 
 class MixtureDensityNN():
-
     def __init__(self, config):
         self.lstm_cell_all = []
         self.config = config
@@ -62,13 +61,13 @@ class MixtureDensityNN():
             self.var_bias = tf.get_variable('b_var', [self.config.Learn.gaussian_size * 3],
                                             initializer=tf.contrib.layers.xavier_initializer())
 
-        # with tf.name_scope('Pi'):
-        #     self.pi_weight = tf.get_variable('w_pi',
-        #                                      {self.config.Arch.Dense.hidden_size,
-        #                                       self.config.Learn.gaussian_size * 3},
-        #                                      initializer=tf.contrib.layers.xavier_initializer())
-        #     self.pi_bias = tf.get_variable('b_pi', [self.config.Learn.gaussian_size * 3],
-        #                                    initializer=tf.contrib.layers.xavier_initializer())
+            # with tf.name_scope('Pi'):
+            #     self.pi_weight = tf.get_variable('w_pi',
+            #                                      {self.config.Arch.Dense.hidden_size,
+            #                                       self.config.Learn.gaussian_size * 3},
+            #                                      initializer=tf.contrib.layers.xavier_initializer())
+            #     self.pi_bias = tf.get_variable('b_pi', [self.config.Learn.gaussian_size * 3],
+            #                                    initializer=tf.contrib.layers.xavier_initializer())
 
     def __call__(self):
         """connect the network"""
@@ -94,8 +93,8 @@ class MixtureDensityNN():
             for i in range(self.config.Arch.Dense.dense_layer_num):
                 dense_input = rnn_last if i == 0 else dense_output
                 dense_output = tf.matmul(dense_input, self.dense_layer_weights[i]) + self.dense_layer_bias[i]
-                if i < self.config.Arch.Dense.dense_layer_num - 1:
-                    dense_output = tf.nn.relu(dense_output, name='activation_{0}'.format(str(i)))
+                # if i < self.config.Arch.Dense.dense_layer_num - 1:
+                dense_output = tf.nn.relu(dense_output, name='activation_{0}'.format(str(i)))
 
         with tf.name_scope('Mu'):
             self.mu = tf.matmul(dense_output, self.mu_weight) + self.mu_bias
@@ -120,12 +119,16 @@ class MixtureDensityNN():
         #     self.pi_out = tf.reshape(self.pi, shape=[-1, self.config.Learn.gaussian_size, 3])
 
         with tf.name_scope('loss'):
-            self.loss, self.normal_loss = self._compute_loss()
+            self.normal_loss = self._compute_normal_loss()
+            self.td_loss = self._compute_de_loss()
 
         with tf.name_scope("train"):
-            self.train_step = tf.train.AdamOptimizer(learning_rate=self.config.Learn.learning_rate).minimize(self.loss)
+            self.train_normal_step = tf.train.AdamOptimizer(
+                learning_rate=self.config.Learn.learning_rate).minimize(self.normal_loss)
+            self.train_pretrain_step = tf.train.AdamOptimizer(
+                learning_rate=self.config.Learn.learning_rate).minimize(self.td_loss)
 
-    def _compute_loss(self):
+    def _compute_normal_loss(self):
         """MDN Loss Function
         """
         self.y_mu = self.y_mu_ph
@@ -141,4 +144,10 @@ class MixtureDensityNN():
         # out = tf.multiply(out, self.pi)
         # normal_diff = tf.reduce_sum(normal_diff, 1, keep_dims=True)
         out = -tf.log(normal_diff + 1e-10)  # negative log likelihood
-        return tf.reduce_mean(out), tf.reduce_mean(normal_diff)
+        return tf.reduce_mean(out)
+
+    def _compute_de_loss(self):
+        """DE TD loss for pre-training"""
+        self.y_mu = self.y_mu_ph
+        td_loss = tf.square(self.y_mu + self.r_ph - self.mu)
+        return tf.reduce_mean(td_loss)
