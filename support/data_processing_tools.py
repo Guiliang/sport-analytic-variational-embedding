@@ -8,6 +8,7 @@ import unicodedata
 from ice_hockey_data_config import player_position_index_dict
 import copy
 
+
 # from config.icehockey_feature_setting import select_feature_setting
 
 
@@ -744,16 +745,38 @@ def check_duplicate_name(player_scoring_stats):
             player_name_dict_frequency.update({player_first_name_score + ' ' + player_last_name_score: 1})
 
 
-if __name__ == '__main__':
-    player_scoring_stats_dir = '../resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
-    player_scoring_stats = read_player_stats(player_scoring_stats_dir)
-    # check_duplicate_name(player_scoring_stats)
+def normal_td(mu1, mu2, var1, var2, y):
+    """compute td error between two normal distribution"""
+    loss = []
+    batch_size = mu1.shape[0] if len(mu1.shape) > 1 else 1
+    for index in range(batch_size):
+        mu_diff = (mu2[index] - mu1[index])
+        var_diff = (var1 ** 2 + var2 ** 2) ** 0.5
+        # https://stats.stackexchange.com/questions/186463/distribution-of-difference-between-two-normal-distributions
+        com1 = (var_diff ** -1) * (2 / np.pi) ** 0.5
+        com2 = np.cosh(y * mu_diff / var_diff ** 2)
+        com3 = np.exp(-1 * (y ** 2 + mu_diff ** 2) / (2 * var_diff ** 2))
+        loss.append(com1 * com2 * com3)
+    return loss
 
-    player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
-    with open(player_basic_info_dir, 'rb') as f:
-        player_basic_info = json.load(f)
-    position_set = set()
-    for player_info in player_basic_info.values():
-        position_set.add(player_info.get('position'))
-    returning_player_id_stats_info_dict = generate_player_name_id_features(player_basic_info, player_scoring_stats,
-                                                                           interest_features=['Goals', 'Assists'])
+
+if __name__ == '__main__':
+    normal_td(np.asarray([0.2561741, 0.25606957]),
+              np.asarray([0.25351873, 0.25392953]),
+              np.asarray([1.4007641, 1.353279]),
+              np.asarray([1.3459749, 1.316068]),
+              np.asarray([1, 0]))
+
+# if __name__ == '__main__':
+#     player_scoring_stats_dir = '../resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
+#     player_scoring_stats = read_player_stats(player_scoring_stats_dir)
+#     # check_duplicate_name(player_scoring_stats)
+#
+#     player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+#     with open(player_basic_info_dir, 'rb') as f:
+#         player_basic_info = json.load(f)
+#     position_set = set()
+#     for player_info in player_basic_info.values():
+#         position_set.add(player_info.get('position'))
+#     returning_player_id_stats_info_dict = generate_player_name_id_features(player_basic_info, player_scoring_stats,
+#                                                                            interest_features=['Goals', 'Assists'])

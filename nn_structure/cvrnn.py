@@ -143,7 +143,7 @@ class CVRNN():
         self.prior_sigma = None
         self.output = None
         self.train_general_op = None
-        self.train_yd_op = None
+        self.train_td_op = None
         self.sarsa_output = None
         self.td_loss = None
         self.td_avg_diff = None
@@ -156,7 +156,7 @@ class CVRNN():
                                   "dec_x", "prior_mu", "prior_sigma", "z_encoder"]
 
     @property
-    def call(self):
+    def __call__(self):
 
         def tf_normal(target_x, mu, s, rho):  # TODO: bug, bug, bug, dynamic_rnn has zero-out, but anyway we ignore it
             with tf.variable_scope('normal'):
@@ -340,7 +340,7 @@ class CVRNN():
         for t in tvars_td:
             print ('td_var: ' + str(t.name))
         td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_td)
-        self.train_yd_op = optimizer.apply_gradients(zip(td_grads, tvars_td))
+        self.train_td_op = optimizer.apply_gradients(zip(td_grads, tvars_td))
 
         # def sample(self, sess, args, num=4410, start=None):
         #

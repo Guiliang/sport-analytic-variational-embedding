@@ -72,7 +72,7 @@ class TD_Prediction_Embed:
                     rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
                         inputs=rnn_input, cell=self.lstm_cell_all[i],
                         sequence_length=self.trace_lengths_ph, dtype=tf.float32,
-                        scope=self.rnn_type + '_home_rnn_{0}'.format(str(i)))
+                        scope=self.rnn_type + '_rnn_{0}'.format(str(i)))
                 outputs = tf.stack(rnn_output)
                 # Hack to build the indexing and retrieve the right output.
                 self.batch_size = tf.shape(outputs)[0]

@@ -322,7 +322,7 @@ def collect_de_player_embeddings(sess, model, save_network_dir, game_number):
 
 
 def run():
-    predicted_target = 'reward'
+    predicted_target = 'state'
     is_probability = True if predicted_target == 'action' else False
     de_config_path = "../ice_hockey_{0}_de.yaml".format(predicted_target)
     de_config = DEEmbedCongfig.load(de_config_path)
