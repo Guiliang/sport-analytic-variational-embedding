@@ -120,13 +120,13 @@ class MixtureDensityNN():
 
         with tf.name_scope('loss'):
             self.normal_loss = self._compute_normal_loss()
-            self.td_loss = self._compute_de_loss()
+            self.td_loss, self.bias_loss = self._compute_de_loss()
 
         with tf.name_scope("train"):
             self.train_normal_step = tf.train.AdamOptimizer(
-                learning_rate=self.config.Learn.learning_rate).minimize(self.normal_loss)
+                learning_rate=self.config.Learn.learning_rate / 1000).minimize(self.normal_loss)
             self.train_pretrain_step = tf.train.AdamOptimizer(
-                learning_rate=self.config.Learn.learning_rate).minimize(self.td_loss)
+                learning_rate=self.config.Learn.learning_rate).minimize(self.td_loss+self.bias_loss)
 
     def _compute_normal_loss(self):
         """MDN Loss Function
@@ -150,4 +150,7 @@ class MixtureDensityNN():
         """DE TD loss for pre-training"""
         self.y_mu = self.y_mu_ph
         td_loss = tf.square(self.y_mu + self.r_ph - self.mu)
-        return tf.reduce_mean(td_loss)
+
+        bias_punish_loss = (self.mu[:, 0] / self.mu[:, 1]) + (self.mu[:, 1] / self.mu[:, 0])
+
+        return tf.reduce_mean(td_loss), tf.reduce_mean(bias_punish_loss/1e5)
