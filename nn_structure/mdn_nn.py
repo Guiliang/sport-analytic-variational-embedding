@@ -151,6 +151,6 @@ class MixtureDensityNN():
         self.y_mu = self.y_mu_ph
         td_loss = tf.square(self.y_mu + self.r_ph - self.mu)
 
-        bias_punish_loss = (self.mu[:, 0] / self.mu[:, 1]) + (self.mu[:, 1] / self.mu[:, 0])
+        bias_punish_loss = (self.mu[:, 0] / self.mu[:, 1]-1) + (self.mu[:, 1] / self.mu[:, 0]-1)
 
-        return tf.reduce_mean(td_loss), tf.reduce_mean(bias_punish_loss/1e5)
+        return tf.reduce_mean(td_loss), tf.reduce_mean(bias_punish_loss/1e3)
