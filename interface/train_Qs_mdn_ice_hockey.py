@@ -93,7 +93,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             cut = batch_return[i][-1]
 
         if training_flag:
-            print (len(state_input) / (config.Learn.batch_size*10))
+            # print (len(state_input) / (config.Learn.batch_size*10))
             print_flag = True if batch_number % (len(state_input) / (config.Learn.batch_size*10)) == 0 else False
             pretrain_flag = True if game_number < 200 else False
             train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
