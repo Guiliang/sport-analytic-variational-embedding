@@ -46,6 +46,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
     train_len = len(state_input)
     train_number = 0
+    batch_number = 0
     s_t0 = state_input[train_number]
     train_number += 1
     while True:
@@ -92,13 +93,16 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             cut = batch_return[i][-1]
 
         if training_flag:
-            pretrain_flag = True if game_number < 500 else False
+            print (len(state_input) / (config.Learn.batch_size*10))
+            print_flag = True if batch_number % (len(state_input) / (config.Learn.batch_size*10)) == 0 else False
+            pretrain_flag = True if game_number < 200 else False
             train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
-                           input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut, pretrain_flag)
-
+                           input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut,
+                           pretrain_flag, print_flag)
         else:
             pass
 
+        batch_number += 1
         s_t0 = s_tl
         if terminal:
             break
@@ -146,39 +150,30 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 
 
 def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
-                   input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut, pretrain_flag):
+                   input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut,
+                   pretrain_flag, print_flag):
     [mu1, var1] = sess.run([model.mu_out, model.var_out],
                            feed_dict={model.rnn_input_ph: input_data_t1,
                                       model.trace_lengths_ph: trace_lengths_t1})
-    print(np.mean(mu1, axis=0))
-    print(np.mean(var1, axis=0))
-    for reward in r_t_batch:
-        if reward[0] == 1 or reward[1] == 1 or reward[2] == 1:
-            print reward
+    # for reward in r_t_batch:
+    #     if reward[0] == 1 or reward[1] == 1 or reward[2] == 1:
+    #         print reward
 
-    train_list = [
-        model.mu_out,
-        model.var_out,
-    ]
     if pretrain_flag:
-        train_list += [model.train_pretrain_step, model.td_loss]
+        train_list = [model.mu_out, model.var_out, model.train_pretrain_step, model.td_loss, model.bias_loss]
     else:
-        train_list += [model.train_normal_step, model.normal_loss]
+        train_list = [model.mu_out, model.var_out, model.train_normal_step, model.normal_loss]
 
-    [
-        mu0,
-        var0,
-        _,
-        loss
-    ] = sess.run(
-        train_list,
-        feed_dict={model.rnn_input_ph: input_data_t0,
-                   model.trace_lengths_ph: trace_lengths_t0,
-                   model.y_mu_ph: mu1,
-                   model.y_var_ph: var1,
-                   model.r_ph: r_t_batch
-                   }
-    )
+    train_outputs = \
+        sess.run(
+            train_list,
+            feed_dict={model.rnn_input_ph: input_data_t0,
+                       model.trace_lengths_ph: trace_lengths_t0,
+                       model.y_mu_ph: mu1,
+                       model.y_var_ph: var1,
+                       model.r_ph: r_t_batch
+                       }
+        )
     # if normal_diff > 1:
     #     print (mu0)
     #     print (mu1)
@@ -187,14 +182,19 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
     #     print (r_t_batch)
     #     print("loss:{0} gaussian diff:{1}".format(str(loss), str(normal_diff)))
     #     raise ValueError('loss error')
-    if pretrain_flag:
-        print("pre train loss:{0}".format(str(loss)))
-    else:
-        print("train loss:{0}".format(str(loss)))
+    if print_flag or terminal:
+        print(np.mean(mu1, axis=0))
+        print(np.mean(var1, axis=0))
+        if pretrain_flag:
+            [mu0, var0, _, td_loss, bias_loss] = train_outputs
+            print("pre train td loss:{0} and bias loss:{1}".format(str(td_loss), str(bias_loss)))
+        else:
+            [mu0, var0, _, loss] = train_outputs
+            print("mdn train loss:{0}".format(str(loss)))
 
 
 def run():
-    test_flag = True
+    test_flag = False
     icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_mdn.yaml"
     icehockey_mdn_Qs_config = MDNQsCongfig.load(icehockey_mdn_Qs_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config, model_catagoery='mdn_Qs')
