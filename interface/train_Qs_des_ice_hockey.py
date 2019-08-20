@@ -312,7 +312,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
 
 def run():
     test_flag = False
-    icehockey_de_Qs_config_path = "../ice_hockey_predict_Qs_de.yaml"
+    icehockey_de_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_de.yaml"
     icehockey_de_Qs_config = DEQsCongfig.load(icehockey_de_Qs_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_de_Qs_config, model_catagoery='de_Qs')
 

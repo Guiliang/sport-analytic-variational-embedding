@@ -23,7 +23,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                               validate_td_flag=False, validate_variance_flag=False,
                               output_decoder_all=None,
                               target_data_all=None, selection_matrix_all=None,
-                              q_values_all=None):
+                              q_values_all=None, pretrain_flag=None):
     if validate_variance_flag:
         match_q_values_players_dict = {}
         for i in range(config.Learn.player_cluster_number):
@@ -95,7 +95,6 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         if training_flag:
             # print (len(state_input) / (config.Learn.batch_size*10))
             print_flag = True if batch_number % (len(state_input) / (config.Learn.batch_size*10)) == 0 else False
-            pretrain_flag = True if game_number < 500 else False
             train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
                            input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut,
                            pretrain_flag, print_flag)
@@ -116,7 +115,7 @@ def run_network(sess, model, config, log_dir, save_network_dir,
     game_number = 0
     converge_flag = False
     saver = tf.train.Saver(max_to_keep=300)
-
+    pretrain_number = 500
     while True:
         game_diff_record_dict = {}
         iteration_now = game_number / config.Learn.number_of_total_game + 1
@@ -131,12 +130,16 @@ def run_network(sess, model, config, log_dir, save_network_dir,
             if dir_game == '.DS_Store':
                 continue
             game_number += 1
-            print ("\ntraining file" + str(dir_game))
+            print ("\ntraining file {0} with game number {1}".format(str(dir_game), str(game_number)))
+            pretrain_flag = True if game_number <= pretrain_number else False
             gathering_running_and_run(dir_game, config,
                                       player_id_cluster_dir, data_store, model, sess,
-                                      training_flag=True, game_number=game_number)
-            if game_number % 100 == 1 and save_flag:
+                                      training_flag=True, game_number=game_number, pretrain_flag=pretrain_flag)
+            if game_number == pretrain_number and save_flag:
                 save_model(game_number, saver, sess, save_network_dir, config)
+            if not pretrain_flag:
+                if game_number % 100 == 1 and save_flag:
+                    save_model(game_number, saver, sess, save_network_dir, config)
                 # validate_model(testing_dir_games_all, data_store, config,
                 #                sess, model, player_id_cluster_dir, train_game_number=game_number)
 
