@@ -710,7 +710,8 @@ def generate_player_name_id_features(player_basic_info, player_scoring_stats, in
                 match_id = id
                 match_name = player_first_name_score + ' ' + player_last_name_score
 
-                returning_player_id_stats = {'name': match_name, 'position': player_position_basic}
+                returning_player_id_stats = {'name': match_name, 'position': player_position_basic,
+                                             'team': player_team_basic}
                 for index in range(0, len(interest_features)):
                     feature_value = player_scoring_stat_split[feature_indices_all[index] + 1]
                     returning_player_id_stats.update({interest_features[index]: feature_value})

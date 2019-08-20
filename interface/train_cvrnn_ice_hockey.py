@@ -106,8 +106,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             train_cvrnn_model(model, sess, config, input_data_t0, target_data_t0,
                               trace_lengths_t0, selection_matrix_t0, terminal, pretrain_flag)
 
-            train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
-                           input_data_t1, trace_lengths_t1, selection_matrix_t1, r_t_batch, terminal, cut)
+            # train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
+            #                input_data_t1, trace_lengths_t1, selection_matrix_t1, r_t_batch, terminal, cut)
 
         else:
             if validate_cvrnn_flag:
@@ -149,7 +149,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
 def run_network(sess, model, config, log_dir, save_network_dir,
                 training_dir_games_all, testing_dir_games_all,
-                data_store, player_id_cluster_dir, compute_embedding=True):
+                data_store, player_id_cluster_dir, save_flag=False):
     game_number = 0
     converge_flag = False
     saver = tf.train.Saver(max_to_keep=300)
@@ -173,9 +173,11 @@ def run_network(sess, model, config, log_dir, save_network_dir,
                                       player_id_cluster_dir, data_store, model, sess,
                                       training_flag=True, game_number=game_number)
             if game_number % 100 == 1:
-                save_model(game_number, saver, sess, save_network_dir, config)
+                # save_model(game_number, saver, sess, save_network_dir, config)
                 validate_model(testing_dir_games_all, data_store, config,
-                               sess, model, player_id_cluster_dir, train_game_number=game_number)
+                               sess, model, player_id_cluster_dir,
+                               train_game_number=game_number,
+                               validate_cvrnn_flag=True, validate_td_flag=False)
 
 
 def save_model(game_number, saver, sess, save_network_dir, config):
@@ -296,34 +298,9 @@ def train_cvrnn_model(model, sess, config, input_data, target_data, trace_length
 
     acc = compute_rnn_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
                           selection_matrix=selection_matrix, config=config)
-
-    # perform gradient step
-    # v_diff_record.append(td_loss)
-
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
     #     converge_flag = False
     cost_out = likelihood_loss + kl_loss
-    # game_cost_record.append(cost_out)
-    # train_writer.add_summary(summary_train, global_step=global_counter)
-    # if pretrain_flag:
-    #     print("cost of the network: kl:0.0 and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-    #                                                                        str(np.mean(likelihood_loss)),
-    #                                                                        str(acc)))
-    # else:
-    # print ("cost of the network: kl:{0} and ll:{1} with acc {2}".format(str(np.mean(kl_loss)),
-    #                                                                     str(np.mean(likelihood_loss)),
-    #                                                                     str(acc)))
-    # home_avg = sum(q0[:, 0]) / len(q0[:, 0])
-    # away_avg = sum(q0[:, 1]) / len(q0[:, 1])
-    # end_avg = sum(q0[:, 2]) / len(q0[:, 2])
-    # print "home average:{0}, away average:{1}, end average:{2}".format(str(home_avg), str(away_avg),
-    #                                                                    str(end_avg))
-    # if writing_loss_flag:
-    #     cost_per_game_average = sum(game_cost_record) / len(game_cost_record)
-    #     write_game_average_csv(
-    #         [{"iteration": str(game_number / config.number_of_total_game + 1), "game": game_number,
-    #           "cost_per_game_average": cost_per_game_average}],
-    #         log_dir=log_dir)
 
 
 def cvrnn_validation(sess, model, input_data_t0, target_data_t0, trace_lengths_t0, selection_matrix_t0, config):
@@ -412,10 +389,10 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
     target_data_all = None
     selection_matrix_all = None
     q_values_all = None
-    validate_variance_flag = True
+    validate_variance_flag = False
     print('validating model')
     for dir_game in testing_dir_games_all:
-
+        print('validating game {0}'.format(str(dir_game)))
         if dir_game == '.DS_Store':
             continue
 
@@ -430,13 +407,13 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
                                                                   training_flag=False,
                                                                   game_number=None,
                                                                   validate_cvrnn_flag=True,
-                                                                  validate_td_flag=True,
+                                                                  validate_td_flag=False,
                                                                   validate_variance_flag=validate_variance_flag,
                                                                   output_decoder_all=output_decoder_all,
                                                                   target_data_all=target_data_all,
                                                                   selection_matrix_all=selection_matrix_all,
                                                                   q_values_all=q_values_all)
-        validate_variance_flag = False
+        # validate_variance_flag = False
         if match_q_values_players_dict is not None:
             plot_players_games(match_q_values_players_dict, train_game_number)
 
@@ -450,7 +427,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
 
 def run():
     test_flag = False
-    cluster = 'km'
+    cluster = None
     if cluster == 'ap':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
@@ -461,7 +438,7 @@ def run():
         player_id_cluster_dir = None
         predicted_target = ''
 
-    icehockey_cvrnn_config_path = "../icehockey_cvrnn{0}_config.yaml".format(predicted_target)
+    icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config.yaml".format(predicted_target)
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config, model_catagoery='cvrnn')
 
@@ -475,13 +452,13 @@ def run():
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
-        testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
+        testing_dir_games_all = dir_games_all[-1:]  # TODO: testing
     number_of_total_game = len(dir_games_all)
     icehockey_cvrnn_config.Learn.number_of_total_game = number_of_total_game
 
     sess = tf.Session()
     cvrnn = CVRNN(config=icehockey_cvrnn_config)
-    cvrnn.call
+    cvrnn()
     sess.run(tf.global_variables_initializer())
     run_network(sess=sess, model=cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
                 save_network_dir=saved_network_dir, data_store=data_store_dir,

@@ -155,7 +155,7 @@ class CVRNN():
         self.cell_output_names = ["enc_mu", "enc_sigma", "dec_mu", "dec_sigma",
                                   "dec_x", "prior_mu", "prior_sigma", "z_encoder"]
 
-    @property
+    # @property
     def __call__(self):
 
         def tf_normal(target_x, mu, s, rho):  # TODO: bug, bug, bug, dynamic_rnn has zero-out, but anyway we ignore it
