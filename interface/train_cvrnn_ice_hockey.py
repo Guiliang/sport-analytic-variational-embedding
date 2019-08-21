@@ -8,6 +8,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
+from support.model_tools import ExperienceReplayMemory
 from config.cvrnn_config import CVRNNCongfig
 from nn_structure.cvrnn import CVRNN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
@@ -83,19 +84,39 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         else:
             train_mask = np.asarray([[[0]] * config.Learn.max_seq_length] * len(s_t0_batch))
         # (player_id, state ,action flag)
-        input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
-                                        np.asarray(action_id_t0), train_mask], axis=2)
-        target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
-        trace_lengths_t0 = trace_t0_batch
-        selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
-                                                        max_trace_length=config.Learn.max_seq_length)
 
-        input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch), np.asarray(s_t1_batch),
-                                        np.asarray(action_id_t1), train_mask], axis=2)
-        target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
-        trace_lengths_t1 = trace_t1_batch
-        selection_matrix_t1 = generate_selection_matrix(trace_t1_batch,
-                                                        max_trace_length=config.Learn.max_seq_length)
+        if config.Learn.predict_target == 'PlayerLocalId':
+            input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch),
+                                            np.asarray(team_id_t0_batch),
+                                            np.asarray(s_t0_batch),
+                                            np.asarray(action_id_t0), train_mask], axis=2)
+            target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
+            trace_lengths_t0 = trace_t0_batch
+            selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
+                                                            max_trace_length=config.Learn.max_seq_length)
+
+            input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch),
+                                           np.asarray(team_id_t1_batch),
+                                            np.asarray(s_t1_batch),
+                                            np.asarray(action_id_t1), train_mask], axis=2)
+            target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+            trace_lengths_t1 = trace_t1_batch
+            selection_matrix_t1 = generate_selection_matrix(trace_t1_batch,
+                                                            max_trace_length=config.Learn.max_seq_length)
+        else:
+            input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
+                                            np.asarray(action_id_t0), train_mask], axis=2)
+            target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
+            trace_lengths_t0 = trace_t0_batch
+            selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
+                                                            max_trace_length=config.Learn.max_seq_length)
+
+            input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch), np.asarray(s_t1_batch),
+                                            np.asarray(action_id_t1), train_mask], axis=2)
+            target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+            trace_lengths_t1 = trace_t1_batch
+            selection_matrix_t1 = generate_selection_matrix(trace_t1_batch,
+                                                            max_trace_length=config.Learn.max_seq_length)
 
         for i in range(0, len(batch_return)):
             terminal = batch_return[i][-2]
@@ -298,6 +319,7 @@ def train_cvrnn_model(model, sess, config, input_data, target_data, trace_length
 
     acc = compute_rnn_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
                           selection_matrix=selection_matrix, config=config)
+    print acc
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
     #     converge_flag = False
     cost_out = likelihood_loss + kl_loss
@@ -427,13 +449,16 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
 
 def run():
     test_flag = False
-    cluster = None
-    if cluster == 'ap':
+    player_id_type = 'local_id'
+    if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
-    elif cluster == 'km':
+    elif player_id_type == 'km_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_km_cluster.json'
         predicted_target = '_PlayerPositionClusterKM'  # playerId_
+    elif player_id_type == 'local_id':
+        player_id_cluster_dir = '../resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        predicted_target = '_PlayerLocalId'  # playerId_
     else:
         player_id_cluster_dir = None
         predicted_target = ''

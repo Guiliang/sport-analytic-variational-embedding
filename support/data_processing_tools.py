@@ -6,6 +6,7 @@ import json
 import scipy.io as sio
 import unicodedata
 from ice_hockey_data_config import player_position_index_dict
+from sport_data_preprocessing.data_config import teamList, positions
 import copy
 
 
@@ -39,7 +40,7 @@ def compromise_state_trace_length(state_trace_length, state_input, reward, max_t
             for i in range(0, max_trace_length):
                 state_input_change_list.append(state_input_org[tl - max_trace_length + i])
                 temp = reward_org[tl - max_trace_length + i]
-                # if temp != 0:
+                # if icehockey_cvrnn_PlayerLocalId_config.yaml != 0:
                 #     print 'find miss reward'
                 reward_change_list.append(reward_org[tl - max_trace_length + i])
 
@@ -179,6 +180,7 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
     team_id_name = None
     action_id_name = None
     player_index_name = None
+    home_away_identifier_name = None
 
     if config.Learn.player_Id_style == 'PlayerId':
         player_index_select = 'player_index'
@@ -198,31 +200,37 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
         #     ha_id_name = filename
         elif 'team' in filename:
             team_id_name = filename
+        elif 'home_away' in filename:
+            home_away_identifier_name = filename
         elif player_index_select in filename:
             player_index_name = filename
         elif 'action' in filename:
             if 'action_feature_seq' in filename:
                 continue
             action_id_name = filename
-    if reward_name is not None:
-        reward = sio.loadmat(data_store + "/" + dir_game + "/" + reward_name)
-        reward = reward['reward'][0]
+
+    assert home_away_identifier_name is not None
+    home_away_identifier = sio.loadmat(data_store + "/" + dir_game + "/" + home_away_identifier_name)
+    home_away_identifier = home_away_identifier['home_away'][0]
+    assert reward_name is not None
+    reward = sio.loadmat(data_store + "/" + dir_game + "/" + reward_name)
+    reward = reward['reward'][0]
     # if ha_id_name is not None:
     #     ha_id = sio.loadmat(data_store + "/" + dir_game + "/" + ha_id_name)["home_identifier"][0]
-    if team_id_name is not None:
-        team_id = sio.loadmat(data_store + "/" + dir_game + "/" + team_id_name)['team']
-    if state_input_name is not None:
-        state_input = sio.loadmat(data_store + "/" + dir_game + "/" + state_input_name)['state_feature_seq']
-    if action_id_name is not None:
-        action = sio.loadmat(data_store + "/" + dir_game + "/" + action_id_name)['action']
-    if player_index_name is not None:
-        player_index_all = sio.loadmat(data_store + "/" + dir_game + "/" + player_index_name)[player_index_select]
-        # state_input = (state_input['dynamic_feature_input'])
+    assert team_id_name is not None
+    team_id = sio.loadmat(data_store + "/" + dir_game + "/" + team_id_name)['team']
+    assert state_input_name is not None
+    state_input = sio.loadmat(data_store + "/" + dir_game + "/" + state_input_name)['state_feature_seq']
+    assert action_id_name is not None
+    action = sio.loadmat(data_store + "/" + dir_game + "/" + action_id_name)['action']
+    assert player_index_name is not None
+    player_index_all = sio.loadmat(data_store + "/" + dir_game + "/" + player_index_name)[player_index_select]
+    # state_input = (state_input['dynamic_feature_input'])
     # state_output = sio.loadmat(DATA_STORE + "/" + dir_game + "/" + state_output_name)
     # state_output = state_output['hybrid_output_state']
-    if trace_length_name is not None:
-        state_trace_length = sio.loadmat(
-            data_store + "/" + dir_game + "/" + trace_length_name)['lt'][0]
+    assert trace_length_name is not None
+    state_trace_length = sio.loadmat(
+        data_store + "/" + dir_game + "/" + trace_length_name)['lt'][0]
 
     if config.Learn.predict_target == 'PlayerPosition':
         player_position_index_all = []
@@ -250,6 +258,34 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
             player_position_one_hot[index] = 1
             player_position_index_all.append(player_position_one_hot)
         player_index_all = np.asarray(player_position_index_all)
+    elif config.Learn.predict_target == 'PlayerLocalId':
+        player_local_id_all = []
+        with open(player_id_cluster_dir, 'r') as f:
+            player_local_id_by_team = json.load(f)
+        for i in range(0, len(team_id)):
+            find_flag = False
+            h_a = home_away_identifier[i]
+            t_id = teamList[team_id[i].tolist().index(1)]
+            # player_local_ids = np.asarray(player_local_id_by_tam.get(t_id))
+            p_index = player_index_all[i].tolist().index(1)
+
+            player_local_within_team = player_local_id_by_team.get(str(t_id))
+            for position in positions:
+                for player_local_id_tuple in player_local_within_team.get(position):
+                    if player_local_id_tuple[0] == p_index:
+                        player_local_id = player_local_id_tuple[3]
+                        if not h_a:
+                            player_local_id += config.Learn.position_max_length*len(positions)
+                        player_local_id_onehot = [0] * config.Learn.position_max_length*len(positions)*2
+                        player_local_id_onehot[player_local_id] = 1
+                        find_flag = True
+                        break
+                if find_flag:
+                    break
+            if not find_flag:
+                raise ValueError("can't find player with index {0}".format(str(p_index)))
+            player_local_id_all.append(player_local_id_onehot)
+        player_index_all = np.asarray(player_local_id_all)
 
     return state_trace_length, state_input, reward, action, team_id, player_index_all
 

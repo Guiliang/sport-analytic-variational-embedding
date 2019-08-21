@@ -115,7 +115,9 @@ class CVRNN():
                                                     self.config.Arch.CVRNN.x_dim], name='target_data')
         self.input_data_ph = tf.placeholder(dtype=tf.float32,
                                             shape=[None, self.config.Learn.max_seq_length,
-                                                   self.config.Arch.CVRNN.x_dim + self.config.Arch.CVRNN.y_dim + 1],
+                                                   self.config.Arch.CVRNN.x_dim +
+                                                   self.config.Arch.CVRNN.y_dim +
+                                                   1],
                                             name='input_data')
 
         self.selection_matrix_ph = tf.placeholder(dtype=tf.int32,
