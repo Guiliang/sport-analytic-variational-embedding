@@ -9,11 +9,46 @@ from data_config import action_all, interested_raw_features, interested_compute_
 
 
 class Preprocess:
-    def __init__(self, hockey_data_dir, save_data_dir, player_basic_info_dict, team_info_dict):
+    def __init__(self, hockey_data_dir, save_data_dir, player_basic_info_dict, team_info_dict, game_date_dict):
         self.hockey_data_dir = hockey_data_dir
         self.save_data_dir = save_data_dir
         self.player_basic_info_dict = player_basic_info_dict
         self.team_info_list = team_info_dict
+        self.game_date_dict_all = game_date_dict
+
+    def complement_data(self):
+        files_all = os.listdir(self.hockey_data_dir)
+        for file in files_all:
+            print(file)
+            if file == '.Rhistory' or file == '.DS_Store':
+                continue
+            file_name = file.split('.')[0]
+            game_name = file_name.split('-')[0]
+            save_game_dir = self.save_data_dir + '/' + game_name
+            with open(self.hockey_data_dir + file) as f:
+                data = json.load(f)
+            events = data.get('events')
+            gameId = data.get('gameId')
+
+            for game_date in self.game_date_dict_all:
+                if str(game_date.get('gameid')) == gameId:
+                    home_team_id = str(game_date.get('team1id'))
+                    away_team_id = str(game_date.get('team2id'))
+                    break
+            home_away_list = []
+            if len(events) == 0:
+                print('skip wrong file'.format(file_name))
+                continue
+            for event in events:
+                if event.get('teamId') == home_team_id:
+                    home_away_list.append(1)
+                elif event.get('teamId') == away_team_id:
+                    home_away_list.append(0)
+                else:
+                    raise ValueError('wrong home away id')
+
+            sio.savemat(save_game_dir + "/" + "home_away_identifier_game_" + file_name + ".mat",
+                        {'home_away': np.asarray(home_away_list)})
 
     def get_events(self, data_dir):
         with open(self.hockey_data_dir + data_dir) as f:
@@ -292,7 +327,7 @@ class Preprocess:
         with open('./feature_var.txt', 'w') as f:
             f.write(str(scaler.var_))
 
-        with open('feature_scaler.pkl','w') as f:
+        with open('feature_scaler.pkl', 'w') as f:
             pickle.dump(scaler, f)
 
         return scaler
