@@ -25,6 +25,7 @@ class CVRNNCongfig(object):
         player_Id_style = None
         sport = None
         position_max_length = None
+        apply_stochastic = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

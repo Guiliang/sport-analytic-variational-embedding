@@ -4,18 +4,18 @@ import tensorflow as tf
 import numpy as np
 
 
-class ExperienceReplayMemory:
-    def __init__(self, capacity):
-        self.capacity = capacity
+class ExperienceReplayBuffer:
+    def __init__(self, capacity_number):
+        self.capacity = capacity_number
         self.memory = []
 
     def push(self, transition):
         self.memory.append(transition)
         if len(self.memory) > self.capacity:
-            del self.memory[0]
+            del self.memory[random.randint(0, len(self.memory) - 1)]
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size), None, None
+        return random.sample(self.memory, batch_size)
 
     def __len__(self):
         return len(self.memory)
@@ -38,7 +38,7 @@ def load_nn_model(saver, sess, saved_network_dir):
         print("Could not find the network: {0}", format(saved_network_dir))
 
 
-def get_model_and_log_name(config, model_catagoery, train_flag=False):
+def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_tag=None):
     if train_flag:
         train_msg = 'Train_'
     else:
@@ -76,6 +76,9 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False):
                                                                                   str(config.Arch.CVRNN.hidden_dim)
                                                                                   )
     elif model_catagoery == 'de_embed':
+        if embedding_tag is not None:
+            train_msg += 'validate{0}_'.format(str(embedding_tag))
+
         log_dir = "{0}/oschulte/Galen/icehockey-models/de_log_NN" \
                   "/{1}de_embed_log_feature{2}_{8}_embed{9}_y{10}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}_dense{11}".format(config.Learn.save_mother_dir,

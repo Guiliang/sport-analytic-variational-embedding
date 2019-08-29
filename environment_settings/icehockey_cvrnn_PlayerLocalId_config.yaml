@@ -1,6 +1,6 @@
 Learn:
   keep_prob : 0.9
-  learning_rate : 0.001
+  learning_rate : 0.0001
   number_of_total_game: 1130
   batch_size: 32
   max_seq_length: 10
@@ -16,6 +16,7 @@ Learn:
   predict_target : 'PlayerLocalId'
   player_Id_style: 'PlayerId'
   position_max_length : 15
+  apply_stochastic: True
 
 Arch:
   CVRNN:

@@ -147,7 +147,7 @@ class DeterministicEmbedding:
         self.feature_layer_weights = []
         self.feature_layer_bias = []
 
-    def build(self):
+    def build(self, validate_embedding_tag):
         """
         define a shallow dynamic LSTM
         """
@@ -161,9 +161,14 @@ class DeterministicEmbedding:
                     # lstm_cell_tmp = tf.nn.rnn_cell.LSTMCell(num_units=256)
 
             with tf.name_scope("Embed_layers"):
-                self.embed_w = tf.get_variable('w_embed_home', [self.config.Arch.Encode.label_size,
-                                                                self.config.Arch.Encode.latent_size],
-                                               initializer=tf.contrib.layers.xavier_initializer())
+                if validate_embedding_tag is not None:
+                    self.embed_w = tf.get_variable('w_embed_home', [self.config.Arch.Encode.latent_size,
+                                                                    self.config.Arch.Encode.latent_size],
+                                                   initializer=tf.contrib.layers.xavier_initializer())
+                else:
+                    self.embed_w = tf.get_variable('w_embed_home', [self.config.Arch.Encode.label_size,
+                                                                    self.config.Arch.Encode.latent_size],
+                                                   initializer=tf.contrib.layers.xavier_initializer())
                 self.embed_b = tf.Variable(tf.zeros([self.config.Arch.Encode.latent_size]), name="b_embed_home")
 
             with tf.name_scope("Feature_layers"):

@@ -1,5 +1,6 @@
 import sys
 import traceback
+from random import shuffle
 
 print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
@@ -8,7 +9,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
-from support.model_tools import ExperienceReplayMemory
+from support.model_tools import ExperienceReplayBuffer
 from config.cvrnn_config import CVRNNCongfig
 from nn_structure.cvrnn import CVRNN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
@@ -17,6 +18,8 @@ from support.data_processing_tools import get_icehockey_game_data, transfer2seq,
     safely_expand_reward, generate_diff_player_cluster_id, q_values_output_mask
 from support.model_tools import get_model_and_log_name, compute_rnn_acc
 from support.plot_tools import plot_players_games
+
+MemoryBuffer = ExperienceReplayBuffer(capacity_number=30000)
 
 
 def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_store,
@@ -96,7 +99,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                                             max_trace_length=config.Learn.max_seq_length)
 
             input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch),
-                                           np.asarray(team_id_t1_batch),
+                                            np.asarray(team_id_t1_batch),
                                             np.asarray(s_t1_batch),
                                             np.asarray(action_id_t1), train_mask], axis=2)
             target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
@@ -123,7 +126,23 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             cut = batch_return[i][-1]
 
         if training_flag:
-            pretrain_flag = False
+
+            if config.Learn.apply_stochastic:
+                for i in range(len(input_data_t0)):
+                    MemoryBuffer.push([input_data_t0[i], target_data_t0[i], trace_lengths_t0[i], selection_matrix_t0[i],
+                                       input_data_t1[i], target_data_t1[i], trace_lengths_t1[i], selection_matrix_t1[i],
+                                       ])
+                sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
+                input_data_t0 = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
+                target_data_t0 = np.asarray([sampled_data[j][1] for j in range(len(sampled_data))])
+                trace_lengths_t0 = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
+                selection_matrix_t0 = np.asarray([sampled_data[j][3] for j in range(len(sampled_data))])
+                input_data_t1 = np.asarray([sampled_data[j][4] for j in range(len(sampled_data))])
+                target_data_t1 = np.asarray([sampled_data[j][5] for j in range(len(sampled_data))])
+                trace_lengths_t1 = np.asarray([sampled_data[j][6] for j in range(len(sampled_data))])
+                selection_matrix_t1 = np.asarray([sampled_data[j][7] for j in range(len(sampled_data))])
+                pretrain_flag = False
+
             train_cvrnn_model(model, sess, config, input_data_t0, target_data_t0,
                               trace_lengths_t0, selection_matrix_t0, terminal, pretrain_flag)
 
@@ -475,7 +494,8 @@ def run():
     else:
         data_store_dir = icehockey_cvrnn_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
-        training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
+        shuffle(dir_games_all)  # randomly shuffle the list
+        training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-1:]  # TODO: testing
     number_of_total_game = len(dir_games_all)

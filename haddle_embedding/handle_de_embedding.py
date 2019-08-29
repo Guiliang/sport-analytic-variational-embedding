@@ -58,7 +58,7 @@ def dimensional_reduction(embeddings):
 
 def visualize_embeddings(data, cluster_number, if_print=True):
     num_cluster = np.max(cluster_number, axis=0)
-    for cluster in range(0, num_cluster+1):
+    for cluster in range(0, num_cluster + 1):
         indices = [i for i, x in enumerate(cluster_number) if x == cluster]
         plt.scatter(data[indices, 0], data[indices, 1], s=50, label=cluster)
 
@@ -75,7 +75,33 @@ def visualize_embeddings(data, cluster_number, if_print=True):
                                                            str(min_y_index)))
     # plt.show()
     plt.legend()
-    plt.savefig('./player_de_cluster{0}.png'.format(str(num_cluster+1)))
+    plt.savefig('./player_de_cluster{0}.png'.format(str(num_cluster + 1)))
+
+
+def aggregate_positions_within_cluster(player_basic_info, cluster_number):
+    player_positions = [0] * len(player_basic_info)
+    for player_info in player_basic_info.values():
+        index = player_info.get('index')
+        position = player_info.get('position')
+        player_positions[index] = position
+
+    cluster_position_pairs = zip(cluster_number, player_positions)
+
+    cluster_position_count_dict = {}
+
+    for cluster_position_pair in cluster_position_pairs:
+        if cluster_position_count_dict.get(cluster_position_pair[0]):
+            cluster_count = cluster_position_count_dict.get(cluster_position_pair[0])
+            cluster_count.update({cluster_position_pair[1]: cluster_count[cluster_position_pair[1]] + 1})
+            cluster_position_count_dict.update({cluster_position_pair[0]: cluster_count})
+        else:
+            cluster_count = {'C': 0, 'RW': 0, 'LW': 0, 'D': 0, 'G': 0}
+            cluster_count.update({cluster_position_pair[1]: 1})
+            cluster_position_count_dict.update({cluster_position_pair[0]: cluster_count})
+    print(cluster_position_count_dict)
+    for cluster_id in cluster_position_count_dict.keys():
+        print('cluster {0} with counts {1}'.format(str(cluster_id), str(cluster_position_count_dict.get(cluster_id))))
+    return cluster_position_count_dict
 
 
 def merge_embedding_with_player_stats(cluster_number):
@@ -84,6 +110,8 @@ def merge_embedding_with_player_stats(cluster_number):
         player_basic_info = json.load(f)
     player_scoring_stats_dir = '../resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
     player_scoring_stats = read_player_stats(player_scoring_stats_dir)
+
+    cluster_position_count_dict = aggregate_positions_within_cluster(player_basic_info, cluster_number)
 
     returning_player_id_stats_info_dict = generate_player_name_id_features(player_basic_info, player_scoring_stats,
                                                                            interest_features=['GP', 'Goals', 'Assists',
@@ -94,7 +122,7 @@ def merge_embedding_with_player_stats(cluster_number):
     for playerId in player_basic_info.keys():
         playerInfo = player_basic_info.get(playerId)
         index = playerInfo.get('index')
-        player_index_id_map.update({index:playerId})
+        player_index_id_map.update({index: playerId})
 
     cluster_dict = {}
     for index in range(0, len(cluster_number)):
@@ -102,8 +130,7 @@ def merge_embedding_with_player_stats(cluster_number):
 
     compute_embedding_average(cluster_dict, returning_player_id_stats_info_dict,
                               interest_features=['GP', 'Goals', 'Assists',
-                                                 'Points', '+/-', 'PIM',
-                                                 'S'])
+                                                 'Points', '+/-', 'PIM', 'S'])
 
 
 if __name__ == '__main__':
@@ -111,4 +138,4 @@ if __name__ == '__main__':
     dr_embedding = dimensional_reduction(embeddings=combined_embeddings)
     cluster_number = classify_players(embeddings=combined_embeddings, classifier_name='km')
     merge_embedding_with_player_stats(cluster_number)
-    visualize_embeddings(data=dr_embedding, cluster_number=cluster_number)
+    # visualize_embeddings(data=dr_embedding, cluster_number=cluster_number)
