@@ -157,6 +157,17 @@ class CVRNN():
         self.cell_output_names = ["enc_mu", "enc_sigma", "dec_mu", "dec_sigma",
                                   "dec_x", "prior_mu", "prior_sigma", "z_encoder"]
 
+        self.sarsa_lstm_cell = []
+        self.build_sarsa()
+
+    def build_sarsa(self):
+        with tf.name_scope("sarsa"):
+            with tf.name_scope("LSTM-layer"):
+                for i in range(self.config.Arch.SARSA.lstm_layer_num):
+                    self.sarsa_lstm_cell.append(
+                        tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.SARSA.h_size, state_is_tuple=True,
+                                                initializer=tf.random_uniform_initializer(-0.05, 0.05)))
+
     # @property
     def __call__(self):
 
@@ -230,7 +241,7 @@ class CVRNN():
         # if sample:
         #     args.batch_size = 1
         #     args.seq_length = 1
-
+        batch_size = tf.shape(self.input_data_ph)[0]
         with tf.variable_scope('cvrnn'):
 
             self.cell = VariationalRNNCell(x_dim=self.config.Arch.CVRNN.x_dim, y_dim=self.config.Arch.CVRNN.y_dim,
@@ -243,17 +254,18 @@ class CVRNN():
                 dtype=tf.float32)
 
             flat_target_data = tf.reshape(self.target_data_ph, [-1, self.config.Arch.CVRNN.x_dim])
-            outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
-                                                    sequence_length=self.trace_length_ph,
-                                                    initial_state=tf.contrib.rnn.LSTMStateTuple(self.initial_state_c,
-                                                                                                self.initial_state_h))
+            sarsa_rnn_outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
+                                                              sequence_length=self.trace_length_ph,
+                                                              initial_state=tf.contrib.rnn.LSTMStateTuple(
+                                                                  self.initial_state_c,
+                                                                  self.initial_state_h))
         # print outputs
         # outputs = map(tf.pack,zip(*outputs))
-        outputs = tf.split(value=tf.transpose(a=outputs, perm=[1, 0, 2]),
-                           num_or_size_splits=[1] * self.config.Learn.max_seq_length, axis=0)
+        sarsa_rnn_outputs = tf.split(value=tf.transpose(a=sarsa_rnn_outputs, perm=[1, 0, 2]),
+                                     num_or_size_splits=[1] * self.config.Learn.max_seq_length, axis=0)
         outputs_reshape = []
         outputs_all = []
-        for output in outputs:
+        for output in sarsa_rnn_outputs:
             output = tf.squeeze(output, axis=0)
             output = tf.split(value=output, num_or_size_splits=self.cell.output_dim_list, axis=1)
             outputs_all.append(output)
@@ -262,7 +274,7 @@ class CVRNN():
             with tf.variable_scope(name):
                 x = tf.stack([o[n] for o in outputs_all])
                 x = tf.transpose(x, [1, 0, 2])
-                x = tf.reshape(x, [tf.shape(x)[0] * self.config.Learn.max_seq_length, self.cell_output_dim_list[n]])
+                x = tf.reshape(x, [batch_size * self.config.Learn.max_seq_length, self.cell_output_dim_list[n]])
                 outputs_reshape.append(x)
 
         [self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
@@ -281,7 +293,7 @@ class CVRNN():
         else:
             decoder_output = self.dec_x
         self.output = tf.reshape(tf.nn.softmax(decoder_output),
-                                 shape=[tf.shape(self.input_data_ph)[0], tf.shape(self.input_data_ph)[1], -1])
+                                 shape=[batch_size, tf.shape(self.input_data_ph)[1], -1])
 
         kl_loss, likelihood_loss = get_cvrnn_lossfunc(self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
                                                       self.dec_x, self.prior_mu,
@@ -289,10 +301,8 @@ class CVRNN():
                                                       self.deterministic_decoder)
 
         with tf.variable_scope('cvrnn_cost'):
-            self.kl_loss = tf.reshape(kl_loss, shape=[tf.shape(self.input_data_ph)[0],
-                                                      self.config.Learn.max_seq_length, -1])
-            self.likelihood_loss = tf.reshape(likelihood_loss, shape=[tf.shape(self.input_data_ph)[0],
-                                                                      self.config.Learn.max_seq_length, -1])
+            self.kl_loss = tf.reshape(kl_loss, shape=[batch_size, self.config.Learn.max_seq_length, -1])
+            self.likelihood_loss = tf.reshape(likelihood_loss, shape=[batch_size, self.config.Learn.max_seq_length, -1])
 
         tvars_cvrnn = tf.trainable_variables(scope='cvrnn')
         for t in tvars_cvrnn:
@@ -310,24 +320,37 @@ class CVRNN():
 
         with tf.variable_scope('sarsa'):
 
-            sarsa_y = tf.reshape(
-                self.input_data_ph[
-                :, :, self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim],
-                [tf.shape(self.input_data_ph)[0] * self.config.Learn.max_seq_length, self.config.Arch.CVRNN.y_dim])
+            data_input_sarsa = self.input_data_ph[
+                               :, :,
+                               self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
 
-            self.select_index = tf.range(0, tf.shape(self.input_data_ph)[0]) * \
-                                self.config.Learn.max_seq_length + (self.trace_length_ph - 1)
-            # Indexing
-            z_encoder_last = tf.gather(z_encoder, self.select_index)
-            self.z_encoder_last = z_encoder_last
-            sarsa_y_last = tf.gather(sarsa_y, self.select_index)
-            self.sarsa_y_last = sarsa_y_last
-            for i in range(self.config.Arch.SARSA.dense_layer_number - 1):
-                sarsa_input = tf.concat([z_encoder_last, sarsa_y_last], axis=1) if i == 0 else sarsa_output
+            self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (self.trace_length_ph - 1)
+            z_encoder_sarsa = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
+                                                                self.config.Arch.CVRNN.latent_dim])
+
+            # z_encoder_last = tf.gather(z_encoder, self.select_index)
+            # self.z_encoder_last = z_encoder_last
+            # sarsa_y_last = tf.gather(data_input_sarsa, self.select_index)
+            # self.sarsa_y_last = sarsa_y_last
+
+            for i in range(self.config.Arch.SARSA.lstm_layer_num):
+                rnn_output = None
+                for i in range(self.config.Arch.SARSA.lstm_layer_num):
+                    rnn_input = tf.concat([data_input_sarsa, z_encoder_sarsa], axis=2) if i == 0 else rnn_output
+                    rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
+                        inputs=rnn_input, cell=self.sarsa_lstm_cell[i],
+                        sequence_length=self.trace_length_ph, dtype=tf.float32,
+                        scope='sarsa_rnn_{0}'.format(str(i)))
+                sarsa_rnn_outputs = tf.stack(rnn_output)
+                # Indexing
+                rnn_last = tf.gather(tf.reshape(sarsa_rnn_outputs,
+                                                [-1, self.config.Arch.SARSA.h_size]), self.select_index)
+
+            for j in range(self.config.Arch.SARSA.dense_layer_number - 1):
+                sarsa_input = rnn_last if j == 0 else sarsa_output
                 sarsa_output = tf.nn.relu(linear(sarsa_input, output_size=self.config.Arch.SARSA.dense_layer_size,
                                                  scope='dense_Linear'))
-            sarsa_input = tf.concat([z_encoder, sarsa_y],
-                                    axis=1) if self.config.Arch.SARSA.dense_layer_number == 1 else sarsa_output
+            sarsa_input = rnn_last if self.config.Arch.SARSA.dense_layer_number == 1 else sarsa_output
             sarsa_output = linear(sarsa_input, output_size=3, scope='output_Linear')
             self.sarsa_output = tf.nn.softmax(sarsa_output)
 
@@ -395,7 +418,7 @@ class CVRNN():
 
 
 if __name__ == '__main__':
-    cvrnn_config_path = "../icehockey_cvrnn_config.yaml"
+    cvrnn_config_path = "../environment_settings/icehockey_cvrnn_config.yaml"
     cvrnn_config = CVRNNCongfig.load(cvrnn_config_path)
     cvrnn = CVRNN(config=cvrnn_config)
-    cvrnn.call
+    cvrnn()

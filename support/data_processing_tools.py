@@ -163,6 +163,8 @@ def transfer2seq(data, trace_length, max_length):
 def generate_selection_matrix(trace_lengths, max_trace_length):
     selection_matrix = []
     for trace_length in trace_lengths:
+        if trace_length > max_trace_length:
+            trace_length = max_trace_length
         selection_matrix.append(trace_length * [1] + (max_trace_length - trace_length) * [0])
     return np.asarray(selection_matrix)
 
@@ -275,8 +277,8 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
                     if player_local_id_tuple[0] == p_index:
                         player_local_id = player_local_id_tuple[3]
                         if not h_a:
-                            player_local_id += config.Learn.position_max_length*len(positions)
-                        player_local_id_onehot = [0] * config.Learn.position_max_length*len(positions)*2
+                            player_local_id += config.Learn.position_max_length * len(positions)
+                        player_local_id_onehot = [0] * config.Learn.position_max_length * len(positions) * 2
                         player_local_id_onehot[player_local_id] = 1
                         find_flag = True
                         break
@@ -345,6 +347,7 @@ def safely_expand_reward(reward_batch, max_trace_length):
             reward_expanded += [[0, 0, 0]] * (max_trace_length - 1)
             reward_expanded += [reward]
     return reward_expanded
+
 
 
 def get_together_training_batch(s_t0, state_input, reward, player_index, train_number, train_len, state_trace_length,
@@ -679,6 +682,39 @@ def find_game_dir(dir_all, data_path, target_game_id, sports='IceHockey'):
         return game_name.split(".")[0]
     else:
         raise ValueError("can't find the game {0}".format(str(target_game_id)))
+
+
+def read_feature_within_events(directory, data_path, feature_name):
+    with open(data_path + str(directory)) as f:
+        data = json.load(f)
+    events = data.get('events')
+    features_all = []
+    for event in events:
+        try:
+            value = str(event.get(feature_name).encode('utf-8'))
+        except:
+            value = event.get(feature_name)
+        features_all.append(value)
+
+    return features_all
+
+
+def read_features_within_events(directory, data_path, feature_name_list):
+    with open(data_path + str(directory)) as f:
+        data = json.load(f)
+    events = data.get('events')
+    features_all = []
+    for event in events:
+        feature_values = {}
+        for feature_name in feature_name_list:
+            try:
+                value = str(event.get(feature_name).encode('utf-8'))
+            except:
+                value = event.get(feature_name)
+            feature_values.update({feature_name: value})
+        features_all.append(feature_values)
+
+    return features_all
 
 
 def normalize_data(game_value_home, game_value_away, game_value_end):

@@ -82,12 +82,16 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         team_id_t1_batch = [d[8] for d in batch_return]
         player_id_t0_batch = [d[9] for d in batch_return]
         player_id_t1_batch = [d[10] for d in batch_return]
+        terminal_batch = [d[-2] for d in batch_return]
+        cut_batch = [d[-1] for d in batch_return]
         if training_flag:
             train_mask = np.asarray([[[1]] * config.Learn.max_seq_length] * len(s_t0_batch))
         else:
             train_mask = np.asarray([[[0]] * config.Learn.max_seq_length] * len(s_t0_batch))
         # (player_id, state ,action flag)
-
+        for i in range(0, len(terminal_batch)):
+            terminal = terminal_batch[i]
+            cut = cut_batch[i]
         if config.Learn.predict_target == 'PlayerLocalId':
             input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch),
                                             np.asarray(team_id_t0_batch),
@@ -121,33 +125,42 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             selection_matrix_t1 = generate_selection_matrix(trace_t1_batch,
                                                             max_trace_length=config.Learn.max_seq_length)
 
-        for i in range(0, len(batch_return)):
-            terminal = batch_return[i][-2]
-            cut = batch_return[i][-1]
-
         if training_flag:
 
             if config.Learn.apply_stochastic:
                 for i in range(len(input_data_t0)):
                     MemoryBuffer.push([input_data_t0[i], target_data_t0[i], trace_lengths_t0[i], selection_matrix_t0[i],
                                        input_data_t1[i], target_data_t1[i], trace_lengths_t1[i], selection_matrix_t1[i],
+                                       r_t_batch[i], terminal_batch[i], cut_batch[i]
                                        ])
                 sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
-                input_data_t0 = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
-                target_data_t0 = np.asarray([sampled_data[j][1] for j in range(len(sampled_data))])
-                trace_lengths_t0 = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
-                selection_matrix_t0 = np.asarray([sampled_data[j][3] for j in range(len(sampled_data))])
-                input_data_t1 = np.asarray([sampled_data[j][4] for j in range(len(sampled_data))])
-                target_data_t1 = np.asarray([sampled_data[j][5] for j in range(len(sampled_data))])
-                trace_lengths_t1 = np.asarray([sampled_data[j][6] for j in range(len(sampled_data))])
-                selection_matrix_t1 = np.asarray([sampled_data[j][7] for j in range(len(sampled_data))])
+                sample_input_data_t0 = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
+                sample_target_data_t0 = np.asarray([sampled_data[j][1] for j in range(len(sampled_data))])
+                sample_trace_lengths_t0 = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
+                sample_selection_matrix_t0 = np.asarray([sampled_data[j][3] for j in range(len(sampled_data))])
+                # sample_input_data_t1 = np.asarray([sampled_data[j][4] for j in range(len(sampled_data))])
+                # sample_target_data_t1 = np.asarray([sampled_data[j][5] for j in range(len(sampled_data))])
+                # sample_trace_lengths_t1 = np.asarray([sampled_data[j][6] for j in range(len(sampled_data))])
+                # sample_selection_matrix_t1 = np.asarray([sampled_data[j][7] for j in range(len(sampled_data))])
+                # sample_r_t_batch = np.asarray([sampled_data[j][8] for j in range(len(sampled_data))])
+                # sample_terminal_batch = np.asarray([sampled_data[j][9] for j in range(len(sampled_data))])
+                # sample_cut_batch = np.asarray([sampled_data[j][10] for j in range(len(sampled_data))])
                 pretrain_flag = False
 
-            train_cvrnn_model(model, sess, config, input_data_t0, target_data_t0,
-                              trace_lengths_t0, selection_matrix_t0, terminal, pretrain_flag)
+                for i in range(0, len(terminal_batch)):
+                    batch_terminal = terminal_batch[i]
+                    batch_cut = cut_batch[i]
+            else:
+                sample_input_data_t0 = input_data_t0
+                sample_target_data_t0 = target_data_t0
+                sample_trace_lengths_t0 = trace_lengths_t0
+                sample_selection_matrix_t0 = selection_matrix_t0
 
-            # train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
-            #                input_data_t1, trace_lengths_t1, selection_matrix_t1, r_t_batch, terminal, cut)
+            train_cvrnn_model(model, sess, config, sample_input_data_t0, sample_target_data_t0,
+                              sample_trace_lengths_t0, sample_selection_matrix_t0, pretrain_flag)
+
+            train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
+                           input_data_t1, trace_lengths_t1, selection_matrix_t1, r_t_batch, terminal, cut)
 
         else:
             if validate_cvrnn_flag:
@@ -168,12 +181,12 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                     selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix_t0], axis=0)
 
             if validate_td_flag:
-                validate_variance_flag = validate_variance_flag if train_number <= 500 else False
+                # validate_variance_flag = validate_variance_flag if train_number <= 500 else False
                 q_values, match_q_values_players_dict = \
                     td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
-                                  player_id_t0_batch, s_t0_batch, action_id_t0,
+                                  player_id_t0_batch, s_t0_batch, action_id_t0, input_data_t0,
                                   train_mask, config, match_q_values_players_dict,
-                                  r_t_batch, terminal, cut, train_number, validate_variance_flag)
+                                  r_t_batch, terminal, cut, train_number, validate_variance_flag=False)
 
                 if q_values_all is None:
                     q_values_all = q_values
@@ -213,11 +226,12 @@ def run_network(sess, model, config, log_dir, save_network_dir,
                                       player_id_cluster_dir, data_store, model, sess,
                                       training_flag=True, game_number=game_number)
             if game_number % 100 == 1:
-                # save_model(game_number, saver, sess, save_network_dir, config)
+                save_model(game_number, saver, sess, save_network_dir, config)
                 validate_model(testing_dir_games_all, data_store, config,
                                sess, model, player_id_cluster_dir,
                                train_game_number=game_number,
-                               validate_cvrnn_flag=True, validate_td_flag=False)
+                               validate_cvrnn_flag=True,
+                               validate_td_flag=True)
 
 
 def save_model(game_number, saver, sess, save_network_dir, config):
@@ -240,7 +254,6 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
     # print(len(r_t_batch))
     # print(np.sum(np.asarray(r_t_batch), axis=0))
     for i in range(0, len(r_t_batch)):
-
         if i == len(r_t_batch) - 1:
             if terminal or cut:
                 y_home = float((r_t_batch[i])[0])
@@ -274,7 +287,7 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
             # model.select_index,
             # model.z_encoder,
             model.td_avg_diff,
-            model.train_yd_op,
+            model.train_td_op,
             model.sarsa_output
         ],
         feed_dict={model.sarsa_target_ph: y_batch,
@@ -287,7 +300,7 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
     # print('avg diff:{0}, avg Qs:{1}'.format(avg_diff, str(np.mean(readout, axis=0))))
 
 
-def train_cvrnn_model(model, sess, config, input_data, target_data, trace_lengths, selection_matrix, terminal,
+def train_cvrnn_model(model, sess, config, input_data, target_data, trace_lengths, selection_matrix,
                       pretrain_flag=False):
     if pretrain_flag:
         [
@@ -338,7 +351,7 @@ def train_cvrnn_model(model, sess, config, input_data, target_data, trace_length
 
     acc = compute_rnn_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
                           selection_matrix=selection_matrix, config=config)
-    print acc
+    # print acc
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
     #     converge_flag = False
     cost_out = likelihood_loss + kl_loss
@@ -370,7 +383,7 @@ def cvrnn_validation(sess, model, input_data_t0, target_data_t0, trace_lengths_t
 
 
 def td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
-                  player_id_t0_batch, s_t0_batch, action_id_t0, train_mask, config,
+                  player_id_t0_batch, s_t0_batch, action_id_t0, input_data_t0, train_mask, config,
                   match_q_values_players_dict, r_t_batch, terminal, cut, train_number,
                   validate_variance_flag):
     if validate_variance_flag:
@@ -404,24 +417,21 @@ def td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
             match_q_values_player += match_q_values
             match_q_values_players_dict.update({index: match_q_values_player})
 
-            readout_var_masked = q_values_output_mask(q_values=readout_var, trace_lengths=trace_lengths_t0,
-                                                      max_trace_length=config.Learn.max_seq_length)
-            readout_var_all.append(readout_var_masked)
+            # readout_var_masked = q_values_output_mask(q_values=readout_var, trace_lengths=trace_lengths_t0,
+            #                                           max_trace_length=config.Learn.max_seq_length)
+            readout_var_all.append(readout_var)
         var_all = np.var(np.asarray(readout_var_all), axis=0)
 
         print('The mean of q values variance is {0}'.format(np.mean(var_all)))
-
-    input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
-                                    np.asarray(action_id_t0), train_mask], axis=2)
 
     [readout] = sess.run([model.sarsa_output],
                          feed_dict={model.input_data_ph: input_data_t0,
                                     model.trace_length_ph: trace_lengths_t0,
                                     model.selection_matrix_ph: selection_matrix_t0
                                     })
-    readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
-                                          max_trace_length=config.Learn.max_seq_length)
-    return readout_masked, match_q_values_players_dict
+    # readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
+    #                                       max_trace_length=config.Learn.max_seq_length)
+    return readout, match_q_values_players_dict
 
 
 def validate_model(testing_dir_games_all, data_store, config, sess, model,
@@ -447,8 +457,8 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
                                                                   model, sess,
                                                                   training_flag=False,
                                                                   game_number=None,
-                                                                  validate_cvrnn_flag=True,
-                                                                  validate_td_flag=False,
+                                                                  validate_cvrnn_flag=validate_cvrnn_flag,
+                                                                  validate_td_flag=validate_td_flag,
                                                                   validate_variance_flag=validate_variance_flag,
                                                                   output_decoder_all=output_decoder_all,
                                                                   target_data_all=target_data_all,
@@ -497,7 +507,7 @@ def run():
         shuffle(dir_games_all)  # randomly shuffle the list
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
-        testing_dir_games_all = dir_games_all[-1:]  # TODO: testing
+        testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
     number_of_total_game = len(dir_games_all)
     icehockey_cvrnn_config.Learn.number_of_total_game = number_of_total_game
 

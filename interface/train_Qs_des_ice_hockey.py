@@ -248,9 +248,9 @@ def td_validation(sess, model, trace_lengths_t0, player_embed_t0,
             match_q_values_player += match_q_values
             match_q_values_players_dict.update({index: match_q_values_player})
 
-            readout_var_masked = q_values_output_mask(q_values=readout_var, trace_lengths=trace_lengths_t0,
-                                                      max_trace_length=config.Learn.max_seq_length)
-            readout_var_all.append(readout_var_masked)
+            # readout_var_masked = q_values_output_mask(q_values=readout_var, trace_lengths=trace_lengths_t0,
+            #                                           max_trace_length=config.Learn.max_seq_length)
+            readout_var_all.append(readout_var)
         var_all = np.var(np.asarray(readout_var_all), axis=0)
 
         print('The mean of q values variance is {0}'.format(np.mean(var_all)))
@@ -263,9 +263,9 @@ def td_validation(sess, model, trace_lengths_t0, player_embed_t0,
                                     model.trace_length_ph: trace_lengths_t0,
                                     model.selection_matrix_ph: selection_matrix_t0
                                     })
-    readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
-                                          max_trace_length=config.Learn.max_seq_length)
-    return readout_masked, match_q_values_players_dict
+    # readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
+    #                                       max_trace_length=config.Learn.max_seq_length)
+    return readout, match_q_values_players_dict
 
 
 def validate_model(testing_dir_games_all, data_store, config, sess, model,

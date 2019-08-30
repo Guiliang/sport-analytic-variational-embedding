@@ -16,6 +16,14 @@ def plot_shadow(x_values_list, y_mean_values_list,
     plt.show()
 
 
+def plot_game_Q_values(Q_values):
+    event_numbers = range(0, len(Q_values))
+    plt.figure()
+    for i in range(0, len(Q_values[0])):
+        plt.plot(event_numbers, Q_values[:, i])
+    plt.show()
+
+
 def plot_players_games(match_q_values_players_dict, iteration):
     plt.figure()
     player_ids = match_q_values_players_dict.keys()

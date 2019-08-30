@@ -2,6 +2,11 @@ import random
 
 import tensorflow as tf
 import numpy as np
+import json
+
+from nn_structure.cvrnn import CVRNN
+from support.data_processing_tools import get_icehockey_game_data, generate_selection_matrix, transfer2seq
+from support.plot_tools import plot_game_Q_values
 
 
 class ExperienceReplayBuffer:
@@ -36,6 +41,26 @@ def load_nn_model(saver, sess, saved_network_dir):
         print("Successfully loaded:", checkpoint.model_checkpoint_path)
     else:
         print("Could not find the network: {0}", format(saved_network_dir))
+
+
+def get_data_name(config, model_catagoery):
+    if model_catagoery == 'cvrnn':
+        data_name = "model_three_cut_feature{2}_latent{8}_x{9}_y{10}" \
+                    "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}".format(config.Learn.save_mother_dir,
+                                                                              None,
+                                                                              str(config.Learn.feature_type),
+                                                                              str(config.Learn.batch_size),
+                                                                              str(config.Learn.iterate_num),
+                                                                              str(config.Learn.learning_rate),
+                                                                              str(config.Learn.model_type),
+                                                                              str(config.Learn.max_seq_length),
+                                                                              str(config.Arch.CVRNN.latent_dim),
+                                                                              str(config.Arch.CVRNN.y_dim),
+                                                                              str(config.Arch.CVRNN.x_dim),
+                                                                              str(config.Arch.CVRNN.hidden_dim)
+                                                                              )
+
+    return data_name
 
 
 def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_tag=None):
@@ -224,6 +249,93 @@ def normal_td(mu1, mu2, var1, var2, y):
     com3 = tf.exp(-1 * (y ** 2 + mu_diff ** 2) / (2 * var_diff ** 2))
     # return com1, com2, com3
     return com1 * com2 * com3
+
+
+def compute_game_values(sess_nn, model, data_store, dir_game, config, player_id_cluster_dir, model_category):
+    state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
+        data_store=data_store, dir_game=dir_game, config=config, player_id_cluster_dir=player_id_cluster_dir)
+
+    action_seq = transfer2seq(data=action, trace_length=state_trace_length,
+                              max_length=config.Learn.max_seq_length)
+    team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
+                               max_length=config.Learn.max_seq_length)
+    player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                    max_length=config.Learn.max_seq_length)
+
+    if model_category == "cvrnn":
+        train_mask = np.asarray([[[0]] * config.Learn.max_seq_length] * len(player_index))
+        if config.Learn.predict_target == 'PlayerLocalId':
+            input_data_t0 = np.concatenate([player_index_seq,
+                                            team_id_seq,
+                                            state_input,
+                                            action_seq,
+                                            train_mask],
+                                           axis=2)
+            target_data_t0 = player_index
+            trace_lengths_t0 = state_trace_length
+            selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
+                                                            max_trace_length=config.Learn.max_seq_length)
+        else:
+            input_data_t0 = np.concatenate([player_index, state_input,
+                                            action, train_mask], axis=2)
+            target_data_t0 = player_index
+            trace_lengths_t0 = state_trace_length
+            selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
+                                                            max_trace_length=config.Learn.max_seq_length)
+
+        [readout] = sess_nn.run([model.sarsa_output],
+                                feed_dict={model.input_data_ph: input_data_t0,
+                                           model.trace_length_ph: trace_lengths_t0,
+                                           model.selection_matrix_ph: selection_matrix_t0
+                                           })
+    return readout
+
+
+def compute_values_for_all_games(config, data_store_dir, dir_all,
+                                 model_number=None,
+                                 player_id_cluster_dir=None,
+                                 model_category=None):
+    sess_nn = tf.InteractiveSession()
+
+    cvrnn = CVRNN(config=config)
+    cvrnn()
+    model_nn = cvrnn
+    sess_nn.run(tf.global_variables_initializer())
+
+    saved_network_dir, log_dir = get_model_and_log_name(config=config, model_catagoery='cvrnn')
+
+    data_name = get_data_name(config=config, model_catagoery='cvrnn')
+    if model_number is not None:
+        saver = tf.train.Saver()
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+        saver.restore(sess_nn, model_path)
+        print 'successfully load data from' + model_path
+    else:
+        raise ValueError('please provide a model number or no model will be loaded')
+    for game_name_dir in dir_all:
+        game_name = game_name_dir.split('.')[0]
+        # game_time_all = get_game_time(data_path, game_name_dir)
+        model_value = compute_game_values(sess_nn=sess_nn,
+                                          model=model_nn,
+                                          data_store=data_store_dir,
+                                          dir_game=game_name,
+                                          config=config,
+                                          player_id_cluster_dir=player_id_cluster_dir,
+                                          model_category=model_category)
+        # plot_game_Q_values(model_value)
+        model_value_json = {}
+        for value_index in range(0, len(model_value)):
+            model_value_json.update({value_index: {'home': float(model_value[value_index][0]),
+                                                   'away': float(model_value[value_index][1]),
+                                                   'end': float(model_value[value_index][2])}})
+
+        game_store_dir = game_name_dir.split('.')[0]
+        with open(data_store_dir + "/" + game_store_dir + "/" + data_name, 'w') as outfile:
+            json.dump(model_value_json, outfile)
+
+            # sio.savemat(data_store_dir + "/" + game_name_dir + "/" + data_name,
+            #             {'model_value': np.asarray(model_value)})
+    return data_name
 
 
 if __name__ == '__main__':
