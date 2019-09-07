@@ -37,6 +37,8 @@ class Calibration:
             self.teams = ['home', 'away', 'end']
             # learning_rate = tt_lstm_config.learn.learning_rate
             # pass
+        self.data_name = get_data_name(config=config, model_catagoery='cvrnn')
+        print(self.data_name)
 
     def __del__(self):
         print 'ending calibration'
@@ -73,25 +75,23 @@ class Calibration:
         cali_end = [0] * len(actions_all)
         for index in range(0, len(actions_all)):
             action = actions_all[index]
-            if action['action'] == 'goal':
-                if home_away[index] == 'H':
+            if action['name'] == 'goal':
+                if home_away[index] == 1:
                     cali_home[pre_index:index] = [1] * (index - pre_index)
-                elif home_away[index] == 'A':
+                elif home_away[index] == 0:
                     cali_away[pre_index:index] = [1] * (index - pre_index)
                 pre_index = index
             if index == len(actions_all) - 1:
                 cali_end[pre_index:index] = [1] * (index - pre_index)
         return zip(cali_home, cali_away, cali_end)
 
-    def obtain_model_prediction(self, config, directory):  # TODO: fix it
+    def obtain_model_prediction(self, directory):  # TODO: fix it
         """model predicted value for each game"""
-
-        data_name = get_data_name(config=config, model_catagoery='cvrnn')
-        # directory = '917811'
-        print('model name is {0}'.format(data_name))
-        with open(self.data_store_dir + "/" + directory + "/" + data_name) as outfile:
+        # directory = '16198'
+        print(self.data_store_dir + "/" + directory + "/" + self.data_name)
+        with open(self.data_store_dir + "/" + directory + "/" + self.data_name) as outfile:
             model_output = json.load(outfile)
-
+        "model_three_cut_featureV1_latent128_x76_y150_batch32_iterate30_lr0.0001_normal_MaxTL10_LSTM512"
         return model_output
 
     def aggregate_calibration_values(self):
@@ -109,25 +109,25 @@ class Calibration:
                     for feature in features:
                         features_all.append(feature)
 
-            model_values = self.obtain_model_prediction(config=self.config, directory=json_dir.split('-')[0])
+            model_values = self.obtain_model_prediction( directory=json_dir.split('-')[0])
             game_files = os.listdir(self.data_store_dir + "/" + json_dir.split('-')[0])
             for filename in game_files:
                 if 'home_away' in filename:
                     home_away_identifier_name = filename
 
-            home_away_identifier = sio.loadmat(self.data_store_dir + "/" + json_dir.split('-')[0] + "/" + home_away_identifier_name)
+            home_away_identifier = sio.loadmat(
+                self.data_store_dir + "/" + json_dir.split('-')[0] + "/" + home_away_identifier_name)
             home_away = home_away_identifier['home_away'][0]
             # model_values = [[1, 0, 0]] * 1519  # TODO: test
             actions_all = read_features_within_events(feature_name_list=['name'],
-                                                           data_path=self.data_path, directory=json_dir)
+                                                      data_path=self.data_path, directory=json_dir)
             calibration_values = self.compute_calibration_values(actions_all, home_away)
 
             features_values_dict_all = read_features_within_events(feature_name_list=features_all,
                                                                    data_path=self.data_path,
                                                                    directory=json_dir)
             for index in range(0, len(features_values_dict_all)):
-
-                action = actions_all[index]['action']  # find the action we focus
+                action = actions_all[index]['name']  # find the action we focus
                 continue_flag = False if len(self.focus_actions_list) == 0 else True
                 for f_action in self.focus_actions_list:
                     if f_action in action:
@@ -140,26 +140,16 @@ class Calibration:
                 cali_dict_str = ''
                 for calibration_feature in self.calibration_features:
                     if calibration_feature == 'period':
-                        min = features_values_dict.get('min')
-                        sec = features_values_dict.get('sec')
-                        if min <= 45:
-                            value = 1
-                        else:
-                            value = 2
+                        value = features_values_dict.get('period')
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + str(value) + '-'
-                    elif calibration_feature == 'score_differential':
-                        value = features_values_dict.get('scoreDiff')
+                    elif calibration_feature == 'scoreDifferential':
+                        value = features_values_dict.get('scoreDifferential')
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + str(value) + '-'
-                    elif calibration_feature == 'pitch':
-                        xccord = features_values_dict.get('x')
-                        if xccord <= 50:
-                            value = 'left'
-                        else:
-                            value = 'right'
+                    elif calibration_feature == 'zone':
+                        value = features_values_dict.get('zone')
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + value + '-'
-
-                    elif calibration_feature == 'manpower':
-                        value = features_values_dict.get('manPower')
+                    elif calibration_feature == 'manpowerSituation':
+                        value = features_values_dict.get('manpowerSituation')
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + str(value) + '-'
                     else:
                         raise ValueError('unknown feature' + calibration_feature)
@@ -169,6 +159,8 @@ class Calibration:
 
                 cali_bin_info = self.calibration_values_all_dict.get(cali_dict_str)
                 # print cali_dict_str
+                if cali_bin_info is None:
+                    print(cali_dict_str)
                 assert cali_bin_info is not None
                 cali_sum = cali_bin_info.get('cali_sum')
                 model_sum = cali_bin_info.get('model_sum')
