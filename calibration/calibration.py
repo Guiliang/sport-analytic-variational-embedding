@@ -109,7 +109,7 @@ class Calibration:
                     for feature in features:
                         features_all.append(feature)
 
-            model_values = self.obtain_model_prediction( directory=json_dir.split('-')[0])
+            model_values = self.obtain_model_prediction(directory=json_dir.split('-')[0])
             game_files = os.listdir(self.data_store_dir + "/" + json_dir.split('-')[0])
             for filename in game_files:
                 if 'home_away' in filename:
@@ -126,7 +126,13 @@ class Calibration:
             features_values_dict_all = read_features_within_events(feature_name_list=features_all,
                                                                    data_path=self.data_path,
                                                                    directory=json_dir)
-            for index in range(0, len(features_values_dict_all)):
+            features_values_dict_all_new = []
+            for feature_values_index in range(0, len(features_values_dict_all)):
+                feature_values_dict = features_values_dict_all[feature_values_index]
+                feature_values_dict.update({'home_away': home_away[feature_values_index]})
+                features_values_dict_all_new.append(feature_values_dict)
+
+            for index in range(0, len(features_values_dict_all_new)):
                 action = actions_all[index]['name']  # find the action we focus
                 continue_flag = False if len(self.focus_actions_list) == 0 else True
                 for f_action in self.focus_actions_list:
@@ -136,7 +142,7 @@ class Calibration:
                 if continue_flag:
                     continue
 
-                features_values_dict = features_values_dict_all[index]
+                features_values_dict = features_values_dict_all_new[index]
                 cali_dict_str = ''
                 for calibration_feature in self.calibration_features:
                     if calibration_feature == 'period':
@@ -150,6 +156,9 @@ class Calibration:
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + value + '-'
                     elif calibration_feature == 'manpowerSituation':
                         value = features_values_dict.get('manpowerSituation')
+                        cali_dict_str = cali_dict_str + calibration_feature + '_' + str(value) + '-'
+                    elif calibration_feature == 'home_way':
+                        value = features_values_dict.get('home_way')
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + str(value) + '-'
                     else:
                         raise ValueError('unknown feature' + calibration_feature)

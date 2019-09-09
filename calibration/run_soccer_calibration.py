@@ -12,7 +12,8 @@ def generate_cali_latex_table(result_file_dir):
     calibration_bins = {'period': {'feature_name': ('period'), 'range': (1, 2, 3)},
                         'scoreDifferential': {'feature_name': ('scoreDifferential'), 'range': range(-2, 3)},
                         'zone': {'feature_name': ('zone'), 'range': ('dz', 'nz', 'oz')},
-                        'manpowerSituation': {'feature_name': ('manpowerSituation'), 'range': ('shortHanded', 'evenStrength', 'powerPlay')}
+                        'manpowerSituation': {'feature_name': ('manpowerSituation'),
+                                              'range': ('shortHanded', 'evenStrength', 'powerPlay')}
                         }
     with open(result_file_dir) as f:
         data = f.readlines()
@@ -127,16 +128,19 @@ def generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir):
                     )
 
     print str_all + '\hline'
-    print mae_sum/mae_number
+    print mae_sum / mae_number
 
 
-if __name__ == '__main__':
+def run_calibration():
     predicted_target = '_PlayerLocalId'
-    calibration_features = ['period', 'scoreDifferential', 'zone', 'manpowerSituation']
+    calibration_features = ['period', 'scoreDifferential', 'zone', 'manpowerSituation', 'home_away']
     calibration_bins = {'period': {'feature_name': ('period'), 'range': (1, 2, 3, 4)},
                         'scoreDifferential': {'feature_name': ('scoreDifferential'), 'range': range(-10, 10)},
                         'zone': {'feature_name': ('zone'), 'range': ('dz', 'nz', 'oz')},
-                        'manpowerSituation': {'feature_name': ('manpowerSituation'), 'range': ('shortHanded', 'evenStrength', 'powerPlay')}
+                        'manpowerSituation': {'feature_name': ('manpowerSituation'),
+                                              'range': ('shortHanded', 'evenStrength', 'powerPlay')},
+                        'home_away': {'feature_name': ('home_away'), 'range': (1, 0)},
+                        # TODO: we must add the home/away label
                         }
     source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
     model_data_store_dir = '/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019'
@@ -152,9 +156,13 @@ if __name__ == '__main__':
     Cali.construct_bin_dicts()
     Cali.aggregate_calibration_values()
     Cali.compute_distance()
-    # save_calibration_dir = "./calibration_results/calibration-['shot', 'pass']-2019June05.txt"
-    # print Cali.save_calibration_dir
-    generate_cali_latex_table(Cali.save_calibration_dir)
+    print Cali.save_calibration_dir
+
+
+if __name__ == '__main__':
+    save_calibration_dir = './calibration_results/calibration-[]-2019September06.txt'
+
+    generate_cali_latex_table(save_calibration_dir)
     # tt_result_file_dir = "./calibration_results/calibration-['shot', 'pass']-2019June05.txt"
     # markov_result_file_dir = "../resource/calibration-markov-['shot', 'pass']-2019May30.txt"
     # generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir)
