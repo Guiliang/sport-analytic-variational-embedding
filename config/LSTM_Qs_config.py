@@ -2,10 +2,10 @@ import yaml
 from support.config_tools import InitWithDict
 
 
-class MDNQsCongfig(object):
+class LSTMQsCongfig(object):
     def __init__(self, init):
-        self.Learn = MDNQsCongfig.Learn(init["Learn"])
-        self.Arch = MDNQsCongfig.Arch(init["Arch"])
+        self.Learn = LSTMQsCongfig.Learn(init["Learn"])
+        self.Arch = LSTMQsCongfig.Arch(init["Arch"])
 
     class Learn(InitWithDict):
         save_mother_dir = None
@@ -26,8 +26,8 @@ class MDNQsCongfig(object):
 
     class Arch(InitWithDict):
         def __init__(self, init):
-            self.LSTM = MDNQsCongfig.Arch.LSTM(init["LSTM"])
-            self.Dense = MDNQsCongfig.Arch.Dense(init["Dense"])
+            self.LSTM = LSTMQsCongfig.Arch.LSTM(init["LSTM"])
+            self.Dense = LSTMQsCongfig.Arch.Dense(init["Dense"])
 
         class LSTM(InitWithDict):
             h_size = None
@@ -42,4 +42,4 @@ class MDNQsCongfig(object):
     @staticmethod
     def load(file_path):
         config = yaml.load(open(file_path, 'r'))
-        return MDNQsCongfig(config)
+        return LSTMQsCongfig(config)

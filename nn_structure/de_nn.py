@@ -96,11 +96,11 @@ class TD_Prediction_Embed:
                     # dense_input = embed_layer
                     dense_output = tf.matmul(dense_input, self.dense_layer_weights[i]) + self.dense_layer_bias[i]
                     if i < self.config.Arch.Dense.dense_layer_num - 1:
-                        dense_output = tf.nn.relu(embed_output, name='activation_{0}'.format(str(i)))
+                        dense_output = tf.nn.relu(dense_output, name='activation_{0}'.format(str(i)))
             if self.config.Learn.apply_softmax:
-                self.read_out = tf.nn.softmax(embed_output)
+                self.read_out = tf.nn.softmax(dense_output)
             else:
-                self.read_out = embed_output
+                self.read_out = dense_output
             with tf.name_scope("cost"):
                 self.cost = tf.reduce_mean(tf.square(self.y_ph - self.read_out))
                 self.diff = tf.reduce_mean(tf.abs(self.y_ph - self.read_out))

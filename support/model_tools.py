@@ -171,6 +171,40 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size))
 
+    elif model_catagoery == 'LSTM_Qs':
+        log_dir = "{0}/oschulte/Galen/icehockey-models/lstm_Qs_log_NN" \
+                  "/{1}lstm_log_feature{2}_{8}_y{10}" \
+                  "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}_dense{11}".format(config.Learn.save_mother_dir,
+                                                                                      train_msg,
+                                                                                      str(config.Learn.feature_type),
+                                                                                      str(config.Learn.batch_size),
+                                                                                      str(config.Learn.iterate_num),
+                                                                                      str(config.Learn.learning_rate),
+                                                                                      str(config.Learn.model_type),
+                                                                                      str(config.Learn.max_seq_length),
+                                                                                      config.Learn.predict_target,
+                                                                                      None,
+                                                                                      str(config.Arch.LSTM.h_size),
+                                                                                      str(
+                                                                                          config.Arch.Dense.hidden_size)
+                                                                                      )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/lstm_Qs_model_saved_NN/" \
+                        "{1}lstm_embed_saved_networks_feature{2}_{8}_y{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}_dense{11}".format(
+            config.Learn.save_mother_dir,
+            train_msg,
+            str(config.Learn.feature_type),
+            str(config.Learn.batch_size),
+            str(config.Learn.iterate_num),
+            str(config.Learn.learning_rate),
+            str(config.Learn.model_type),
+            str(config.Learn.max_seq_length),
+            config.Learn.predict_target,
+            None,
+            str(config.Arch.LSTM.h_size),
+            str(config.Arch.Dense.hidden_size))
+
     return saved_network, log_dir
 
 
