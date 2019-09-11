@@ -5,6 +5,7 @@ import numpy as np
 import json
 
 from nn_structure.cvrnn import CVRNN
+from nn_structure.lstm_Qs_nn import TD_Prediction
 from support.data_processing_tools import get_icehockey_game_data, generate_selection_matrix, transfer2seq
 from support.plot_tools import plot_game_Q_values
 
@@ -43,11 +44,11 @@ def load_nn_model(saver, sess, saved_network_dir):
         print("Could not find the network: {0}", format(saved_network_dir))
 
 
-def get_data_name(config, model_catagoery):
+def get_data_name(config, model_catagoery, model_number):
     if model_catagoery == 'cvrnn':
-        data_name = "model_three_cut_feature{2}_latent{8}_x{9}_y{10}" \
+        data_name = "model_{1}_three_cut_cvrnn_Qs_feature{2}_latent{8}_x{9}_y{10}" \
                     "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}".format(config.Learn.save_mother_dir,
-                                                                              None,
+                                                                              model_number,
                                                                               str(config.Learn.feature_type),
                                                                               str(config.Learn.batch_size),
                                                                               str(config.Learn.iterate_num),
@@ -59,6 +60,23 @@ def get_data_name(config, model_catagoery):
                                                                               str(config.Arch.CVRNN.x_dim),
                                                                               str(config.Arch.CVRNN.hidden_dim)
                                                                               )
+    elif model_catagoery == 'lstm_Qs':
+        data_name = "model_{1}_three_cut_lstm_Qs_feature{2}_{8}" \
+                    "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}_dense{11}".format(config.Learn.save_mother_dir,
+                                                                                        model_number,
+                                                                                        str(config.Learn.feature_type),
+                                                                                        str(config.Learn.batch_size),
+                                                                                        str(config.Learn.iterate_num),
+                                                                                        str(config.Learn.learning_rate),
+                                                                                        str(config.Learn.model_type),
+                                                                                        str(
+                                                                                            config.Learn.max_seq_length),
+                                                                                        config.Learn.predict_target,
+                                                                                        None,
+                                                                                        str(config.Arch.LSTM.h_size),
+                                                                                        str(
+                                                                                            config.Arch.Dense.hidden_size)
+                                                                                        )
 
     return data_name
 
@@ -171,9 +189,9 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size))
 
-    elif model_catagoery == 'LSTM_Qs':
+    elif model_catagoery == 'lstm_Qs':
         log_dir = "{0}/oschulte/Galen/icehockey-models/lstm_Qs_log_NN" \
-                  "/{1}lstm_log_feature{2}_{8}_y{10}" \
+                  "/{1}lstm_log_feature{2}_{8}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}_dense{11}".format(config.Learn.save_mother_dir,
                                                                                       train_msg,
                                                                                       str(config.Learn.feature_type),
@@ -190,7 +208,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                                                       )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/lstm_Qs_model_saved_NN/" \
-                        "{1}lstm_embed_saved_networks_feature{2}_{8}_y{10}" \
+                        "{1}lstm_saved_networks_feature{2}_{8}" \
                         "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}_dense{11}".format(
             config.Learn.save_mother_dir,
             train_msg,
@@ -299,29 +317,36 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config, player_id_
     if model_category == "cvrnn":
         train_mask = np.asarray([[[0]] * config.Learn.max_seq_length] * len(player_index))
         if config.Learn.predict_target == 'PlayerLocalId':
-            input_data_t0 = np.concatenate([player_index_seq,
-                                            team_id_seq,
-                                            state_input,
-                                            action_seq,
-                                            train_mask],
-                                           axis=2)
-            target_data_t0 = player_index
-            trace_lengths_t0 = state_trace_length
-            selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
+            input_data = np.concatenate([player_index_seq,
+                                         team_id_seq,
+                                         state_input,
+                                         action_seq,
+                                         train_mask],
+                                        axis=2)
+            trace_lengths = state_trace_length
+            selection_matrix_t0 = generate_selection_matrix(trace_lengths,
                                                             max_trace_length=config.Learn.max_seq_length)
         else:
-            input_data_t0 = np.concatenate([player_index, state_input,
-                                            action, train_mask], axis=2)
-            target_data_t0 = player_index
-            trace_lengths_t0 = state_trace_length
-            selection_matrix_t0 = generate_selection_matrix(trace_lengths_t0,
+            input_data = np.concatenate([player_index, state_input,
+                                         action, train_mask], axis=2)
+            trace_lengths = state_trace_length
+            selection_matrix_t0 = generate_selection_matrix(trace_lengths,
                                                             max_trace_length=config.Learn.max_seq_length)
 
         [readout] = sess_nn.run([model.sarsa_output],
-                                feed_dict={model.input_data_ph: input_data_t0,
-                                           model.trace_length_ph: trace_lengths_t0,
+                                feed_dict={model.input_data_ph: input_data,
+                                           model.trace_length_ph: trace_lengths,
                                            model.selection_matrix_ph: selection_matrix_t0
                                            })
+    elif model_category == 'lstm_Qs':
+        input_data = np.concatenate([np.asarray(state_input), np.asarray(action_seq)], axis=2)
+        trace_lengths = state_trace_length
+        [readout] = sess_nn.run([model.read_out],
+                                feed_dict={model.rnn_input_ph: input_data,
+                                           model.trace_lengths_ph: trace_lengths})
+    else:
+        raise ValueError('unknown model {0}'.format(model_category))
+
     return readout
 
 
@@ -329,24 +354,31 @@ def compute_values_for_all_games(config, data_store_dir, dir_all,
                                  model_number=None,
                                  player_id_cluster_dir=None,
                                  model_category=None):
+    saved_network_dir, log_dir = get_model_and_log_name(config=config, model_catagoery=model_category)
     sess_nn = tf.InteractiveSession()
+    if model_category == 'cvrnn':
+        cvrnn = CVRNN(config=config)
+        cvrnn()
+        model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'lstm_Qs':
+        model_nn = TD_Prediction(config=config)
+        model_nn()
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/Ice-Hockey-game--{0}'.format(model_number)
+    else:
+        raise ValueError('unknown model type {0}'.format(model_category))
 
-    cvrnn = CVRNN(config=config)
-    cvrnn()
-    model_nn = cvrnn
-    sess_nn.run(tf.global_variables_initializer())
-
-    saved_network_dir, log_dir = get_model_and_log_name(config=config, model_catagoery='cvrnn')
-
-    data_name = get_data_name(config=config, model_catagoery='cvrnn')
+    data_name = get_data_name(config=config, model_catagoery=model_category, model_number=model_number)
     if model_number is not None:
         saver = tf.train.Saver()
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
         saver.restore(sess_nn, model_path)
         print 'successfully load data from' + model_path
     else:
         raise ValueError('please provide a model number or no model will be loaded')
     for game_name_dir in dir_all:
+        print('working for game {0}'.format(game_name_dir))
         game_name = game_name_dir.split('.')[0]
         # game_time_all = get_game_time(data_path, game_name_dir)
         model_value = compute_game_values(sess_nn=sess_nn,

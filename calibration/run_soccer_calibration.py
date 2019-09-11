@@ -1,6 +1,7 @@
 import sys
 
 from calibration import Calibration
+from config.LSTM_Qs_config import LSTMQsCongfig
 from config.cvrnn_config import CVRNNCongfig
 
 print sys.path
@@ -132,7 +133,20 @@ def generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir):
 
 
 def run_calibration():
-    predicted_target = '_PlayerLocalId'
+    model_type = 'lstm_Qs'
+    apply_old = False
+    apply_difference = False
+    if model_type == 'cvrnn':
+        model_number = 901
+        predicted_target = '_PlayerLocalId'
+        icehockey_config_path = "../environment_settings/icehockey_cvrnn{0}_config.yaml".format(predicted_target)
+        config = CVRNNCongfig.load(icehockey_config_path)
+    elif model_type == 'lstm_Qs':
+        model_number = 901
+        icehockey_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm.yaml"
+        config = LSTMQsCongfig.load(icehockey_config_path)
+    else:
+        raise ValueError('incorrect model type {0}'.format(model_type))
     calibration_features = ['period', 'scoreDifferential', 'zone', 'manpowerSituation', 'home_away']
     calibration_bins = {'period': {'feature_name': ('period'), 'range': (1, 2, 3, 4)},
                         'scoreDifferential': {'feature_name': ('scoreDifferential'), 'range': range(-10, 10)},
@@ -144,14 +158,11 @@ def run_calibration():
                         }
     source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
     model_data_store_dir = '/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019'
-    icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config.yaml".format(predicted_target)
-    config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
-    apply_old = False
-    apply_difference = False
     Cali = Calibration(bins=calibration_bins, source_data_dir=source_data_dir,
                        calibration_features=calibration_features, config=config,
                        model_data_store_dir=model_data_store_dir, apply_old=apply_old,
                        apply_difference=apply_difference,
+                       model_type=model_type, model_number=model_number,
                        focus_actions_list=[])
     Cali.construct_bin_dicts()
     Cali.aggregate_calibration_values()
@@ -160,9 +171,12 @@ def run_calibration():
 
 
 if __name__ == '__main__':
-    save_calibration_dir = './calibration_results/calibration-[]-2019September06.txt'
 
-    generate_cali_latex_table(save_calibration_dir)
+    run_calibration()
+
+    # save_calibration_dir = './calibration_results/calibration-[]-2019September06.txt'
+    #
+    # generate_cali_latex_table(save_calibration_dir)
     # tt_result_file_dir = "./calibration_results/calibration-['shot', 'pass']-2019June05.txt"
     # markov_result_file_dir = "../resource/calibration-markov-['shot', 'pass']-2019May30.txt"
     # generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir)

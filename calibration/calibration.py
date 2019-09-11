@@ -10,7 +10,7 @@ from support.model_tools import get_data_name
 class Calibration:
     def __init__(self, bins, source_data_dir, calibration_features,
                  config, model_data_store_dir,
-                 apply_old, apply_difference, focus_actions_list=[]):
+                 apply_old, apply_difference, model_type, model_number, focus_actions_list=[]):
         self.bins = bins
         # self.bins_names = bins.keys()
         self.apply_old = apply_old
@@ -37,7 +37,7 @@ class Calibration:
             self.teams = ['home', 'away', 'end']
             # learning_rate = tt_lstm_config.learn.learning_rate
             # pass
-        self.data_name = get_data_name(config=config, model_catagoery='cvrnn')
+        self.data_name = get_data_name(config=config, model_catagoery=model_type, model_number=model_number)
         print(self.data_name)
 
     def __del__(self):
@@ -157,19 +157,17 @@ class Calibration:
                     elif calibration_feature == 'manpowerSituation':
                         value = features_values_dict.get('manpowerSituation')
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + str(value) + '-'
-                    elif calibration_feature == 'home_way':
-                        value = features_values_dict.get('home_way')
+                    elif calibration_feature == 'home_away':
+                        value = features_values_dict.get('home_away')
                         cali_dict_str = cali_dict_str + calibration_feature + '_' + str(value) + '-'
                     else:
-                        raise ValueError('unknown feature' + calibration_feature)
+                        raise ValueError('unknown feature ' + calibration_feature)
 
                 calibration_value = calibration_values[index]
                 model_value = model_values[str(index)]
 
                 cali_bin_info = self.calibration_values_all_dict.get(cali_dict_str)
                 # print cali_dict_str
-                if cali_bin_info is None:
-                    print(cali_dict_str)
                 assert cali_bin_info is not None
                 cali_sum = cali_bin_info.get('cali_sum')
                 model_sum = cali_bin_info.get('model_sum')

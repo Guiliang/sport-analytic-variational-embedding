@@ -62,6 +62,8 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
                 with tf.variable_scope("sigma"):
                     prior_sigma = tf.nn.softplus(linear(prior_hidden, self.n_z))
 
+            # lambda_prior = tf.nn.relu(linear(tf.concat(values=[y_phi, m], axis=1), self.n_prior_hidden))
+
             with tf.variable_scope("cond_x"):
                 xy = tf.concat(values=(x, linear(y, self.n_h)), axis=1)
             with tf.variable_scope("phi_x"):

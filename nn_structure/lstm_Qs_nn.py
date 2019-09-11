@@ -40,9 +40,9 @@ class TD_Prediction:
                                                 initializer=tf.random_uniform_initializer(-0.05, 0.05)))
             with tf.name_scope("Dense_Layer"):
                 for i in range(self.config.Arch.Dense.dense_layer_num):
-                    w_input_size = self.config.Arch.Dense.hidden_node_size if i > 0 else \
-                        self.config.Arch.LSTM.h_size + self.config.Arch.Embed.latent_size
-                    w_output_size = self.config.Arch.Dense.hidden_node_size \
+                    w_input_size = self.config.Arch.Dense.hidden_size if i > 0 else \
+                        self.config.Arch.LSTM.h_size
+                    w_output_size = self.config.Arch.Dense.hidden_size \
                         if i < self.config.Arch.Dense.dense_layer_num - 1 else self.config.Arch.Dense.output_layer_size
                     self.dense_layer_weights.append(tf.get_variable('w_dense_{0}'.format(str(i)),
                                                                     [w_input_size, w_output_size],

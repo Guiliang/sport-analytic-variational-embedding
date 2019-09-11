@@ -132,13 +132,11 @@ def run_network(sess, model, config, log_dir, save_network_dir,
             gathering_running_and_run(dir_game, config,
                                       player_id_cluster_dir, data_store, model, sess,
                                       training_flag=True, game_number=game_number, pretrain_flag=pretrain_flag)
-            if game_number == pretrain_number and save_flag:
+
+            if game_number % 100 == 1 and save_flag:
                 save_model(game_number, saver, sess, save_network_dir, config)
-            if not pretrain_flag:
-                if game_number % 100 == 1 and save_flag:
-                    save_model(game_number, saver, sess, save_network_dir, config)
-                    # validate_model(testing_dir_games_all, data_store, config,
-                    #                sess, model, player_id_cluster_dir, train_game_number=game_number)
+                # validate_model(testing_dir_games_all, data_store, config,
+                #                sess, model, player_id_cluster_dir, train_game_number=game_number)
 
 
 def save_model(game_number, saver, sess, save_network_dir, config):
@@ -158,10 +156,13 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
     y_batch = []
     for i in range(0, len(readout_t1_batch)):
         # if terminal, only equals reward
-        if terminal or cut:
+        if terminal:
+            pass
+        if (terminal or cut) and i == len(readout_t1_batch)-1:
             y_home = float(r_t_batch[i][0])
             y_away = float(r_t_batch[i][1])
             y_end = float(r_t_batch[i][2])
+            print([y_home, y_away, y_end])
             y_batch.append([y_home, y_away, y_end])
             break
         else:
@@ -180,11 +181,14 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
                        model.y_ph: y_batch
                        }
         )
+    print('the avg Q values are home {0}, away {1} and end {2}'.format(np.mean(train_outputs[0][:, 0]),
+                                                                       np.mean(train_outputs[0][:, 1]),
+                                                                       np.mean(train_outputs[0][:, 2])))
 
 
 def run():
     test_flag = False
-    icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_mdn.yaml"
+    icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm.yaml"
     icehockey_mdn_Qs_config = LSTMQsCongfig.load(icehockey_mdn_Qs_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config, model_catagoery='lstm_Qs')
 
