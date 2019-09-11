@@ -16,7 +16,7 @@ Arch:
   LSTM:
     h_size: 512
     lstm_layer_num: 1
-    feature_number: 48 #12
+    feature_number: 42 #12
   Encode:
     latent_size: 256
     label_size: 1003

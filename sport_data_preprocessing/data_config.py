@@ -25,12 +25,13 @@ action_all = ['assist',
               'receptionprevention',
               'shot',
               'shot1timer',
-              'socarry',
-              'socheck',
-              'sogoal',
-              'solpr',
-              'sopuckprotection',
-              'soshot']
+              # 'socarry',
+              # 'socheck',
+              # 'sogoal',
+              # 'solpr',
+              # 'sopuckprotection',
+              # 'soshot'
+              ]
 
 interested_raw_features = [ 'xAdjCoord',
                             'yAdjCoord',

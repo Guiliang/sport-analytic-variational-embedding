@@ -140,6 +140,15 @@ class Preprocess:
         gameTime = events[idx].get('gameTime')
         return 3600. - gameTime
 
+    def is_goal(self, events, idx):
+        action = events[idx].get('name')
+        if idx == 0:
+            return False
+        elif action == 'goal':
+            return True
+        else:
+            return False
+
     def is_switch_possession(self, events, idx):  # compare with former timestamp
         switch = False
         if idx == 0:
@@ -226,20 +235,16 @@ class Preprocess:
             teamId = event.get('teamId')
             teamId = int(teamId)
             action = event.get('name')
-            player_id = event.get('playerId')
-            player_index = self.player_basic_info_dict.get(player_id).get('index')
-            player_id_one_hot = [0] * len(self.player_basic_info_dict)
-            player_id_one_hot[player_index] = 1
-            player_index_game.append(player_id_one_hot)
-            player_id_game.append(player_id)
 
-            if self.is_switch_possession(events, idx):
+            if self.is_switch_possession(events, idx) or self.is_goal(events, idx-1):
                 lt = 1
             else:
                 lt = lt + 1
-
-            action_one_hot_vector = self.action_one_hot(action)
-            player_id
+            try:
+                action_one_hot_vector = self.action_one_hot(action)
+            except:
+                print('skip wrong action: {0} with index {1}'.format(action, str(idx)))
+                continue
             team_one_hot_vector = self.team_one_hot(teamId)
             features_all = []
             # add raw features
@@ -293,10 +298,18 @@ class Preprocess:
             else:
                 rewards_game.append(0)
             # rewards_game.append(reward)
+
+            player_id = event.get('playerId')
+            player_index = self.player_basic_info_dict.get(player_id).get('index')
+            player_id_one_hot = [0] * len(self.player_basic_info_dict)
+            player_id_one_hot[player_index] = 1
+            player_index_game.append(player_id_one_hot)
+
             state_feature_game.append(np.asarray(features_all))
             action_game.append(np.asarray(action_one_hot_vector))
             team_game.append(np.asarray(team_one_hot_vector))
             lt_game.append(lt)
+            player_id_game.append(player_id)
         return state_feature_game, action_game, team_game, lt_game, rewards_game, player_id_game, player_index_game
 
     def scale_allgame_features(self):

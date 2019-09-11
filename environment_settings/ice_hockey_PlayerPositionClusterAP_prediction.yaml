@@ -1,6 +1,6 @@
 Learn:
   dense_layer_num: 1
-  feature_number : 45
+  feature_number : 39
   save_mother_dir : '/Local-Scratch'
   batch_size : 32
   keep_prob : 1
