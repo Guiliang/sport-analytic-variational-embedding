@@ -6,6 +6,7 @@ import json
 import scipy.io as sio
 import unicodedata
 from ice_hockey_data_config import player_position_index_dict
+from resource.ice_hockey_201819.player_name_matching_dir import nhl_stats_name_matching
 from sport_data_preprocessing.data_config import teamList, positions
 import copy
 
@@ -275,6 +276,7 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
             for position in positions:
                 for player_local_id_tuple in player_local_within_team.get(position):
                     if player_local_id_tuple[0] == p_index:
+                        # player_local_id_tuple = [index, player_id, points, player_local_id]
                         player_local_id = player_local_id_tuple[3]
                         if not h_a:
                             player_local_id += config.Learn.position_max_length * len(positions)
@@ -347,7 +349,6 @@ def safely_expand_reward(reward_batch, max_trace_length):
             reward_expanded += [[0, 0, 0]] * (max_trace_length - 1)
             reward_expanded += [reward]
     return reward_expanded
-
 
 
 def get_together_training_batch(s_t0, state_input, reward, player_index, train_number, train_len, state_trace_length,
@@ -744,8 +745,54 @@ def read_player_stats(player_scoring_stats_dir):
     return data_all
 
 
+def match_player_name_NHLcom(player_basic_info_dir, player_names):
+
+
+    match_flag = [0]*len(player_names)
+
+    with open(player_basic_info_dir, 'rb') as f:
+        player_basic_info = json.load(f)
+    match_name_info_dict = {}
+    for id in player_basic_info.keys():
+        player_first_name_basic = player_basic_info.get(id).get('first_name')
+        player_last_name_basic = player_basic_info.get(id).get('last_name')
+        player_index_basic = player_basic_info.get(id).get('index')
+        player_position_basic = player_basic_info.get(id).get('position')
+        for player_name_i in range(0, len(player_names)):
+            player_name = player_names[player_name_i]
+            player_name_split = player_name.split(' ')
+            player_first_name_data = player_name_split[0]
+            player_last_name_data = ''
+            for word in player_name_split[1:]:
+                player_last_name_data += (word+' ')
+            player_last_name_data = player_last_name_data.strip()
+            if nhl_stats_name_matching.get(player_first_name_data+"|"+player_last_name_data) is not None:
+                player_name_new = nhl_stats_name_matching.get(player_first_name_data + "|" + player_last_name_data)
+                player_name_split = player_name_new.split('|')
+                player_first_name_data = player_name_split[0]
+                player_last_name_data = player_name_split[1]
+
+            # print(player_last_name_data)
+            # if player_last_name_data == 'Wilson':
+            #     print(player_last_name_data)
+            if player_first_name_basic == player_first_name_data and player_last_name_basic == player_last_name_data:
+                match_id = id
+                match_name = player_name
+                returning_player_id_stats = {'id': match_id, 'position': player_position_basic,
+                                             'index': player_index_basic}
+                match_name_info_dict.update({match_name: returning_player_id_stats})
+
+                match_flag[player_name_i] = 1
+
+    # for player_name_i in range(0, len(player_names)):
+    #     if not match_flag[player_name_i]:
+    #         print(player_names[player_name_i])
+
+    return match_name_info_dict
+
+
 def generate_player_name_id_features(player_basic_info, player_scoring_stats, interest_features=[]):
-    from resource.ice_hockey_201819.player_name_matching_dir import name_matching, team_matching
+    from resource.ice_hockey_201819.player_name_matching_dir import fox_stats_name_matching, team_matching
     # TODO: fix 3 duplicated name with team name, but player might transfer team
 
     feature_name = player_scoring_stats[0].split(',')
@@ -763,8 +810,8 @@ def generate_player_name_id_features(player_basic_info, player_scoring_stats, in
         player_team_basic = player_basic_info.get(id).get('teamName')
         player_position_basic = player_basic_info.get(id).get('position')
 
-        if name_matching.get(player_first_name_basic + '|' + player_last_name_basic):
-            player_name_basic_match = name_matching.get(player_first_name_basic + '|' + player_last_name_basic)
+        if fox_stats_name_matching.get(player_first_name_basic + '|' + player_last_name_basic):
+            player_name_basic_match = fox_stats_name_matching.get(player_first_name_basic + '|' + player_last_name_basic)
             player_first_name_basic = player_name_basic_match.split('|')[0]
             player_last_name_basic = player_name_basic_match.split('|')[1]
         if team_matching.get(player_team_basic):
@@ -833,12 +880,22 @@ def normal_td(mu1, mu2, var1, var2, y):
     return loss
 
 
+def handle_player_game_by_game_stats(player_summary_data_dir):
+    with open(player_summary_data_dir, 'r') as f:
+        player_summary_data = json.load(f)
+    print ('still working')
+
+
+
 if __name__ == '__main__':
-    normal_td(np.asarray([0.2561741, 0.25606957]),
-              np.asarray([0.25351873, 0.25392953]),
-              np.asarray([1.4007641, 1.353279]),
-              np.asarray([1.3459749, 1.316068]),
-              np.asarray([1, 0]))
+    player_summary_data_dir = '../resource/ice_hockey_201819/NHL_players_game_summary_201819.csv'
+    handle_player_game_by_game_stats(player_summary_data_dir)
+
+    # normal_td(np.asarray([0.2561741, 0.25606957]),
+    #           np.asarray([0.25351873, 0.25392953]),
+    #           np.asarray([1.4007641, 1.353279]),
+    #           np.asarray([1.3459749, 1.316068]),
+    #           np.asarray([1, 0]))
 
 # if __name__ == '__main__':
 #     player_scoring_stats_dir = '../resource/ice_hockey_201819/NHL_player_1819_scoring.csv'

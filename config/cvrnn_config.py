@@ -38,7 +38,6 @@ class CVRNNCongfig(object):
             latent_dim = None
             x_dim = None
             y_dim = None
-            z_dim = None
 
         class SARSA(InitWithDict):
             lstm_layer_num = None

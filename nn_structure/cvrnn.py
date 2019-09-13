@@ -256,18 +256,18 @@ class CVRNN():
                 dtype=tf.float32)
 
             flat_target_data = tf.reshape(self.target_data_ph, [-1, self.config.Arch.CVRNN.x_dim])
-            sarsa_rnn_outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
-                                                              sequence_length=self.trace_length_ph,
-                                                              initial_state=tf.contrib.rnn.LSTMStateTuple(
-                                                                  self.initial_state_c,
-                                                                  self.initial_state_h))
+            cvrnn_outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
+                                                          sequence_length=self.trace_length_ph,
+                                                          initial_state=tf.contrib.rnn.LSTMStateTuple(
+                                                              self.initial_state_c,
+                                                              self.initial_state_h))
         # print outputs
         # outputs = map(tf.pack,zip(*outputs))
-        sarsa_rnn_outputs = tf.split(value=tf.transpose(a=sarsa_rnn_outputs, perm=[1, 0, 2]),
-                                     num_or_size_splits=[1] * self.config.Learn.max_seq_length, axis=0)
+        cvrnn_outputs = tf.split(value=tf.transpose(a=cvrnn_outputs, perm=[1, 0, 2]),
+                                 num_or_size_splits=[1] * self.config.Learn.max_seq_length, axis=0)
         outputs_reshape = []
         outputs_all = []
-        for output in sarsa_rnn_outputs:
+        for output in cvrnn_outputs:
             output = tf.squeeze(output, axis=0)
             output = tf.split(value=output, num_or_size_splits=self.cell.output_dim_list, axis=1)
             outputs_all.append(output)
@@ -343,9 +343,9 @@ class CVRNN():
                         inputs=rnn_input, cell=self.sarsa_lstm_cell[i],
                         sequence_length=self.trace_length_ph, dtype=tf.float32,
                         scope='sarsa_rnn_{0}'.format(str(i)))
-                sarsa_rnn_outputs = tf.stack(rnn_output)
+                cvrnn_outputs = tf.stack(rnn_output)
                 # Indexing
-                rnn_last = tf.gather(tf.reshape(sarsa_rnn_outputs,
+                rnn_last = tf.gather(tf.reshape(cvrnn_outputs,
                                                 [-1, self.config.Arch.SARSA.h_size]), self.select_index)
 
             for j in range(self.config.Arch.SARSA.dense_layer_number - 1):

@@ -132,7 +132,7 @@ class Calibration:
                 feature_values_dict.update({'home_away': home_away[feature_values_index]})
                 features_values_dict_all_new.append(feature_values_dict)
 
-            for index in range(0, len(features_values_dict_all_new)):
+            for index in range(0, len(model_values)):
                 action = actions_all[index]['name']  # find the action we focus
                 continue_flag = False if len(self.focus_actions_list) == 0 else True
                 for f_action in self.focus_actions_list:
