@@ -15,6 +15,7 @@ Learn:
   sport : 'Ice-Hockey'
   predict_target : 'PlayerId'
   player_Id_style: 'PlayerId'
+  apply_box_score: True
 
 Arch:
   CVRNN:

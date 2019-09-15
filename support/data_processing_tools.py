@@ -170,7 +170,7 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
     return np.asarray(selection_matrix)
 
 
-def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=None):
+def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=None, game_date = None):
     player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
@@ -234,6 +234,59 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
     assert trace_length_name is not None
     state_trace_length = sio.loadmat(
         data_store + "/" + dir_game + "/" + trace_length_name)['lt'][0]
+
+    if config.Learn.apply_box_score:
+
+        player_box_score_dir = '../resource/ice_hockey_201819/Scale_H_NHL_players_game_summary_201819.csv'
+        print ('horizontal rescale is to hard')
+        with open(player_box_score_dir, 'r') as f:
+            player_box_score_all = json.load(f)
+
+        player_index_seq = transfer2seq(data=player_index_all, trace_length=state_trace_length,
+                                        max_length=config.Learn.max_seq_length)
+        interested_item_key_all = ['P', 'A', 'G']
+        zero_out_box_score = None
+        box_score_all = np.zeros([len(state_trace_length), config.Learn.max_seq_length, len(interested_item_key_all)])
+        for trace_length_index in range(0, len(state_trace_length)):
+            trace_length = state_trace_length[trace_length_index]
+            for trace_step in range(0, trace_length):
+                player_index_traced = player_index_all[trace_length_index - trace_step]
+                player_box_score_dict = player_box_score_all.get(player_index_traced.tolist().index(1))
+                if player_box_score_dict is not None:
+                    player_box_score_list = player_box_score_dict.get('gbg_summary_list')
+                    measured_game_date_pre = player_box_score_list[0].get('game_date')
+                    box_score_find_flag = False
+                    target_player_box_score_item = None
+                    for player_box_score_item_index in range(0, len(player_box_score_list)):
+                        player_box_score_item = player_box_score_list[player_box_score_item_index]
+                        measured_game_date = player_box_score_item.get('game_date')
+                        if game_date < measured_game_date_pre:
+                            box_score_target = zero_out_box_score
+                            box_score_find_flag = True
+                        elif game_date == measured_game_date:
+                            target_player_box_score_item = player_box_score_list[player_box_score_item_index]
+                            box_score_find_flag = True
+                            break
+                        elif game_date > measured_game_date_pre and game_date < measured_game_date:
+                            target_player_box_score_item = player_box_score_list[player_box_score_item_index-1]
+                            box_score_find_flag = True
+                            break
+                        elif player_box_score_item_index == len(player_box_score_list)-1 and game_date > measured_game_date:
+                            target_player_box_score_item = player_box_score_list[player_box_score_item_index]
+                            box_score_find_flag = True
+                            break
+                        else:
+                            continue
+                    assert box_score_find_flag is True
+                    box_score_target = []
+                    for item_key in interested_item_key_all:
+                        box_score_target.append(target_player_box_score_item.get(item_key))
+                else:
+                    box_score_target = zero_out_box_score
+
+                box_score_all[trace_length_index, trace_length - 1 - trace_step, :] = box_score_target
+
+        state_input = state_input
 
     if config.Learn.predict_target == 'PlayerPosition':
         player_position_index_all = []
@@ -746,9 +799,7 @@ def read_player_stats(player_scoring_stats_dir):
 
 
 def match_player_name_NHLcom(player_basic_info_dir, player_names):
-
-
-    match_flag = [0]*len(player_names)
+    match_flag = [0] * len(player_names)
 
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
@@ -764,9 +815,9 @@ def match_player_name_NHLcom(player_basic_info_dir, player_names):
             player_first_name_data = player_name_split[0]
             player_last_name_data = ''
             for word in player_name_split[1:]:
-                player_last_name_data += (word+' ')
+                player_last_name_data += (word + ' ')
             player_last_name_data = player_last_name_data.strip()
-            if nhl_stats_name_matching.get(player_first_name_data+"|"+player_last_name_data) is not None:
+            if nhl_stats_name_matching.get(player_first_name_data + "|" + player_last_name_data) is not None:
                 player_name_new = nhl_stats_name_matching.get(player_first_name_data + "|" + player_last_name_data)
                 player_name_split = player_name_new.split('|')
                 player_first_name_data = player_name_split[0]
@@ -811,7 +862,8 @@ def generate_player_name_id_features(player_basic_info, player_scoring_stats, in
         player_position_basic = player_basic_info.get(id).get('position')
 
         if fox_stats_name_matching.get(player_first_name_basic + '|' + player_last_name_basic):
-            player_name_basic_match = fox_stats_name_matching.get(player_first_name_basic + '|' + player_last_name_basic)
+            player_name_basic_match = fox_stats_name_matching.get(
+                player_first_name_basic + '|' + player_last_name_basic)
             player_first_name_basic = player_name_basic_match.split('|')[0]
             player_last_name_basic = player_name_basic_match.split('|')[1]
         if team_matching.get(player_team_basic):
@@ -884,7 +936,6 @@ def handle_player_game_by_game_stats(player_summary_data_dir):
     with open(player_summary_data_dir, 'r') as f:
         player_summary_data = json.load(f)
     print ('still working')
-
 
 
 if __name__ == '__main__':

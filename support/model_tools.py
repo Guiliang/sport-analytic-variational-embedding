@@ -7,7 +7,7 @@ import json
 from nn_structure.cvrnn import CVRNN
 from nn_structure.lstm_Qs_nn import TD_Prediction
 from support.data_processing_tools import get_icehockey_game_data, generate_selection_matrix, transfer2seq
-from support.plot_tools import plot_game_Q_values
+# from support.plot_tools import plot_game_Q_values
 
 
 class ExperienceReplayBuffer:

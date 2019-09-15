@@ -17,6 +17,7 @@ Learn:
   player_Id_style: 'PlayerId'
   position_max_length : 15
   apply_stochastic: True
+  apply_box_score: True
 
 Arch:
   CVRNN:

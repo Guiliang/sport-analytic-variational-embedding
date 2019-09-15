@@ -17,7 +17,7 @@ from support.data_processing_tools import handle_trace_length, compromise_state_
 from support.data_processing_tools import get_icehockey_game_data, transfer2seq, generate_selection_matrix, \
     safely_expand_reward, generate_diff_player_cluster_id, q_values_output_mask
 from support.model_tools import get_model_and_log_name, compute_rnn_acc
-from support.plot_tools import plot_players_games
+# from support.plot_tools import plot_players_games
 
 MemoryBuffer = ExperienceReplayBuffer(capacity_number=30000)
 
@@ -465,8 +465,8 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
                                                                   selection_matrix_all=selection_matrix_all,
                                                                   q_values_all=q_values_all)
         # validate_variance_flag = False
-        if match_q_values_players_dict is not None:
-            plot_players_games(match_q_values_players_dict, train_game_number)
+        # if match_q_values_players_dict is not None:
+        #     plot_players_games(match_q_values_players_dict, train_game_number)
 
     if validate_cvrnn_flag:
         acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
@@ -477,7 +477,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
 
 
 def run():
-    test_flag = False
+    test_flag = True
     player_id_type = 'local_id'
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
