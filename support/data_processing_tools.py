@@ -170,7 +170,25 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
     return np.asarray(selection_matrix)
 
 
-def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=None, game_date = None):
+def get_game_date(game_id):
+    game_date_dir = "../resource/ice_hockey_201819/game_dates_2018_2019.json"
+    with open(game_date_dir, 'rb') as f:
+        game_date_items = json.load(f)
+
+    for game_date_item in game_date_items:
+        game_id_record = game_date_item.get('gameid')
+        if game_id == game_id_record:
+            return int(game_date_item.get('date').replace('-',''))
+
+    return None
+
+
+def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=None, game_date=None):
+
+    if game_date is None:
+        game_date = get_game_date(int(dir_game))
+        assert game_date is not None
+
     player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
@@ -242,16 +260,17 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
         with open(player_box_score_dir, 'r') as f:
             player_box_score_all = json.load(f)
 
-        player_index_seq = transfer2seq(data=player_index_all, trace_length=state_trace_length,
-                                        max_length=config.Learn.max_seq_length)
-        interested_item_key_all = ['P', 'A', 'G']
+        interested_item_key_all = ["P", "PPP", "SHP", "A", "G", "PPG", "SHG", "GWG", "OTG", "+/-", "GP", "PIM", "S"]
         zero_out_box_score = None
         box_score_all = np.zeros([len(state_trace_length), config.Learn.max_seq_length, len(interested_item_key_all)])
         for trace_length_index in range(0, len(state_trace_length)):
             trace_length = state_trace_length[trace_length_index]
+            if trace_length > config.Learn.max_seq_length:
+                trace_length = config.Learn.max_seq_length
             for trace_step in range(0, trace_length):
                 player_index_traced = player_index_all[trace_length_index - trace_step]
-                player_box_score_dict = player_box_score_all.get(player_index_traced.tolist().index(1))
+                player_index2find = player_index_traced.tolist().index(1)
+                player_box_score_dict = player_box_score_all.get(str(player_index2find))
                 if player_box_score_dict is not None:
                     player_box_score_list = player_box_score_dict.get('gbg_summary_list')
                     measured_game_date_pre = player_box_score_list[0].get('game_date')
@@ -261,17 +280,20 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
                         player_box_score_item = player_box_score_list[player_box_score_item_index]
                         measured_game_date = player_box_score_item.get('game_date')
                         if game_date < measured_game_date_pre:
-                            box_score_target = zero_out_box_score
+                            print ('zero-out small')
+                            target_player_box_score_item = zero_out_box_score
                             box_score_find_flag = True
+                            break
                         elif game_date == measured_game_date:
                             target_player_box_score_item = player_box_score_list[player_box_score_item_index]
                             box_score_find_flag = True
                             break
                         elif game_date > measured_game_date_pre and game_date < measured_game_date:
-                            target_player_box_score_item = player_box_score_list[player_box_score_item_index-1]
+                            target_player_box_score_item = player_box_score_list[player_box_score_item_index - 1]
                             box_score_find_flag = True
                             break
-                        elif player_box_score_item_index == len(player_box_score_list)-1 and game_date > measured_game_date:
+                        elif player_box_score_item_index == len(
+                                player_box_score_list) - 1 and game_date > measured_game_date:
                             target_player_box_score_item = player_box_score_list[player_box_score_item_index]
                             box_score_find_flag = True
                             break
@@ -282,11 +304,12 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
                     for item_key in interested_item_key_all:
                         box_score_target.append(target_player_box_score_item.get(item_key))
                 else:
+                    print ('zero-out can not find player index {0}'.format(player_index2find))
                     box_score_target = zero_out_box_score
 
                 box_score_all[trace_length_index, trace_length - 1 - trace_step, :] = box_score_target
 
-        state_input = state_input
+        state_input = np.concatenate([state_input, box_score_all], axis=2)
 
     if config.Learn.predict_target == 'PlayerPosition':
         player_position_index_all = []

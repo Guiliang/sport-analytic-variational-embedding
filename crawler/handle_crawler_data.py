@@ -99,7 +99,6 @@ def horizontal_rescale(player_stats_summary, item_names, match_name_info_dict):
 
 
 def common_rescale(player_stats_summary, item_names):
-    scaled_player_stats_summary = {}
     data_all = []
     player_all = player_stats_summary.keys()
     for player_name in player_all:
@@ -114,6 +113,15 @@ def common_rescale(player_stats_summary, item_names):
     scaler = preprocessing.StandardScaler().fit(data_all)
     data_scale_round_all = scaler.transform(data_all)
     data_index = 0
+    scaled_player_stats_summary = {}
+    zero_out_item = {}
+    data_scale_zero_out = scaler.transform((len(item_names) - 4) * [0])
+    raise ValueError('why we use 4 as off-set')
+    for item_number in range(4, len(item_names)):
+        # print(item_number)
+        zero_out_item.update(
+            {item_names[item_number]: data_scale_zero_out[item_number - 4]})
+    scaled_player_stats_summary.update({'zero-out': [zero_out_item]})
     for player_name in player_all:
         data_gbg_summary_list = player_stats_summary.get(player_name)
         scaled_data_gbg_summary_list = []
@@ -131,7 +139,7 @@ def common_rescale(player_stats_summary, item_names):
             data_index += 1
         scaled_player_stats_summary[player_name] = scaled_data_gbg_summary_list
 
-    with open("../resource/ice_hockey_201819/" + 'Scale_C_NHL_players_game_summary_201819.csv', 'w') as outfile:
+    with open("../resource/ice_hockey_201819/" + 'Scale_NHL_players_game_summary_201819.csv', 'w') as outfile:
         json.dump(scaled_player_stats_summary, outfile)
     return scaled_player_stats_summary
 
@@ -189,4 +197,3 @@ if __name__ == '__main__':
     #     player_stats_summary = json.load(outfile)
     print('rescaling ...')
     horizontal_rescale(player_stats_summary, item_names, match_name_info_dict)
-
