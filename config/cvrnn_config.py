@@ -33,6 +33,7 @@ class CVRNNCongfig(object):
             # super(TTLSTMCongfig.Arch, self).__init__(init)
             self.CVRNN = CVRNNCongfig.Arch.CVRNN(init["CVRNN"])
             self.SARSA = CVRNNCongfig.Arch.SARSA(init["SARSA"])
+            self.WIN = CVRNNCongfig.Arch.SARSA(init["WIN"])
 
         class CVRNN(InitWithDict):
             hidden_dim = None
@@ -41,6 +42,12 @@ class CVRNNCongfig(object):
             y_dim = None
 
         class SARSA(InitWithDict):
+            lstm_layer_num = None
+            h_size = None
+            dense_layer_number = None
+            dense_layer_size = None
+
+        class WIN(InitWithDict):
             lstm_layer_num = None
             h_size = None
             dense_layer_number = None

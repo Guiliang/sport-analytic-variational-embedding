@@ -13,10 +13,11 @@ from support.model_tools import ExperienceReplayBuffer
 from config.cvrnn_config import CVRNNCongfig
 from nn_structure.cvrnn import CVRNN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
-    get_together_training_batch, write_game_average_csv
+    get_together_training_batch, write_game_average_csv, compute_game_win_vec
 from support.data_processing_tools import get_icehockey_game_data, transfer2seq, generate_selection_matrix, \
     safely_expand_reward, generate_diff_player_cluster_id, q_values_output_mask
 from support.model_tools import get_model_and_log_name, compute_rnn_acc
+
 # from support.plot_tools import plot_players_games
 
 MemoryBuffer = ExperienceReplayBuffer(capacity_number=30000)
@@ -43,6 +44,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                max_length=config.Learn.max_seq_length)
     player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
                                     max_length=config.Learn.max_seq_length)
+    win_one_hot = compute_game_win_vec(data=reward)
     # reward_count = sum(reward)
     # print ("reward number" + str(reward_count))
     if len(state_input) != len(reward) or len(state_trace_length) != len(reward):
@@ -66,6 +68,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                                  state_trace_length=state_trace_length,
                                                  action=action_seq,
                                                  team_id=team_id_seq,
+                                                 win=win_one_hot,
                                                  config=config)
 
         # get the batch variables
@@ -82,6 +85,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         team_id_t1_batch = [d[8] for d in batch_return]
         player_id_t0_batch = [d[9] for d in batch_return]
         player_id_t1_batch = [d[10] for d in batch_return]
+        win_id_t_batch = [d[11] for d in batch_return]
         terminal_batch = [d[-2] for d in batch_return]
         cut_batch = [d[-1] for d in batch_return]
         if training_flag:
@@ -131,7 +135,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 for i in range(len(input_data_t0)):
                     MemoryBuffer.push([input_data_t0[i], target_data_t0[i], trace_lengths_t0[i], selection_matrix_t0[i],
                                        input_data_t1[i], target_data_t1[i], trace_lengths_t1[i], selection_matrix_t1[i],
-                                       r_t_batch[i], terminal_batch[i], cut_batch[i]
+                                       r_t_batch[i], win_id_t_batch[i], terminal_batch[i], cut_batch[i]
                                        ])
                 sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
                 sample_input_data_t0 = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
@@ -263,11 +267,11 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
                 print([y_home, y_away, y_end])
                 break
         y_home = float((r_t_batch[i])[0]) + config.Learn.gamma * \
-                 ((readout_t1_batch[i]).tolist())[0]
+                                            ((readout_t1_batch[i]).tolist())[0]
         y_away = float((r_t_batch[i])[1]) + config.Learn.gamma * \
-                 ((readout_t1_batch[i]).tolist())[1]
+                                            ((readout_t1_batch[i]).tolist())[1]
         y_end = float((r_t_batch[i])[2]) + config.Learn.gamma * \
-                ((readout_t1_batch[i]).tolist())[2]
+                                           ((readout_t1_batch[i]).tolist())[2]
         y_batch.append([y_home, y_away, y_end])
 
     # perform gradient step

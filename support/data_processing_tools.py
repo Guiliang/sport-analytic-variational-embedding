@@ -178,13 +178,12 @@ def get_game_date(game_id):
     for game_date_item in game_date_items:
         game_id_record = game_date_item.get('gameid')
         if game_id == game_id_record:
-            return int(game_date_item.get('date').replace('-',''))
+            return int(game_date_item.get('date').replace('-', ''))
 
     return None
 
 
 def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=None, game_date=None):
-
     if game_date is None:
         game_date = get_game_date(int(dir_game))
         assert game_date is not None
@@ -308,7 +307,6 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
                     box_score_target = zero_out_box_score
 
                 box_score_all[trace_length_index, trace_length - 1 - trace_step, :] = box_score_target
-
         state_input = np.concatenate([state_input, box_score_all], axis=2)
 
     if config.Learn.predict_target == 'PlayerPosition':
@@ -370,6 +368,23 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
     return state_trace_length, state_input, reward, action, team_id, player_index_all
 
 
+def compute_game_win_vec(rewards):
+    home_goal_count = 0
+    away_goal_count = 0
+    for reward in rewards:
+        if reward == 1:
+            home_goal_count += 1
+        elif reward == -1:
+            away_goal_count += 1
+
+    if home_goal_count > away_goal_count:
+        return [[1, 0, 0]] * len(rewards)
+    elif home_goal_count < away_goal_count:
+        return [[0, 1, 0]] * len(rewards)
+    else:
+        return [[0, 0, 1]] * len(rewards)
+
+
 def handle_de_history(data_seq_all, trace_lengths):
     current_obs_seq = []
     history_seq = []
@@ -428,8 +443,7 @@ def safely_expand_reward(reward_batch, max_trace_length):
 
 
 def get_together_training_batch(s_t0, state_input, reward, player_index, train_number, train_len, state_trace_length,
-                                action,
-                                team_id, config):
+                                action, win, team_id, config):
     """
     combine training data to a batch
     :return:
@@ -452,6 +466,7 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
         team_id_t0 = team_id[train_number - 1]
         player_index_t1 = player_index[train_number]
         player_index_t0 = player_index[train_number - 1]
+        win_t = win[train_number]
         # team_id_t1 = id2onehot(team_id[train_number], config.learn.team_number)
         # team_id_t0 = id2onehot(team_id[train_number - 1], config.learn.team_number)
         if s_length_t1 > 10:  # if trace length is too long
@@ -471,7 +486,7 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                 r_t0_combine = [float(0), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
                 elif r_t1 == float(-1):
@@ -482,13 +497,13 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, player_index_t0, player_index_t1, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 1, 0))
 
             elif r_t0 == float(-1):
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
                 elif r_t1 == float(-1):
@@ -499,13 +514,13 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, player_index_t0, player_index_t1, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 1, 0))
 
             elif r_t0 == float(1):
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 0, 0))
 
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
@@ -517,7 +532,7 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, player_index_t0, player_index_t1, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 1, 0))
             else:
                 raise ValueError("r_t0 wrong value")
 
@@ -532,12 +547,12 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, 0, 1))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 0, 1))
             elif r_t0 == [float(1)]:
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, 0, 1))
+                     team_id_t1, player_index_t0, player_index_t1, win_t, 0, 1))
             else:
                 raise ValueError("r_t0 wrong value")
             s_t0 = s_t1
@@ -545,7 +560,7 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
         r_t0_combine = [float(0), float(0), float(0)]
         batch_return.append(
             (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-             team_id_t1, player_index_t0, player_index_t1, 0, 0))
+             team_id_t1, player_index_t0, player_index_t1, win_t, 0, 0))
         current_batch_length += 1
         s_t0 = s_t1
 

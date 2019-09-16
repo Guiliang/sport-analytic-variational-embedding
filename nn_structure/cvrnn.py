@@ -111,6 +111,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
 class CVRNN():
     def __init__(self, config):
+        self.apply_win_prob = True
         self.config = config
         self.target_data_ph = tf.placeholder(dtype=tf.float32,
                                              shape=[None, self.config.Learn.max_seq_length,
@@ -129,6 +130,9 @@ class CVRNN():
                                               shape=[None, 3], name='sarsa_target')
 
         self.trace_length_ph = tf.placeholder(dtype=tf.int32, shape=[None], name='trace_length')
+
+        self.win_target_ph = tf.placeholder(dtype=tf.float32,
+                                              shape=[None, 2], name='win_target')
         self.cell = None
         self.initial_state_c = None
         self.initial_state_h = None
@@ -160,6 +164,7 @@ class CVRNN():
                                   "dec_x", "prior_mu", "prior_sigma", "z_encoder"]
 
         self.sarsa_lstm_cell = []
+        self.win_lstm_cell = []
         self.build_sarsa()
 
     def build_sarsa(self):
@@ -168,6 +173,13 @@ class CVRNN():
                 for i in range(self.config.Arch.SARSA.lstm_layer_num):
                     self.sarsa_lstm_cell.append(
                         tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.SARSA.h_size, state_is_tuple=True,
+                                                initializer=tf.random_uniform_initializer(-0.05, 0.05)))
+
+        with tf.name_scope("win"):
+            with tf.name_scope("LSTM-layer"):
+                for i in range(self.config.Arch.WIN.lstm_layer_num):
+                    self.win_lstm_cell.append(
+                        tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.WIN.h_size, state_is_tuple=True,
                                                 initializer=tf.random_uniform_initializer(-0.05, 0.05)))
 
     # @property
@@ -203,7 +215,17 @@ class CVRNN():
                 else:
                     return tf.where(condition=condition, x=td_loss_all, y=zero_loss_all)
 
-        def tf_cross_entropy(target_x, dec_x, condition):
+        def tf_win_cross_entropy(win_output, target_win, condition, if_last_output):
+            with tf.variable_scope('win_cross_entropy'):
+                win_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=target_win,
+                                                               logits=win_output, reduction=tf.losses.Reduction.NONE)
+                zero_loss_all = tf.zeros(shape=[tf.shape(win_loss_all)[0]])
+                if if_last_output:
+                    return win_loss_all
+                else:
+                    return tf.where(condition=condition, x=win_loss_all, y=zero_loss_all)
+
+        def tf_cvrnn_cross_entropy(target_x, dec_x, condition):
             with tf.variable_scope('cross_entropy'):
                 ce_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=target_x,
                                                               logits=dec_x, reduction=tf.losses.Reduction.NONE)
@@ -211,12 +233,12 @@ class CVRNN():
                 zero_loss_all = tf.zeros(shape=[tf.shape(ce_loss_all)[0]])
                 return tf.where(condition=condition, x=ce_loss_all, y=zero_loss_all)
 
-        def tf_kl_gaussian(mu_1, sigma_1, mu_2, sigma_2, condition):
+        def tf_cvrnn_kl_gaussian(mu_1, sigma_1, mu_2, sigma_2, condition):
             with tf.variable_scope("kl_gaussian"):
                 kl_loss_all = tf.reduce_sum(0.5 * (
-                        2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
-                        - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
-                        + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
+                    2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
+                    - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
+                    + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
                 ), 1)
                 zero_loss_all = tf.zeros(shape=[tf.shape(kl_loss_all)[0]])
 
@@ -225,10 +247,10 @@ class CVRNN():
         def get_cvrnn_lossfunc(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, target_x,
                                condition, deterministci_decoder):
             if deterministci_decoder:
-                likelihood_loss = tf_cross_entropy(dec_x=dec_mu, target_x=target_x, condition=condition)
+                likelihood_loss = tf_cvrnn_cross_entropy(dec_x=dec_mu, target_x=target_x, condition=condition)
             else:
-                likelihood_loss = tf_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
-            kl_loss = tf_kl_gaussian(enc_mu, enc_sigma, prior_mu, prior_sigma, condition)
+                likelihood_loss = tf_cvrnn_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
+            kl_loss = tf_cvrnn_kl_gaussian(enc_mu, enc_sigma, prior_mu, prior_sigma, condition)
             # likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
 
             # kl_loss = tf.zeros(shape=[tf.shape(kl_loss)[0]])  # TODO: why if we only optimize likelihood_loss
@@ -238,6 +260,10 @@ class CVRNN():
             td_loss = tf_td_loss(sarsa_output, sarsa_target_ph, condition, if_last_output=if_last_output)
             td_diff = tf_td_diff(sarsa_output, sarsa_target_ph, condition, if_last_output=if_last_output)
             return td_loss, td_diff
+
+        def get_win_lossfunc(win_output, win_target_ph, condition, if_last_output):
+            win_loss = tf_win_cross_entropy(win_output, win_target_ph, condition, if_last_output)
+            return win_loss
 
         # self.args = args
         # if sample:
@@ -321,7 +347,6 @@ class CVRNN():
         # self.saver = tf.train.Saver(tf.all_variables())
 
         with tf.variable_scope('sarsa'):
-
             data_input_sarsa = self.input_data_ph[
                                :, :,
                                self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
@@ -369,6 +394,46 @@ class CVRNN():
         td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_td)
         self.train_td_op = optimizer.apply_gradients(zip(td_grads, tvars_td))
 
+        if self.apply_win_prob:
+            with tf.variable_scope('win'):
+                data_input_win = self.input_data_ph[
+                                 :, :,
+                                 self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
+
+                self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (self.trace_length_ph - 1)
+                z_encoder_win = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
+                                                                  self.config.Arch.CVRNN.latent_dim])
+                for i in range(self.config.Arch.WIN.lstm_layer_num):
+                    rnn_output = None
+                    for i in range(self.config.Arch.WIN.lstm_layer_num):
+                        rnn_input = tf.concat([data_input_win, z_encoder_win], axis=2) if i == 0 else rnn_output
+                        rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
+                            inputs=rnn_input, cell=self.win_lstm_cell[i],
+                            sequence_length=self.trace_length_ph, dtype=tf.float32,
+                            scope='win_rnn_{0}'.format(str(i)))
+                    win_rnn_outputs = tf.stack(rnn_output)
+                    # Indexing
+                    win_rnn_last = tf.gather(tf.reshape(win_rnn_outputs,
+                                                        [-1, self.config.Arch.SARSA.h_size]), self.select_index)
+
+                for j in range(self.config.Arch.WIN.dense_layer_number - 1):
+                    win_input = win_rnn_last if j == 0 else win_output
+                    win_output = tf.nn.relu(linear(win_input, output_size=self.config.Arch.WIN.dense_layer_size,
+                                                   scope='win_dense_Linear'))
+                win_input = win_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else win_output
+                win_output = linear(win_input, output_size=2, scope='win_prob')
+                self.win_output = tf.nn.softmax(win_output)
+
+            with tf.variable_scope('win_cost'):
+                win_loss = get_win_lossfunc(self.win_output, self.win_target_ph, condition,
+                                            if_last_output=True)
+                self.win_loss = win_loss
+
+            tvars_win = tf.trainable_variables(scope='win')
+            for t in tvars_win:
+                print ('tvars_win: ' + str(t.name))
+            win_grads = tf.gradients(tf.reduce_mean(self.win_loss), tvars_win)
+            self.train_win_op = optimizer.apply_gradients(zip(win_grads, tvars_win))
         # def sample(self, sess, args, num=4410, start=None):
         #
         #     def sample_gaussian(mu, sigma):
