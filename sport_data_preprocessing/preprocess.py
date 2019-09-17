@@ -32,8 +32,8 @@ class Preprocess:
 
             for game_date in self.game_date_dict_all:
                 if str(game_date.get('gameid')) == gameId:
-                    home_team_id = str(game_date.get('team1id'))
-                    away_team_id = str(game_date.get('team2id'))
+                    home_team_id = str(game_date.get('team2id'))
+                    away_team_id = str(game_date.get('team1id'))
                     break
             home_away_list = []
             if len(events) == 0:

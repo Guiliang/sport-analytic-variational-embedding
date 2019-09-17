@@ -98,7 +98,7 @@ def horizontal_rescale(player_stats_summary, item_names, match_name_info_dict):
     return scaled_player_stats_summary
 
 
-def common_rescale(player_stats_summary, item_names):
+def common_rescale(player_stats_summary, item_names, match_name_info_dict):
     data_all = []
     player_all = player_stats_summary.keys()
     for player_name in player_all:
@@ -115,12 +115,12 @@ def common_rescale(player_stats_summary, item_names):
     data_index = 0
     scaled_player_stats_summary = {}
     zero_out_item = {}
-    data_scale_zero_out = scaler.transform((len(item_names) - 4) * [0])
-    raise ValueError('why we use 4 as off-set')
+    data_scale_zero_out = scaler.transform([(len(item_names) - 4) * [0]])
+    # raise ValueError('why we use 4 as off-set')
     for item_number in range(4, len(item_names)):
         # print(item_number)
         zero_out_item.update(
-            {item_names[item_number]: data_scale_zero_out[item_number - 4]})
+            {item_names[item_number]: data_scale_zero_out[0][item_number - 4]})
     scaled_player_stats_summary.update({'zero-out': [zero_out_item]})
     for player_name in player_all:
         data_gbg_summary_list = player_stats_summary.get(player_name)
@@ -139,8 +139,22 @@ def common_rescale(player_stats_summary, item_names):
             data_index += 1
         scaled_player_stats_summary[player_name] = scaled_data_gbg_summary_list
 
+    scaled_playerIndex_stats_summary = {}
+    scaled_playerIndex_stats_summary.update({'zero-out': [zero_out_item]})
+    for player_name in scaled_player_stats_summary.keys():
+        # "{'id': match_id, 'position': player_position_basic, 'index': player_index_basic}"
+        scale_data_gbg_summary_list = scaled_player_stats_summary.get(player_name)
+        player_info = match_name_info_dict.get(player_name)
+        if player_info is None:
+            print(player_name)
+            continue
+        scaled_playerIndex_stats_summary.update(
+            {player_info['index']: {'player_name': player_name, 'id': player_info['id'],
+                                    'position': player_info['position'],
+                                    'gbg_summary_list': scale_data_gbg_summary_list}})
+
     with open("../resource/ice_hockey_201819/" + 'Scale_NHL_players_game_summary_201819.csv', 'w') as outfile:
-        json.dump(scaled_player_stats_summary, outfile)
+        json.dump(scaled_playerIndex_stats_summary, outfile)
     return scaled_player_stats_summary
 
 
@@ -196,4 +210,4 @@ if __name__ == '__main__':
     # with open("../resource/ice_hockey_201819/" + 'NHL_players_game_summary_201819.csv', 'r') as outfile:
     #     player_stats_summary = json.load(outfile)
     print('rescaling ...')
-    horizontal_rescale(player_stats_summary, item_names, match_name_info_dict)
+    common_rescale(player_stats_summary, item_names, match_name_info_dict)

@@ -24,11 +24,17 @@ MemoryBuffer = ExperienceReplayBuffer(capacity_number=30000)
 
 
 def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_store,
-                              model, sess, training_flag, game_number, validate_cvrnn_flag=False,
-                              validate_td_flag=False, validate_variance_flag=False,
+                              model, sess, training_flag, game_number,
+                              validate_cvrnn_flag=False,
+                              validate_td_flag=False,
+                              validate_win_flag=False,
+                              validate_variance_flag=False,
                               output_decoder_all=None,
-                              target_data_all=None, selection_matrix_all=None,
-                              q_values_all=None):
+                              target_data_all=None,
+                              selection_matrix_all=None,
+                              q_values_all=None,
+                              output_label_all=None,
+                              real_label_all=None):
     if validate_variance_flag:
         match_q_values_players_dict = {}
         for i in range(config.Learn.player_cluster_number):
@@ -44,7 +50,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                max_length=config.Learn.max_seq_length)
     player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
                                     max_length=config.Learn.max_seq_length)
-    win_one_hot = compute_game_win_vec(data=reward)
+    win_one_hot = compute_game_win_vec(rewards=reward)
     # reward_count = sum(reward)
     # print ("reward number" + str(reward_count))
     if len(state_input) != len(reward) or len(state_trace_length) != len(reward):
@@ -147,8 +153,9 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 # sample_trace_lengths_t1 = np.asarray([sampled_data[j][6] for j in range(len(sampled_data))])
                 # sample_selection_matrix_t1 = np.asarray([sampled_data[j][7] for j in range(len(sampled_data))])
                 # sample_r_t_batch = np.asarray([sampled_data[j][8] for j in range(len(sampled_data))])
-                # sample_terminal_batch = np.asarray([sampled_data[j][9] for j in range(len(sampled_data))])
-                # sample_cut_batch = np.asarray([sampled_data[j][10] for j in range(len(sampled_data))])
+                # sample_terminal_batch = np.asarray([sampled_data[j][10] for j in range(len(sampled_data))])
+                # sample_cut_batch = np.asarray([sampled_data[j][11] for j in range(len(sampled_data))])
+                sampled_outcome_t = np.asarray([sampled_data[j][9] for j in range(len(sampled_data))])
                 pretrain_flag = False
 
                 for i in range(0, len(terminal_batch)):
@@ -159,14 +166,23 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 sample_target_data_t0 = target_data_t0
                 sample_trace_lengths_t0 = trace_lengths_t0
                 sample_selection_matrix_t0 = selection_matrix_t0
+                sampled_outcome_t = win_id_t_batch
 
             train_cvrnn_model(model, sess, config, sample_input_data_t0, sample_target_data_t0,
                               sample_trace_lengths_t0, sample_selection_matrix_t0, pretrain_flag)
 
+            """we skip sampling for TD learning"""
             train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
                            input_data_t1, trace_lengths_t1, selection_matrix_t1, r_t_batch, terminal, cut)
 
+            train_win_prob(model, sess, config, sample_input_data_t0, sample_trace_lengths_t0,
+                           sample_selection_matrix_t0, sampled_outcome_t)
+
         else:
+            # for i in range(0, len(r_t_batch)):
+            #     if i == len(r_t_batch) - 1:
+            #         if terminal or cut:
+            #             print(r_t_batch[i])
             if validate_cvrnn_flag:
                 output_decoder = cvrnn_validation(sess, model, input_data_t0, target_data_t0, trace_lengths_t0,
                                                   selection_matrix_t0, config)
@@ -197,11 +213,27 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 else:
                     q_values_all = np.concatenate([q_values_all, q_values], axis=0)
 
+            if validate_win_flag:
+                output_label, real_label = win_validation(sess, model, input_data_t0,
+                                                          trace_lengths_t0, selection_matrix_t0,
+                                                          config, win_id_t_batch)
+                if real_label_all is None:
+                    real_label_all = real_label
+                else:
+                    real_label_all = np.concatenate([real_label_all, real_label], axis=0)
+
+                if output_label_all is None:
+                    output_label_all = output_label
+                else:
+                    output_label_all = np.concatenate([output_label_all, output_label], axis=0)
+
         s_t0 = s_tl
         if terminal:
             break
 
-    return [output_decoder_all, target_data_all, selection_matrix_all, q_values_all, match_q_values_players_dict]
+    return [output_decoder_all, target_data_all, selection_matrix_all,
+            q_values_all, real_label_all, output_label_all,
+            match_q_values_players_dict]
 
 
 def run_network(sess, model, config, log_dir, save_network_dir,
@@ -235,7 +267,8 @@ def run_network(sess, model, config, log_dir, save_network_dir,
                                sess, model, player_id_cluster_dir,
                                train_game_number=game_number,
                                validate_cvrnn_flag=True,
-                               validate_td_flag=True)
+                               validate_td_flag=True,
+                               validate_win_flag=True)
 
 
 def save_model(game_number, saver, sess, save_network_dir, config):
@@ -244,6 +277,31 @@ def save_model(game_number, saver, sess, save_network_dir, config):
         print 'saving game', game_number
         saver.save(sess, save_network_dir + '/' + config.Learn.data_name + '-game-',
                    global_step=game_number)
+
+
+def train_win_prob(model, sess, config, input_data, trace_lengths, selection_matrix, outcome_data):
+    [
+        _,
+        win_output
+    ] = sess.run([
+        model.train_win_op,
+        model.win_output
+    ],
+        feed_dict={model.input_data_ph: input_data,
+                   model.win_target_ph: outcome_data,
+                   model.trace_length_ph: trace_lengths,
+                   model.selection_matrix_ph: selection_matrix
+                   })
+
+    output_label = np.argmax(win_output, axis=1)
+    real_label = np.argmax(outcome_data, axis=1)
+
+    correct_num = 0
+    for index in range(0, len(input_data)):
+        if output_label[index] == real_label[index]:
+            correct_num += 1
+
+    # print('accuracy of win prob is {0}'.format(str(float(correct_num)/len(input_data))))
 
 
 def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selection_matrix_t0,
@@ -267,11 +325,11 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
                 print([y_home, y_away, y_end])
                 break
         y_home = float((r_t_batch[i])[0]) + config.Learn.gamma * \
-                                            ((readout_t1_batch[i]).tolist())[0]
+                 ((readout_t1_batch[i]).tolist())[0]
         y_away = float((r_t_batch[i])[1]) + config.Learn.gamma * \
-                                            ((readout_t1_batch[i]).tolist())[1]
+                 ((readout_t1_batch[i]).tolist())[1]
         y_end = float((r_t_batch[i])[2]) + config.Learn.gamma * \
-                                           ((readout_t1_batch[i]).tolist())[2]
+                ((readout_t1_batch[i]).tolist())[2]
         y_batch.append([y_home, y_away, y_end])
 
     # perform gradient step
@@ -438,15 +496,50 @@ def td_validation(sess, model, trace_lengths_t0, selection_matrix_t0,
     return readout, match_q_values_players_dict
 
 
+def win_validation(sess, model, input_data,
+                   trace_lengths, selection_matrix,
+                   config, outcome_data):
+    [
+        _,
+        win_output
+    ] = sess.run([
+        model.train_win_op,
+        model.win_output],
+        feed_dict={model.input_data_ph: input_data,
+                   model.win_target_ph: outcome_data,
+                   model.trace_length_ph: trace_lengths,
+                   model.selection_matrix_ph: selection_matrix
+                   })
+    output_label = np.argmax(win_output, axis=1)
+    real_label = np.argmax(outcome_data, axis=1)
+
+    # correct_num = 0
+    # for index in range(0, len(input_data)):
+    #     if output_label[index] == real_label[index]:
+    #         correct_num += 1
+    #
+    return output_label, real_label
+
+
 def validate_model(testing_dir_games_all, data_store, config, sess, model,
-                   player_id_cluster_dir, train_game_number, validate_cvrnn_flag=True, validate_td_flag=True):
+                   player_id_cluster_dir, train_game_number, validate_cvrnn_flag, validate_td_flag, validate_win_flag):
     output_decoder_all = None
     target_data_all = None
     selection_matrix_all = None
     q_values_all = None
     validate_variance_flag = False
+
+    if validate_win_flag:
+        real_label_record = np.ones([len(testing_dir_games_all), 5000]) * -1
+        output_label_record = np.ones([len(testing_dir_games_all), 5000]) * -1
+
     print('validating model')
-    for dir_game in testing_dir_games_all:
+    for dir_index in range(0, len(testing_dir_games_all)):
+
+        real_label_all = None
+        output_label_all = None
+
+        dir_game = testing_dir_games_all[dir_index]
         print('validating game {0}'.format(str(dir_game)))
         if dir_game == '.DS_Store':
             continue
@@ -455,6 +548,8 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
          target_data_all,
          selection_matrix_all,
          q_values_all,
+         real_label_all,
+         output_label_all,
          match_q_values_players_dict] = gathering_running_and_run(dir_game, config,
                                                                   player_id_cluster_dir,
                                                                   data_store,
@@ -463,14 +558,21 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
                                                                   game_number=None,
                                                                   validate_cvrnn_flag=validate_cvrnn_flag,
                                                                   validate_td_flag=validate_td_flag,
+                                                                  validate_win_flag=validate_win_flag,
                                                                   validate_variance_flag=validate_variance_flag,
                                                                   output_decoder_all=output_decoder_all,
                                                                   target_data_all=target_data_all,
                                                                   selection_matrix_all=selection_matrix_all,
-                                                                  q_values_all=q_values_all)
+                                                                  q_values_all=q_values_all,
+                                                                  output_label_all=output_label_all,
+                                                                  real_label_all=real_label_all)
         # validate_variance_flag = False
         # if match_q_values_players_dict is not None:
         #     plot_players_games(match_q_values_players_dict, train_game_number)
+
+        if validate_win_flag:
+            real_label_record[dir_index][:len(real_label_all)] = real_label_all[:len(real_label_all)]
+            output_label_record[dir_index][:len(output_label_all)] = output_label_all[:len(output_label_all)]
 
     if validate_cvrnn_flag:
         acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
@@ -479,9 +581,28 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
     if validate_td_flag:
         print ("validation avg qs is {0}".format(str(np.mean(q_values_all, axis=0))))
 
+    if validate_win_flag:
+        print ('general real label is {0}'.format(str(np.sum(real_label_record, axis=1))))
+        print ('general output label is {0}'.format(str(np.sum(output_label_record, axis=1))))
+        for i in range(0, output_label_record.shape[1]):
+            real_outcome_record_step = real_label_record[:, i]
+            model_output_record_step = output_label_record[:, i]
+
+            correct_num = 0
+            total_number = 0
+            for win_index in range(0, len(real_outcome_record_step)):
+                if model_output_record_step[win_index] == -1 or real_outcome_record_step[win_index] == -1:
+                    continue
+                if model_output_record_step[win_index] == real_outcome_record_step[win_index]:
+                    correct_num += 1
+                total_number += 1
+
+            if i % 100 == 0 and total_number > 0:
+                print('acc of time {0} is total:{1}, correct:{2}'.format(str(i), str(total_number), str(correct_num)))
+
 
 def run():
-    test_flag = True
+    local_test_flag = False
     player_id_type = 'local_id'
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -500,7 +621,7 @@ def run():
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config, model_catagoery='cvrnn')
 
-    if test_flag:
+    if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)

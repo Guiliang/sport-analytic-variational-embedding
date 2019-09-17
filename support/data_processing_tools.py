@@ -254,13 +254,15 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
 
     if config.Learn.apply_box_score:
 
-        player_box_score_dir = '../resource/ice_hockey_201819/Scale_H_NHL_players_game_summary_201819.csv'
-        print ('horizontal rescale is to hard')
+        player_box_score_dir = '../resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv'
+        # print ('horizontal rescale is to hard')
         with open(player_box_score_dir, 'r') as f:
             player_box_score_all = json.load(f)
 
+        missed_playerindex_set = set()
+
         interested_item_key_all = ["P", "PPP", "SHP", "A", "G", "PPG", "SHG", "GWG", "OTG", "+/-", "GP", "PIM", "S"]
-        zero_out_box_score = None
+        zero_out_box_score = player_box_score_all.get('zero-out')[0]
         box_score_all = np.zeros([len(state_trace_length), config.Learn.max_seq_length, len(interested_item_key_all)])
         for trace_length_index in range(0, len(state_trace_length)):
             trace_length = state_trace_length[trace_length_index]
@@ -299,14 +301,19 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
                         else:
                             continue
                     assert box_score_find_flag is True
-                    box_score_target = []
-                    for item_key in interested_item_key_all:
-                        box_score_target.append(target_player_box_score_item.get(item_key))
                 else:
-                    print ('zero-out can not find player index {0}'.format(player_index2find))
-                    box_score_target = zero_out_box_score
+                    # print ('zero-out can not find player index {0}'.format(player_index2find))
+                    missed_playerindex_set.add(player_index2find)
+                    target_player_box_score_item = zero_out_box_score
+
+                box_score_target = []
+                for item_key in interested_item_key_all:
+                    box_score_target.append(target_player_box_score_item.get(item_key))
 
                 box_score_all[trace_length_index, trace_length - 1 - trace_step, :] = box_score_target
+
+        for missed_player_index in missed_playerindex_set:
+            print ('zero-out can not find player index {0}'.format(missed_player_index))
         state_input = np.concatenate([state_input, box_score_all], axis=2)
 
     if config.Learn.predict_target == 'PlayerPosition':
@@ -976,9 +983,26 @@ def handle_player_game_by_game_stats(player_summary_data_dir):
     print ('still working')
 
 
+def find_game_event_id(hockey_data_dir, game_id, event_names, event_values):
+    with open(hockey_data_dir + game_id, 'r') as f:
+        data = json.load(f)
+    events = data.get('events')
+
+    for eve_index in range(0, len(events)):
+        event = events[eve_index]
+        for event_value in event_values:
+            if event[event_names] == event_value:
+                print('The values of event {0} is {1}'.format(str(eve_index), event_value))
+
+    pass
+
+
 if __name__ == '__main__':
-    player_summary_data_dir = '../resource/ice_hockey_201819/NHL_players_game_summary_201819.csv'
-    handle_player_game_by_game_stats(player_summary_data_dir)
+    hockey_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
+    find_game_event_id(hockey_data_dir=hockey_data_dir,
+                       game_id='15697-playsequence-wpoi.json',
+                       event_names='manpowerSituation',
+                       event_values=['powerPlay', 'shortHanded'])
 
     # normal_td(np.asarray([0.2561741, 0.25606957]),
     #           np.asarray([0.25351873, 0.25392953]),

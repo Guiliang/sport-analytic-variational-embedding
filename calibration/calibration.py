@@ -25,11 +25,11 @@ class Calibration:
         self.config = config
         self.focus_actions_list = focus_actions_list
         if self.apply_difference:
-            self.save_calibration_dir = './calibration_results/difference-calibration-{0}-{1}.txt'. \
-                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"))
+            self.save_calibration_dir = './calibration_results/difference-calibration-{2}-{0}-{1}.txt'. \
+                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type)
         else:
-            self.save_calibration_dir = './calibration_results/calibration-{0}-{1}.txt'. \
-                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"))
+            self.save_calibration_dir = './calibration_results/calibration-{2}-{0}-{1}.txt'. \
+                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type)
         self.save_calibration_file = open(self.save_calibration_dir, 'w')
         if apply_difference:
             self.teams = ['home-away']

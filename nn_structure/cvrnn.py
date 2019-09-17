@@ -111,7 +111,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
 class CVRNN():
     def __init__(self, config):
-        self.apply_win_prob = True
+        self.apply_win_prob = False
         self.config = config
         self.target_data_ph = tf.placeholder(dtype=tf.float32,
                                              shape=[None, self.config.Learn.max_seq_length,
@@ -132,7 +132,7 @@ class CVRNN():
         self.trace_length_ph = tf.placeholder(dtype=tf.int32, shape=[None], name='trace_length')
 
         self.win_target_ph = tf.placeholder(dtype=tf.float32,
-                                              shape=[None, 2], name='win_target')
+                                            shape=[None, 3], name='win_target')
         self.cell = None
         self.initial_state_c = None
         self.initial_state_h = None
@@ -236,9 +236,9 @@ class CVRNN():
         def tf_cvrnn_kl_gaussian(mu_1, sigma_1, mu_2, sigma_2, condition):
             with tf.variable_scope("kl_gaussian"):
                 kl_loss_all = tf.reduce_sum(0.5 * (
-                    2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
-                    - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
-                    + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
+                        2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
+                        - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
+                        + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
                 ), 1)
                 zero_loss_all = tf.zeros(shape=[tf.shape(kl_loss_all)[0]])
 
@@ -400,7 +400,8 @@ class CVRNN():
                                  :, :,
                                  self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
 
-                self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (self.trace_length_ph - 1)
+                self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (
+                        self.trace_length_ph - 1)
                 z_encoder_win = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
                                                                   self.config.Arch.CVRNN.latent_dim])
                 for i in range(self.config.Arch.WIN.lstm_layer_num):
@@ -421,13 +422,16 @@ class CVRNN():
                     win_output = tf.nn.relu(linear(win_input, output_size=self.config.Arch.WIN.dense_layer_size,
                                                    scope='win_dense_Linear'))
                 win_input = win_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else win_output
-                win_output = linear(win_input, output_size=2, scope='win_prob')
+                win_output = linear(win_input, output_size=3, scope='win_prob')
                 self.win_output = tf.nn.softmax(win_output)
 
-            with tf.variable_scope('win_cost'):
-                win_loss = get_win_lossfunc(self.win_output, self.win_target_ph, condition,
-                                            if_last_output=True)
-                self.win_loss = win_loss
+                with tf.variable_scope('win_cost'):
+                    win_loss = get_win_lossfunc(self.win_output, self.win_target_ph, condition,
+                                                if_last_output=True)
+                    self.win_loss = win_loss
+
+                    # self.win_acc, win_acc_op = tf.metrics.accuracy(labels=tf.argmax(self.win_target_ph, 1),
+                    #                                                predictions=tf.argmax(self.win_output, 1))
 
             tvars_win = tf.trainable_variables(scope='win')
             for t in tvars_win:

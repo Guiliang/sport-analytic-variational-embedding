@@ -52,8 +52,14 @@ def plot_shadow(x_values_list, y_mean_values_list,
 def plot_game_Q_values(Q_values):
     event_numbers = range(0, len(Q_values))
     plt.figure()
-    for i in range(0, len(Q_values[0])):
-        plt.plot(event_numbers, Q_values[:, i])
+
+    Q_home = [Q_values[i]['home']for i in event_numbers]
+    Q_away = [Q_values[i]['away'] for i in event_numbers]
+    Q_end = [Q_values[i]['end'] for i in event_numbers]
+    plt.plot(event_numbers, Q_home, label='home')
+    plt.plot(event_numbers, Q_away, label='away')
+    plt.plot(event_numbers, Q_end, label='end')
+
     plt.show()
 
 

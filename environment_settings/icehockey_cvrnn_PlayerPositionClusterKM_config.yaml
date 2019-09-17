@@ -22,7 +22,7 @@ Arch:
     hidden_dim : 512
     latent_dim : 128
     x_dim : 26
-    y_dim : 39 # 27(action)+12
+    y_dim : 83 # 27(action)+12state+31team+13box-score
   SARSA:
     lstm_layer_num : 2
     h_size : 256
