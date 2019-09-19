@@ -29,8 +29,8 @@ if __name__ == '__main__':
     prep = Preprocess(hockey_data_dir=hockey_data_dir, save_data_dir=save_data_dir,
                       player_basic_info_dict=player_basic_info_dict, team_info_dict=team_info_dict,
                       game_date_dict=game_date_dict)
-    # scaler = prep.scale_allgame_features()
-    # prep.process_all(scaler=scaler)
+    scaler = prep.scale_allgame_features()
+    prep.process_all(scaler=scaler)
     prep.complement_data()
     # scaler = prep.scale_allgame_features()
     # wrong_files = prep.process_all(scaler)

@@ -11,6 +11,7 @@ Learn:
   player_Id_style : 'PlayerId'
   predict_target : 'reward'
   sport : 'Ice-Hockey'
+  apply_box_score: False
 
 Arch:
   LSTM:

@@ -16,6 +16,7 @@ Learn:
   player_Id_style: 'PlayerId'
   sport : 'Ice-Hockey'
   gamma : 1
+  apply_box_score: False
 
 Arch:
   LSTM:

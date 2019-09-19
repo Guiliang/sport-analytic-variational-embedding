@@ -23,10 +23,10 @@ def train_network(sess, model, config, log_dir, saved_network, dir_games_all, da
         game_diff_record_dict.update({"Iteration": iteration_now})
         if converge_flag:
             break
-        elif game_number >= config.number_of_total_game * config.learn.iterate_num:
+        elif game_number >= len(training_dir_games_all) * config.Learn.iterate_num:
             break
-        else:
-            converge_flag = True
+        # else:
+        #     converge_flag = True
         for dir_game in dir_games_all:
 
             v_diff_record = []

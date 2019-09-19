@@ -74,7 +74,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                                  state_trace_length=state_trace_length,
                                                  action=action_seq,
                                                  team_id=team_id_seq,
-                                                 win=win_one_hot,
+                                                 win_info=win_one_hot,
                                                  config=config)
 
         # get the batch variables
@@ -249,10 +249,10 @@ def run_network(sess, model, config, log_dir, save_network_dir,
         game_diff_record_dict.update({"Iteration": iteration_now})
         if converge_flag:
             break
-        elif game_number >= config.Learn.number_of_total_game * config.Learn.iterate_num:
+        elif game_number >= len(training_dir_games_all) * config.Learn.iterate_num:
             break
-        else:
-            converge_flag = True
+        # else:
+        #     converge_flag = True
         for dir_game in training_dir_games_all:
             if dir_game == '.DS_Store':
                 continue
@@ -500,10 +500,10 @@ def win_validation(sess, model, input_data,
                    trace_lengths, selection_matrix,
                    config, outcome_data):
     [
-        _,
+        # _,
         win_output
     ] = sess.run([
-        model.train_win_op,
+        # model.train_win_op,
         model.win_output],
         feed_dict={model.input_data_ph: input_data,
                    model.win_target_ph: outcome_data,

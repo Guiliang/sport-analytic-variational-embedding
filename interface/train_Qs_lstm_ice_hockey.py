@@ -119,10 +119,10 @@ def run_network(sess, model, config, log_dir, save_network_dir,
         game_diff_record_dict.update({"Iteration": iteration_now})
         if converge_flag:
             break
-        elif game_number >= config.Learn.number_of_total_game * config.Learn.iterate_num:
+        elif game_number >= len(training_dir_games_all) * config.Learn.iterate_num:
             break
-        else:
-            converge_flag = True
+        # else:
+        #     converge_flag = True
         for dir_game in training_dir_games_all:
             if dir_game == '.DS_Store':
                 continue
@@ -156,8 +156,8 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
     y_batch = []
     for i in range(0, len(readout_t1_batch)):
         # if terminal, only equals reward
-        if terminal:
-            pass
+        # if terminal:
+        #     pass
         if (terminal or cut) and i == len(readout_t1_batch)-1:
             y_home = float(r_t_batch[i][0])
             y_away = float(r_t_batch[i][1])

@@ -2,7 +2,7 @@ Learn:
   save_mother_dir: '/Local-Scratch'
   batch_size: 32
   keep_prob: 1
-  learning_rate: 0.0001
+  learning_rate: 0.00001
   gaussian_size: 1
   number_of_total_game: 1202
   max_seq_length: 10
@@ -12,8 +12,10 @@ Learn:
   player_Id_style : 'PlayerId'
   predict_target : 'Qs'
   sport : 'Ice-Hockey'
-  apply_softmax : True
+  apply_softmax : False
   apply_box_score: False
+  apply_stochastic: True
+  apply_rl: True
 
 Arch:
   LSTM:
@@ -23,3 +25,4 @@ Arch:
   Dense:
     dense_layer_num : 2
     hidden_size: 256
+    output_layer_size : 3

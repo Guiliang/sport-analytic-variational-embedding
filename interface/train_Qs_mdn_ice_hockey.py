@@ -122,10 +122,10 @@ def run_network(sess, model, config, log_dir, save_network_dir,
         game_diff_record_dict.update({"Iteration": iteration_now})
         if converge_flag:
             break
-        elif game_number >= config.Learn.number_of_total_game * config.Learn.iterate_num:
+        elif game_number >= len(training_dir_games_all) * config.Learn.iterate_num:
             break
-        else:
-            converge_flag = True
+        # else:
+        #     converge_flag = True
         for dir_game in training_dir_games_all:
             if dir_game == '.DS_Store':
                 continue

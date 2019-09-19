@@ -13,6 +13,7 @@ Learn:
   predict_target : 'Qs'
   sport : 'Ice-Hockey'
   apply_softmax : True
+  apply_box_score: False
 
 Arch:
   LSTM:

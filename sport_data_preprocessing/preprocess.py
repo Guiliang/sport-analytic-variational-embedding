@@ -54,7 +54,8 @@ class Preprocess:
         with open(self.hockey_data_dir + data_dir) as f:
             data = json.load(f)
             events = data.get('events')
-        return events
+            gameId = data.get('gameId')
+        return events, gameId
 
     def get_player_name(self, data_dir):
         players_info_dict = {}
@@ -162,21 +163,29 @@ class Preprocess:
                 switch = True
         return switch
 
-    def is_home_away(self, events, idx):
-        xCoord = events[idx].get('xCoord')
-        xAdjCoord = events[idx].get('xAdjCoord')
-        if xCoord == xAdjCoord:
-            return 'H'
-        else:
-            return 'A'
+    def is_home_away(self, events, idx, gameId):
 
-    def is_switch_home_away(self, events, idx):  # compare with next timestamp
+        for game_date in self.game_date_dict_all:
+            if str(game_date.get('gameid')) == gameId:
+                home_team_id = str(game_date.get('team2id'))
+                away_team_id = str(game_date.get('team1id'))
+                break
+        event = events[idx]
+        if event.get('teamId') == home_team_id:
+            return 'H'
+        elif event.get('teamId') == away_team_id:
+            return 'A'
+        else:
+            raise ValueError('wrong home away id')
+
+
+    def is_switch_home_away(self, events, idx, gameId):  # compare with next timestamp
         switch = False
         if idx == len(events) - 1:
             switch = False
         else:
-            h_a_now = self.is_home_away(events, idx)
-            h_a_next = self.is_home_away(events, idx + 1)
+            h_a_now = self.is_home_away(events, idx, gameId)
+            h_a_next = self.is_home_away(events, idx + 1, gameId)
             if h_a_now == h_a_next:
                 switch = False
             else:
@@ -187,26 +196,26 @@ class Preprocess:
         v = (float(coord_next) - float(coord_now)) / float(duration)
         return v
 
-    def compute_v_x(self, events, idx, duration):
+    def compute_v_x(self, events, idx, duration, gameId):
         v_x = float(0)
         if idx == len(events) - 1 or duration == 0:
             v_x = float(0)
         else:
             coord_next = events[idx + 1].get('xAdjCoord')
             coord_now = events[idx].get('xAdjCoord')
-            if self.is_switch_home_away(events, idx):
+            if self.is_switch_home_away(events, idx, gameId):
                 coord_next = -coord_next
             v_x = self.get_velocity(coord_next, coord_now, duration)
         return v_x
 
-    def compute_v_y(self, events, idx, duration):
+    def compute_v_y(self, events, idx, duration, gameId):
         v_y = float(0)
         if idx == len(events) - 1 or duration == 0:
             v_y = float(0)
         else:
             coord_next = events[idx + 1].get('yAdjCoord')
             coord_now = events[idx].get('yAdjCoord')
-            if self.is_switch_home_away(events, idx):
+            if self.is_switch_home_away(events, idx, gameId):
                 coord_next = -coord_next
             v_y = self.get_velocity(coord_next, coord_now, duration)
         return v_y
@@ -219,7 +228,7 @@ class Preprocess:
         tant = (y_goal - yAdj) / (x_goal - xAdj)
         return tant
 
-    def process_game_events(self, events):
+    def process_game_events(self, events, gameId):
         rewards_game = []
         state_feature_game = []
         action_game = []
@@ -270,11 +279,11 @@ class Preprocess:
             for feature_name in interested_compute_features:
                 if feature_name == 'velocity_x':
                     duration = self.get_duration(events, idx)
-                    v_x = self.compute_v_x(events, idx, duration)
+                    v_x = self.compute_v_x(events, idx, duration, gameId)
                     features_all.append(v_x)
                 elif feature_name == 'velocity_y':
                     duration = self.get_duration(events, idx)
-                    v_y = self.compute_v_y(events, idx, duration)
+                    v_y = self.compute_v_y(events, idx, duration, gameId)
                     features_all.append(v_y)
                 elif feature_name == 'time_remain':
                     time_remain = self.get_time_remain(events, idx)
@@ -283,7 +292,7 @@ class Preprocess:
                     duration = self.get_duration(events, idx)
                     features_all.append(duration)
                 elif feature_name == 'home_away':
-                    h_a = self.is_home_away(events, idx)
+                    h_a = self.is_home_away(events, idx, gameId)
                     home_away_one_hot_vector = self.home_away_one_hot(h_a)
                     features_all += home_away_one_hot_vector
                 elif feature_name == 'angle2gate':
@@ -319,8 +328,8 @@ class Preprocess:
             print("### Scale file: ", file)
             if file == '.Rhistory' or file == '.DS_Store':
                 continue
-            events = self.get_events(file)
-            state_feature_game, action_feature_game, _, _, _, _, _ = self.process_game_events(events)
+            events, gameId = self.get_events(file)
+            state_feature_game, action_feature_game, _, _, _, _, _ = self.process_game_events(events, gameId)
             if len(state_feature_game) == 0:
                 continue
             # game_features = np.concatenate([np.asarray(state_feature_game), np.asarray(action_feature_game)], axis=1)
@@ -354,9 +363,9 @@ class Preprocess:
             file_name = file.split('.')[0]
             game_name = file_name.split('-')[0]
             save_game_dir = self.save_data_dir + '/' + game_name
-            events = self.get_events(file)
+            events, gameId = self.get_events(file)
             state_feature_game, action_game, team_game, \
-            lt_game, rewards_game, player_id_game, player_index_game = self.process_game_events(events)
+            lt_game, rewards_game, player_id_game, player_index_game = self.process_game_events(events, gameId)
             # try:
             game_features = np.asarray(state_feature_game)
             # game_features = np.concatenate([np.asarray(state_feature_game), np.asarray(action_game)], axis=1)
