@@ -27,6 +27,7 @@ class CVRNNCongfig(object):
         position_max_length = None
         apply_stochastic = None
         apply_box_score = None
+        diff_apply_rl = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

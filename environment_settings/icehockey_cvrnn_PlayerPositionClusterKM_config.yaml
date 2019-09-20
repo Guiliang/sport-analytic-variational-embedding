@@ -16,6 +16,7 @@ Learn:
   data_name: ice_hockey-2019
   sport : 'Ice-Hockey'
   apply_box_score: True
+  diff_apply_rl: True
 
 Arch:
   CVRNN:

@@ -111,7 +111,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
 class CVRNN():
     def __init__(self, config):
-        self.apply_win_prob = False
+        self.win_score_diff = True
         self.config = config
         self.target_data_ph = tf.placeholder(dtype=tf.float32,
                                              shape=[None, self.config.Learn.max_seq_length,
@@ -131,8 +131,8 @@ class CVRNN():
 
         self.trace_length_ph = tf.placeholder(dtype=tf.int32, shape=[None], name='trace_length')
 
-        self.win_target_ph = tf.placeholder(dtype=tf.float32,
-                                            shape=[None, 3], name='win_target')
+        self.score_diff_target_ph = tf.placeholder(dtype=tf.float32,
+                                                   shape=[None, 3], name='win_target')
         self.cell = None
         self.initial_state_c = None
         self.initial_state_h = None
@@ -225,6 +225,17 @@ class CVRNN():
                 else:
                     return tf.where(condition=condition, x=win_loss_all, y=zero_loss_all)
 
+        def tf_score_diff(win_output, target_diff, condition, if_last_output):
+            with tf.variable_scope('mean_difference'):
+                square_diff_loss_all = tf.square(target_diff - win_output)
+                abs_diff_loss_all = tf.abs(target_diff - win_output)
+                zero_loss_all = tf.zeros(shape=[tf.shape(square_diff_loss_all)[0]])
+                if if_last_output:
+                    return square_diff_loss_all, abs_diff_loss_all
+                else:
+                    return tf.where(condition=condition, x=square_diff_loss_all, y=zero_loss_all), \
+                           tf.where(condition=condition, x=abs_diff_loss_all, y=zero_loss_all)
+
         def tf_cvrnn_cross_entropy(target_x, dec_x, condition):
             with tf.variable_scope('cross_entropy'):
                 ce_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=target_x,
@@ -264,6 +275,10 @@ class CVRNN():
         def get_win_lossfunc(win_output, win_target_ph, condition, if_last_output):
             win_loss = tf_win_cross_entropy(win_output, win_target_ph, condition, if_last_output)
             return win_loss
+
+        def get_diff_lossfunc(diff_output, diff_target_ph, condition, if_last_output):
+            square_diff_loss, abs_diff_loss = tf_score_diff(diff_output, diff_target_ph, condition, if_last_output)
+            return square_diff_loss, abs_diff_loss
 
         # self.args = args
         # if sample:
@@ -394,50 +409,53 @@ class CVRNN():
         td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_td)
         self.train_td_op = optimizer.apply_gradients(zip(td_grads, tvars_td))
 
-        if self.apply_win_prob:
-            with tf.variable_scope('win'):
-                data_input_win = self.input_data_ph[
-                                 :, :,
-                                 self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
+        if self.win_score_diff:
+            with tf.variable_scope('score_diff'):
+                data_input_diff = self.input_data_ph[
+                                  :, :,
+                                  self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
 
                 self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (
                         self.trace_length_ph - 1)
-                z_encoder_win = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
-                                                                  self.config.Arch.CVRNN.latent_dim])
+                z_encoder_diff = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
+                                                                   self.config.Arch.CVRNN.latent_dim])
                 for i in range(self.config.Arch.WIN.lstm_layer_num):
                     rnn_output = None
                     for i in range(self.config.Arch.WIN.lstm_layer_num):
-                        rnn_input = tf.concat([data_input_win, z_encoder_win], axis=2) if i == 0 else rnn_output
+                        rnn_input = tf.concat([data_input_diff, z_encoder_diff], axis=2) if i == 0 else rnn_output
                         rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
                             inputs=rnn_input, cell=self.win_lstm_cell[i],
                             sequence_length=self.trace_length_ph, dtype=tf.float32,
-                            scope='win_rnn_{0}'.format(str(i)))
-                    win_rnn_outputs = tf.stack(rnn_output)
+                            scope='score_diff_rnn_{0}'.format(str(i)))
+                    score_diff_rnn_outputs = tf.stack(rnn_output)
                     # Indexing
-                    win_rnn_last = tf.gather(tf.reshape(win_rnn_outputs,
-                                                        [-1, self.config.Arch.SARSA.h_size]), self.select_index)
+                    diff_rnn_last = tf.gather(tf.reshape(score_diff_rnn_outputs,
+                                                         [-1, self.config.Arch.SARSA.h_size]), self.select_index)
 
                 for j in range(self.config.Arch.WIN.dense_layer_number - 1):
-                    win_input = win_rnn_last if j == 0 else win_output
-                    win_output = tf.nn.relu(linear(win_input, output_size=self.config.Arch.WIN.dense_layer_size,
-                                                   scope='win_dense_Linear'))
-                win_input = win_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else win_output
-                win_output = linear(win_input, output_size=3, scope='win_prob')
-                self.win_output = tf.nn.softmax(win_output)
+                    diff_input = diff_rnn_last if j == 0 else diff_output
+                    diff_output = tf.nn.relu(linear(diff_input, output_size=self.config.Arch.WIN.dense_layer_size,
+                                                    scope='win_dense_Linear'))
+                diff_input = diff_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else diff_output
+                diff_output = linear(diff_input, output_size=3, scope='score_diff')
+                # self.diff_output = tf.nn.softmax(diff_output)
+                self.diff_output = diff_output
 
-                with tf.variable_scope('win_cost'):
-                    win_loss = get_win_lossfunc(self.win_output, self.win_target_ph, condition,
-                                                if_last_output=True)
-                    self.win_loss = win_loss
+                with tf.variable_scope('score_diff_cost'):
+                    square_diff_loss, abs_diff_loss = get_diff_lossfunc(self.diff_output, self.score_diff_target_ph,
+                                                                        condition,
+                                                                        if_last_output=True)
+                    self.diff_loss = square_diff_loss
+                    self.diff = abs_diff_loss
 
                     # self.win_acc, win_acc_op = tf.metrics.accuracy(labels=tf.argmax(self.win_target_ph, 1),
                     #                                                predictions=tf.argmax(self.win_output, 1))
 
-            tvars_win = tf.trainable_variables(scope='win')
-            for t in tvars_win:
-                print ('tvars_win: ' + str(t.name))
-            win_grads = tf.gradients(tf.reduce_mean(self.win_loss), tvars_win)
-            self.train_win_op = optimizer.apply_gradients(zip(win_grads, tvars_win))
+            tvars_score_diff = tf.trainable_variables(scope='score_diff')
+            for t in tvars_score_diff:
+                print ('tvars_score_diff: ' + str(t.name))
+            score_diff_grads = tf.gradients(tf.reduce_mean(self.diff_loss), tvars_score_diff)
+            self.train_diff_op = optimizer.apply_gradients(zip(score_diff_grads, tvars_score_diff))
         # def sample(self, sess, args, num=4410, start=None):
         #
         #     def sample_gaussian(mu, sigma):

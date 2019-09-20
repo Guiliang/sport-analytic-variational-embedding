@@ -18,6 +18,7 @@ Learn:
   position_max_length : 15
   apply_stochastic: True
   apply_box_score: True
+  diff_apply_rl: True
 
 Arch:
   CVRNN:

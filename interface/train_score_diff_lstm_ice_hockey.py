@@ -27,6 +27,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                                        'scoreDifferential',
                                                        transfer_home_number=True,
                                                        data_store=data_store)
+    # print(score_difference_game)
 
     state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
         data_store=data_store, dir_game=dir_game, config=config, player_id_cluster_dir=player_id_cluster_dir)
@@ -62,6 +63,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                                  action=action_seq,
                                                  team_id=team_id_seq,
                                                  win_info=score_diff,
+                                                 score_info=score_difference_game,
                                                  config=config)
 
         # get the batch variables
@@ -79,6 +81,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         player_id_t0_batch = [d[9] for d in batch_return]
         player_id_t1_batch = [d[10] for d in batch_return]
         score_diff_t_batch = [d[11] for d in batch_return]
+        score_diff_base_t0_batch = [d[12] for d in batch_return]
 
         input_data_t0 = np.concatenate([np.asarray(s_t0_batch), np.asarray(action_id_t0)], axis=2)
         trace_lengths_t0 = trace_t0_batch
@@ -96,7 +99,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 for i in range(len(input_data_t0)):
                     MemoryBuffer.push([input_data_t0[i], trace_lengths_t0[i],
                                        input_data_t1[i], trace_lengths_t1[i],
-                                       r_t_batch[i], score_diff_t_batch[i]
+                                       r_t_batch[i], score_diff_t_batch[i],
+                                       score_diff_base_t0_batch
                                        ])
                 sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
                 sample_input_data_t0 = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
@@ -105,6 +109,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 sample_trace_lengths_t1 = np.asarray([sampled_data[j][3] for j in range(len(sampled_data))])
                 sampled_reward_t = np.asarray([sampled_data[j][4] for j in range(len(sampled_data))])
                 sampled_outcome_t = np.asarray([sampled_data[j][5] for j in range(len(sampled_data))])
+                sampled_score_diff_base_t0 = np.asarray([sampled_data[j][6] for j in range(len(sampled_data))])
             else:
                 sample_input_data_t0 = input_data_t0
                 sample_trace_lengths_t0 = trace_lengths_t0
@@ -112,11 +117,14 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 sample_trace_lengths_t1 = trace_lengths_t1
                 sampled_reward_t = reward_t
                 sampled_outcome_t = score_diff_t_batch
+                sampled_score_diff_base_t0 = score_diff_base_t0_batch
             print_flag = True if batch_number % (len(state_input) / (config.Learn.batch_size * 10)) == 0 else False
             output_label, real_label = train_score_diff(model, sess, config,
                                                         sample_input_data_t0, sample_trace_lengths_t0,
                                                         sample_input_data_t1, sample_trace_lengths_t1,
-                                                        sampled_reward_t, sampled_outcome_t, terminal, cut)
+                                                        sampled_reward_t, sampled_outcome_t,
+                                                        sampled_score_diff_base_t0,
+                                                        terminal, cut)
             if real_label_all is None:
                 real_label_all = real_label
             else:
@@ -129,7 +137,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
         if validate_flag:
             output_label, real_label = diff_validation(sess, model, input_data_t0,
-                                                       trace_lengths_t0,
+                                                       trace_lengths_t0, score_diff_base_t0_batch,
                                                        config, score_diff_t_batch)
             if real_label_all is None:
                 real_label_all = real_label
@@ -217,6 +225,8 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
                                                           validate_flag=True,
                                                           output_label_all=output_label_all,
                                                           real_label_all=real_label_all)
+        print(real_label_all)
+        print(output_label_all)
 
         real_label_record[dir_index][:len(real_label_all)] = real_label_all[:len(real_label_all)]
         output_label_record[dir_index][:len(output_label_all)] = output_label_all[:len(output_label_all)]
@@ -224,7 +234,7 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
     # print ('general real label is {0}'.format(str(np.sum(real_label_record, axis=1))))
     # print ('general output label is {0}'.format(str(np.sum(output_label_record, axis=1))))
     for i in range(0, output_label_record.shape[1]):
-        # if i == 3600:
+        # if i == 3400:
         #     print('testing')
         real_outcome_record_step = real_label_record[:, i]
         model_output_record_step = output_label_record[:, i]
@@ -234,9 +244,11 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
         diff_sum = 0
         for win_index in range(0, len(real_outcome_record_step)):
             if model_output_record_step[win_index] == -100 or real_outcome_record_step[win_index] == -100:
-                print_flag = False
-                break
+                print_flag = True
+                continue
             diff = abs(model_output_record_step[win_index] - real_outcome_record_step[win_index])
+            # if diff > 2 and i > 3400:
+            #     print('testing')
             diff_sum += diff
             total_number += 1
         if print_flag:
@@ -255,7 +267,7 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 def train_score_diff(model, sess, config,
                      input_data_t0, trace_lengths_t0,
                      input_data_t1, trace_lengths_t1,
-                     reward_t, outcome_data, terminal, cut):
+                     reward_t, outcome_data, score_diff_base_t0, terminal, cut):
     if config.Learn.apply_rl:
         [readout_t1_batch] = sess.run([model.read_out],
                                       feed_dict={model.rnn_input_ph: input_data_t1,
@@ -287,12 +299,13 @@ def train_score_diff(model, sess, config,
                            model.y_ph: y_batch
                            }
             )
-        print(
-            'the avg Q values are home {0}, away {1} and end {2} with diff {3}'.format(np.mean(train_outputs[0][:, 0]),
-                                                                                       np.mean(train_outputs[0][:, 1]),
-                                                                                       np.mean(train_outputs[0][:, 2]),
-                                                                                       np.mean(train_outputs[1])))
-        output_label = train_outputs[0][:, 0] - train_outputs[0][:, 1]
+        if terminal or cut:
+            print('the avg Q values are home {0}, away {1} '
+                  'and end {2} with diff {3}'.format(np.mean(train_outputs[0][:, 0]),
+                                                     np.mean(train_outputs[0][:, 1]),
+                                                     np.mean(train_outputs[0][:, 2]),
+                                                     np.mean(train_outputs[1])))
+        output_label = train_outputs[0][:, 0] - train_outputs[0][:, 1] + np.asarray(score_diff_base_t0)
         real_label = outcome_data
 
     else:
@@ -318,17 +331,17 @@ def train_score_diff(model, sess, config,
 
 
 def diff_validation(sess, model, input_data,
-                    trace_lengths,
+                    trace_lengths, sampled_score_diff_base_t0,
                     config, outcome_data):
     if config.Learn.apply_rl:
         train_outputs = sess.run([model.read_out],
                                  feed_dict={model.rnn_input_ph: input_data,
                                             model.trace_lengths_ph: trace_lengths})
         if train_outputs[0].shape[0] > 1:
-            output_label = train_outputs[0][:, 0] - train_outputs[0][:, 1]
+            output_label = train_outputs[0][:, 0] - train_outputs[0][:, 1] + np.asarray(sampled_score_diff_base_t0)
             real_label = outcome_data
         else:
-            output_label = [train_outputs[0][0][0] - train_outputs[0][0][1]]
+            output_label = [train_outputs[0][0][0] - train_outputs[0][0][1] + sampled_score_diff_base_t0[0]]
             real_label = outcome_data
     else:
         outcome_data = [[outcome_data[i]] for i in range(len(outcome_data))]

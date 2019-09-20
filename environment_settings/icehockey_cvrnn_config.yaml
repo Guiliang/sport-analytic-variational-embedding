@@ -16,6 +16,7 @@ Learn:
   predict_target : 'PlayerId'
   player_Id_style: 'PlayerId'
   apply_box_score: True
+  diff_apply_rl: True
 
 Arch:
   CVRNN:

@@ -465,7 +465,7 @@ def safely_expand_reward(reward_batch, max_trace_length):
 
 
 def get_together_training_batch(s_t0, state_input, reward, player_index, train_number, train_len, state_trace_length,
-                                action, win_info, team_id, config):
+                                action, win_info, team_id, config, score_info=None):
     """
     combine training data to a batch
     :return:
@@ -488,7 +488,8 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
         team_id_t0 = team_id[train_number - 1]
         player_index_t1 = player_index[train_number]
         player_index_t0 = player_index[train_number - 1]
-        win_info_t = win_info[train_number]
+        win_info_t0 = win_info[train_number]
+        score_info_t0 = score_info[train_number] if score_info is not None else None
         # team_id_t1 = id2onehot(team_id[train_number], config.learn.team_number)
         # team_id_t0 = id2onehot(team_id[train_number - 1], config.learn.team_number)
         if s_length_t1 > 10:  # if trace length is too long
@@ -508,7 +509,7 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                 r_t0_combine = [float(0), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
                 elif r_t1 == float(-1):
@@ -519,13 +520,13 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 1, 0))
 
             elif r_t0 == float(-1):
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 0, 0))
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
                 elif r_t1 == float(-1):
@@ -536,13 +537,13 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 1, 0))
 
             elif r_t0 == float(1):
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 0, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 0, 0))
 
                 if r_t1 == float(0):
                     r_t1_combine = [float(0), float(0), float(1)]
@@ -554,7 +555,7 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                     raise ValueError("incorrect r_t1")
                 batch_return.append(
                     (s_t1, s_t1, r_t1_combine, s_length_t1, s_length_t1, action_id_t1, action_id_t1, team_id_t1,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 1, 0))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 1, 0))
             else:
                 raise ValueError("r_t0 wrong value")
 
@@ -569,12 +570,12 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
                 r_t0_combine = [float(0), float(1), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 0, 1))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 0, 1))
             elif r_t0 == [float(1)]:
                 r_t0_combine = [float(1), float(0), float(0)]
                 batch_return.append(
                     (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-                     team_id_t1, player_index_t0, player_index_t1, win_info_t, 0, 1))
+                     team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 0, 1))
             else:
                 raise ValueError("r_t0 wrong value")
             s_t0 = s_t1
@@ -582,7 +583,7 @@ def get_together_training_batch(s_t0, state_input, reward, player_index, train_n
         r_t0_combine = [float(0), float(0), float(0)]
         batch_return.append(
             (s_t0, s_t1, r_t0_combine, s_length_t0, s_length_t1, action_id_t0, action_id_t1, team_id_t0,
-             team_id_t1, player_index_t0, player_index_t1, win_info_t, 0, 0))
+             team_id_t1, player_index_t0, player_index_t1, win_info_t0, score_info_t0, 0, 0))
         current_batch_length += 1
         s_t0 = s_t1
 
@@ -822,8 +823,8 @@ def read_feature_within_events(directory, data_path, feature_name, transfer_home
             else:
                 value = -float(value)
         features_all.append(value)
-        print(value)
-        print index
+        # print(value)
+        # print index
         index += 1
 
     return features_all
