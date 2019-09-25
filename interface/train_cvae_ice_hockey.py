@@ -164,7 +164,10 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 sample_target_data_t0 = target_data_t0
                 sampled_outcome_t = win_id_t_batch
 
-            train_cvae_model(model, sess, config, sample_input_data_t0, sample_target_data_t0, train_mask)
+            likelihood_loss, kl_loss = train_cvae_model(model, sess, config, sample_input_data_t0,
+                                                        sample_target_data_t0, train_mask)
+            if terminal or cut:
+                print('\n kl loss is {0} while ll lost is {1}'.format(str(kl_loss), str(likelihood_loss)))
 
             """we skip sampling for TD learning"""
             train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch, train_mask, terminal, cut)
@@ -179,7 +182,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             #         if terminal or cut:
             #             print(r_t_batch[i])
             if validate_cvrnn_flag:
-                output_decoder = cvrnn_validation(sess, model, input_data_t0, target_data_t0, train_mask, config)
+                output_decoder = cvae_validation(sess, model, input_data_t0, target_data_t0, train_mask, config)
 
                 if output_decoder_all is None:
                     output_decoder_all = output_decoder
@@ -308,20 +311,20 @@ def train_score_diff(model, sess, config, input_data_t0,
             y_home = readout_t1_batch[i].tolist()[0] + float(reward_t[i][0])
             y_away = readout_t1_batch[i].tolist()[1] + float(reward_t[i][1])
             y_end = readout_t1_batch[i].tolist()[2] + float(reward_t[i][2])
-            # print([y_home, y_away, y_end])
             y_batch.append([y_home, y_away, y_end])
+            # print('The accumulative Q values are '+str([y_home, y_away, y_end]))
             break
         # if terminal, only equals reward
         if terminal and i == len(readout_t1_batch) - 1:
             y_home = float(reward_t[i][0])
             y_away = float(reward_t[i][1])
             y_end = float(reward_t[i][2])
+            # print('The accumulative Q values are '+str([y_home, y_away, y_end]))
             print('game is ending with {0}'.format(str([y_home, y_away, y_end])))
             y_batch.append([y_home, y_away, y_end])
             break
         else:
             y_home = readout_t1_batch[i].tolist()[0] + float(reward_t[i][0])
-            # y_away = readout_t1_batch[i].tolist()[1]
             y_away = readout_t1_batch[i].tolist()[1] + float(reward_t[i][1])
             y_end = readout_t1_batch[i].tolist()[2] + float(reward_t[i][2])
             y_batch.append([y_home, y_away, y_end])
@@ -334,11 +337,11 @@ def train_score_diff(model, sess, config, input_data_t0,
             feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
                        model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
                        model.train_flag_ph: train_mask,
-                       model.score_diff_target_ph: readout_t1_batch
+                       model.score_diff_target_ph: y_batch
                        }
         )
     if terminal or cut:
-        print('the avg Q values are home {0}, away {1} '
+        print('the avg diff Q values are home {0}, away {1} '
               'and end {2} with diff {3}'.format(np.mean(train_outputs[0][:, 0]),
                                                  np.mean(train_outputs[0][:, 1]),
                                                  np.mean(train_outputs[0][:, 2]),
@@ -403,7 +406,12 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
                    }
     )
 
-    # print('avg diff:{0}, avg Qs:{1}'.format(avg_diff, str(np.mean(readout, axis=0))))
+    if terminal or cut:
+        print('the avg next goal Q values are home {0}, away {1} '
+              'and end {2} with diff {3}'.format(np.mean(readout[:, 0]),
+                                                 np.mean(readout[:, 1]),
+                                                 np.mean(readout[:, 2]),
+                                                 np.mean(avg_diff)))
 
 
 def train_cvae_model(model, sess, config, input_data, target_data, train_mask,
@@ -429,10 +437,11 @@ def train_cvae_model(model, sess, config, input_data, target_data, train_mask,
     # print acc
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
     #     converge_flag = False
-    cost_out = likelihood_loss + kl_loss
+    # print('kl loss is {0} while ll lost is {1}'.format(str(kl_loss), str(likelihood_loss)))
+    return likelihood_loss, kl_loss
 
 
-def cvrnn_validation(sess, model, input_data_t0, target_data_t0, train_mask, config):
+def cvae_validation(sess, model, input_data_t0, target_data_t0, train_mask, config):
     [
         output_x,
     ] = sess.run([

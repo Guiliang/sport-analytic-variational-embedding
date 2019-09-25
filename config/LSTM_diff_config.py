@@ -21,9 +21,10 @@ class LSTMDiffCongfig(object):
         predict_target = None
         player_Id_style = None
         sport = None
-        apply_softmax = None
         data_name = None
         apply_rl = None
+        apply_box_score = None
+        apply_pid = None
 
     class Arch(InitWithDict):
         def __init__(self, init):

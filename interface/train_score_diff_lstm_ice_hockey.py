@@ -83,12 +83,18 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         score_diff_t_batch = [d[11] for d in batch_return]
         score_diff_base_t0_batch = [d[12] for d in batch_return]
 
-        input_data_t0 = np.concatenate([np.asarray(s_t0_batch), np.asarray(action_id_t0)], axis=2)
+        if config.Learn.apply_pid:
+            input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
+                                            np.asarray(action_id_t0)], axis=2)
+            input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch), np.asarray(s_t1_batch),
+                                            np.asarray(action_id_t1)], axis=2)
+        else:
+            input_data_t0 = np.concatenate([np.asarray(s_t0_batch), np.asarray(action_id_t0)], axis=2)
+            input_data_t1 = np.concatenate([np.asarray(s_t1_batch), np.asarray(action_id_t1)], axis=2)
         trace_lengths_t0 = trace_t0_batch
+        trace_lengths_t1 = trace_t1_batch
         reward_t = r_t_batch
         outcome_data = score_diff_t_batch
-        input_data_t1 = np.concatenate([np.asarray(s_t1_batch), np.asarray(action_id_t1)], axis=2)
-        trace_lengths_t1 = trace_t1_batch
 
         for i in range(0, len(batch_return)):
             terminal = batch_return[i][-2]
@@ -225,9 +231,8 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
                                                           validate_flag=True,
                                                           output_label_all=output_label_all,
                                                           real_label_all=real_label_all)
-        print(real_label_all)
-        print(output_label_all)
-
+        # print(real_label_all)
+        # print(output_label_all)
         real_label_record[dir_index][:len(real_label_all)] = real_label_all[:len(real_label_all)]
         output_label_record[dir_index][:len(output_label_all)] = output_label_all[:len(output_label_all)]
 
@@ -275,7 +280,14 @@ def train_score_diff(model, sess, config,
         y_batch = []
         for i in range(0, len(readout_t1_batch)):
             # if terminal, only equals reward
-            if (terminal or cut) and i == len(readout_t1_batch) - 1:
+            if terminal and i == len(readout_t1_batch) - 1:
+                y_home = float(reward_t[i][0])
+                y_away = float(reward_t[i][1])
+                y_end = float(reward_t[i][2])
+                print([y_home, y_away, y_end])
+                y_batch.append([y_home, y_away, y_end])
+                break
+            elif cut and i == len(readout_t1_batch) - 1:
                 y_home = readout_t1_batch[i].tolist()[0] + float(reward_t[i][0])
                 y_away = readout_t1_batch[i].tolist()[1] + float(reward_t[i][1])
                 y_end = readout_t1_batch[i].tolist()[2] + float(reward_t[i][2])
@@ -404,10 +416,12 @@ def run():
     if training:
         if not local_test_flag:
             # save the training and testing dir list
-            with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+            if not os.path.exists(saved_network_dir):
+                os.mkdir(saved_network_dir)
+            with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                     f.write(dir + '\n')
-            with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+            with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
                     f.write(dir + '\n')
         run_network(sess=sess, model=model, config=icehockey_lstm_diff_config, log_dir=log_dir,

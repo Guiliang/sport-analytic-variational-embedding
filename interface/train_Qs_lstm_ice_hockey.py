@@ -77,12 +77,16 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         player_id_t0_batch = [d[9] for d in batch_return]
         player_id_t1_batch = [d[10] for d in batch_return]
 
-        player_embed_t0 = None  # TODO: insert player embedding
-        input_data_t0 = np.concatenate([np.asarray(s_t0_batch), np.asarray(action_id_t0)], axis=2)
-        trace_lengths_t0 = trace_t0_batch
+        if config.Learn.apply_pid:
+            input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
+                                            np.asarray(action_id_t0)], axis=2)
+            input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch), np.asarray(s_t1_batch),
+                                            np.asarray(action_id_t1)], axis=2)
+        else:
+            input_data_t0 = np.concatenate([np.asarray(s_t0_batch), np.asarray(action_id_t0)], axis=2)
+            input_data_t1 = np.concatenate([np.asarray(s_t1_batch), np.asarray(action_id_t1)], axis=2)
 
-        player_embed_t1 = None  # TODO: insert player embedding
-        input_data_t1 = np.concatenate([np.asarray(s_t1_batch), np.asarray(action_id_t1)], axis=2)
+        trace_lengths_t0 = trace_t0_batch
         trace_lengths_t1 = trace_t1_batch
 
         for i in range(0, len(batch_return)):
@@ -214,11 +218,13 @@ def run():
     sess.run(tf.global_variables_initializer())
 
     if not local_test_flag:
+        if not os.path.exists(saved_network_dir):
+            os.mkdir(saved_network_dir)
         # save the training and testing dir list
-        with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+        with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
             for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                 f.write(dir + '\n')
-        with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+        with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
             for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
                 f.write(dir + '\n')
     run_network(sess=sess, model=model, config=icehockey_mdn_Qs_config, log_dir=log_dir,

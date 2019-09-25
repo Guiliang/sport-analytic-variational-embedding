@@ -18,8 +18,8 @@ class CVAE_NN(object):
         self.saver = tf.train.Saver()
 
     def init_placeholder(self):
-        self.x_ph = tf.placeholder(dtype=tf.float32, name="x_input", shape=[None, None])
-        self.y_ph = tf.placeholder(dtype=tf.float32, name="y_input", shape=[None, None])
+        self.x_ph = tf.placeholder(dtype=tf.float32, name="x_input", shape=[None, self.config.Arch.CVAE.x_dim])
+        self.y_ph = tf.placeholder(dtype=tf.float32, name="y_input", shape=[None, self.config.Arch.CVAE.y_dim])
         self.train_flag_ph = tf.placeholder(dtype=tf.float32, shape=[None], name='training_flag')
         self.sarsa_target_ph = tf.placeholder(dtype=tf.float32,
                                               shape=[None, 3], name='sarsa_target')
@@ -27,10 +27,10 @@ class CVAE_NN(object):
                                                    shape=[None, 3], name='score_diff_target')
 
     def build(self):
+        w_init = tf.random_normal_initializer(stddev=0.02)
+        b_init = tf.constant_initializer(0.)
         with tf.variable_scope("cvae"):
             with tf.variable_scope("gaussian_MLP_encoder"):
-                w_init = tf.contrib.layers.variance_scaling_initializer()
-                b_init = tf.constant_initializer(0.)
                 self.en_w0 = tf.get_variable('w0', [self.config.Arch.CVAE.x_dim + self.config.Arch.CVAE.y_dim,
                                                     self.config.Arch.CVAE.n_hidden], initializer=w_init)
                 self.en_b0 = tf.get_variable('b0', [self.config.Arch.CVAE.n_hidden], initializer=b_init)
@@ -43,8 +43,6 @@ class CVAE_NN(object):
 
             # TODO: figure out how to set term "reuse"
             with tf.variable_scope("bernoulli_MLP_decoder"):
-                w_init = tf.contrib.layers.variance_scaling_initializer()
-                b_init = tf.constant_initializer(0.)
                 self.de_w0 = tf.get_variable('w0', [self.config.Arch.CVAE.latent_dim + + self.config.Arch.CVAE.y_dim,
                                                     self.config.Arch.CVAE.n_hidden], initializer=w_init)
                 self.de_b0 = tf.get_variable('b0', [self.config.Arch.CVAE.n_hidden],
@@ -55,8 +53,7 @@ class CVAE_NN(object):
                 self.de_wo = tf.get_variable('wo', [self.config.Arch.CVAE.n_hidden,
                                                     self.config.Arch.CVAE.x_dim], initializer=w_init)
                 self.de_bo = tf.get_variable('bo', [self.config.Arch.CVAE.x_dim], initializer=b_init)
-        w_init = tf.contrib.layers.xavier_initializer()
-        b_init = tf.constant_initializer(0)
+
         with tf.variable_scope("sarsa"):
             self.sarsa_weight = []
             self.sarsa_bias = []

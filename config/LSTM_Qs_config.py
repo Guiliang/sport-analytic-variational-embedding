@@ -23,6 +23,8 @@ class LSTMQsCongfig(object):
         sport = None
         apply_softmax = None
         data_name = None
+        apply_box_score = None
+        apply_pid = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
