@@ -187,12 +187,12 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
 
 
 def run():
-    test_flag = False
+    local_test_flag = False
     icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm.yaml"
     icehockey_mdn_Qs_config = LSTMQsCongfig.load(icehockey_mdn_Qs_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config, model_catagoery='lstm_Qs')
 
-    if test_flag:
+    if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
@@ -212,6 +212,15 @@ def run():
     model = TD_Prediction(config=icehockey_mdn_Qs_config)
     model()
     sess.run(tf.global_variables_initializer())
+
+    if not local_test_flag:
+        # save the training and testing dir list
+        with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+            for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                f.write(dir + '\n')
+        with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+            for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                f.write(dir + '\n')
     run_network(sess=sess, model=model, config=icehockey_mdn_Qs_config, log_dir=log_dir,
                 save_network_dir=saved_network_dir, data_store=data_store_dir,
                 training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,

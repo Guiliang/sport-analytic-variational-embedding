@@ -49,7 +49,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
         with tf.variable_scope(scope or type(self).__name__):
             c, m = state  # TODO: why shall we apply c instead of m
             x, y, train_flag_ph = tf.split(value=input, num_or_size_splits=[self.n_x, self.n_y, 1], axis=1)
-            train_flag_ph = tf.cast(tf.squeeze(train_flag_ph), tf.bool)
+            train_flag = tf.cast(tf.squeeze(train_flag_ph), tf.bool)
 
             with tf.variable_scope("phi_y"):
                 y_phi = linear(y, self.n_h)
@@ -83,7 +83,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
             z_encoder = tf.add(enc_mu, tf.multiply(enc_sigma, eps1))
             z_prior = tf.add(prior_mu, tf.multiply(prior_sigma, eps1))
             with tf.variable_scope("cond_z"):
-                z = tf.where(train_flag_ph, x=z_encoder, y=z_prior)
+                z = tf.where(train_flag, x=z_encoder, y=z_prior)
                 zy = tf.concat(values=(z, linear(y, self.n_h)), axis=1)
             with tf.variable_scope("Phi_z"):
                 zy_phi = tf.nn.relu(linear(zy, self.n_h))

@@ -325,6 +325,40 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                 str(config.Arch.Dense.hidden_size),
                                                 box_info
                                             )
+    elif model_catagoery == 'cvae':  # TODO: add more parameters
+        log_dir = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN" \
+                  "/{1}cvae_log_feature{2}_latent{8}_x{9}_y{10}" \
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
+                                                                                train_msg,
+                                                                                str(config.Learn.feature_type),
+                                                                                str(config.Learn.batch_size),
+                                                                                str(config.Learn.iterate_num),
+                                                                                str(config.Learn.learning_rate),
+                                                                                str(config.Learn.model_type),
+                                                                                None,
+                                                                                str(config.Arch.CVAE.latent_dim),
+                                                                                str(config.Arch.CVAE.x_dim),
+                                                                                str(config.Arch.CVAE.y_dim),
+                                                                                None,
+                                                                                box_info
+                                                                                )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN/" \
+                        "{1}cvae_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
+                                                                                      train_msg,
+                                                                                      str(config.Learn.feature_type),
+                                                                                      str(config.Learn.batch_size),
+                                                                                      str(config.Learn.iterate_num),
+                                                                                      str(config.Learn.learning_rate),
+                                                                                      str(config.Learn.model_type),
+                                                                                      None,
+                                                                                      str(config.Arch.CVAE.latent_dim),
+                                                                                      str(config.Arch.CVAE.x_dim),
+                                                                                      str(config.Arch.CVAE.y_dim),
+                                                                                      None,
+                                                                                      box_info
+                                                                                      )
 
     return saved_network, log_dir
 

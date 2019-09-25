@@ -10,7 +10,7 @@ import os
 from support.data_processing_tools import transfer2seq, get_icehockey_game_data, get_together_training_batch
 from nn_structure.lstm_prediction_nn import Td_Prediction_NN
 from config.lstm_prediction_config import LSTMCongfig
-from support.model_tools import compute_acc
+from support.model_tools import compute_acc, get_model_and_log_name
 
 
 def train_model(model, sess, config, input_data, target_data,
@@ -233,9 +233,9 @@ def run():
     tt_lstm_config_path = "../ice_hockey_{0}_prediction.yaml".format(predicted_target)
     lstm_prediction_config = LSTMCongfig.load(tt_lstm_config_path)
 
-    test_flag = False
-    # saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config)
-    if test_flag:
+    local_test_flag = False
+    saved_network_dir, log_dir = get_model_and_log_name(config=lstm_prediction_config, model_catagoery='2bdecided')
+    if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
@@ -264,6 +264,16 @@ def run():
     model.build()
     model.call()
     sess.run(tf.global_variables_initializer())
+
+    if not local_test_flag:
+        # save the training and testing dir list
+        with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+            for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                f.write(dir + '\n')
+        with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+            for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                f.write(dir + '\n')
+
     run_network(sess=sess, model=model, config=lstm_prediction_config,
                 training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
                 data_store=data_store_dir, player_id_cluster_dir=player_id_cluster_dir)

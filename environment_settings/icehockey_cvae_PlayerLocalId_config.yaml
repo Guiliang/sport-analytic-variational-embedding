@@ -6,6 +6,8 @@ Learn:
   batch_size: 32
   iterate_num: 5
   model_type: 'normal'
+  apply_box_score: False
+  save_mother_dir: "/Local-Scratch"
   data_name: 'ice_hockey-2019'
   predict_target : 'PlayerLocalId'
   player_Id_style: 'PlayerId'

@@ -207,7 +207,7 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
     elif config.Learn.player_Id_style == 'PlayerPosition' or config.Learn.predict_target == 'PlayerPositionCluster':
         player_index_select = 'player_id'
     else:
-        raise ValueError('unknown predict_target:' + config.Learn.predict_target)
+        raise ValueError('unknown predict_target:' + config.Learn.player_Id_style)
 
     for filename in game_files:
         if "reward" in filename:

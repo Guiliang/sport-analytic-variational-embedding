@@ -511,7 +511,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
 
 
 def run():
-    test_flag = False
+    local_test_flag = False
     player_id_type = 'local_id'
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -549,6 +549,14 @@ def run():
     tpp_cvrnn = TPPCVRNN(config=icehockey_cvrnn_config)
     tpp_cvrnn()
     sess.run(tf.global_variables_initializer())
+    if not local_test_flag:
+        # save the training and testing dir list
+        with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+            for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                f.write(dir + '\n')
+        with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+            for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                f.write(dir + '\n')
     run_network(sess=sess, model=tpp_cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
                 save_network_dir=saved_network_dir, data_store=data_store_dir,
                 training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,

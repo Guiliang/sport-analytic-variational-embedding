@@ -2,6 +2,7 @@ import copy
 import csv
 import sys
 from random import shuffle
+
 print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import os
@@ -182,7 +183,7 @@ def run_network(sess, model, config,
                 save_network_dir, validate_embedding_tag,
                 ):
     if validate_embedding_tag is not None:
-        validate_msg = save_network_dir.split('/')[-1].split('_')[0]+'_'
+        validate_msg = save_network_dir.split('/')[-1].split('_')[0] + '_'
         save_embed_dir = save_network_dir.replace('de_embed_saved_networks', 'store_embedding'). \
             replace('de_model_saved_NN', 'de_model_save_embedding').replace(validate_msg, '')
         print('Applying embedding_matrix_game{0}.csv'.format(str(validate_embedding_tag)))
@@ -357,14 +358,14 @@ def run():
     de_config_path = "../environment_settings/ice_hockey_{0}_de.yaml".format(predicted_target)
     de_config = DEEmbedCongfig.load(de_config_path)
 
-    test_flag = False
+    local_test_flag = False
     # saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config)
-    if test_flag:
+    if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
-        saved_network = None
+        saved_network_dir = None
     else:
         data_store_dir = de_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
@@ -373,8 +374,8 @@ def run():
         validating_dir_games_all = dir_games_all[len(dir_games_all) / 10 * 8: len(dir_games_all) / 10 * 9]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-len(dir_games_all) / 10:]  # TODO: testing
-        saved_network, log_dir = get_model_and_log_name(config=de_config, model_catagoery='de_embed',
-                                                        train_flag=False, embedding_tag=validate_embedding_tag)
+        saved_network_dir, log_dir = get_model_and_log_name(config=de_config, model_catagoery='de_embed',
+                                                            train_flag=False, embedding_tag=validate_embedding_tag)
     number_of_total_game = len(dir_games_all)
     de_config.Learn.number_of_total_game = number_of_total_game
 
@@ -383,9 +384,17 @@ def run():
     model.build(validate_embedding_tag)
     model()
     sess.run(tf.global_variables_initializer())
+    if not local_test_flag:
+        # save the training and testing dir list
+        with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+            for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                f.write(dir + '\n')
+        with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+            for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                f.write(dir + '\n')
     run_network(sess=sess, model=model, config=de_config,
                 training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
-                data_store=data_store_dir, predicted_target=predicted_target, save_network_dir=saved_network,
+                data_store=data_store_dir, predicted_target=predicted_target, save_network_dir=saved_network_dir,
                 validate_embedding_tag=validate_embedding_tag)
     sess.close()
 

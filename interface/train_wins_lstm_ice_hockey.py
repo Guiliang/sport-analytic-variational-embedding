@@ -398,6 +398,14 @@ def run():
     sess.run(tf.global_variables_initializer())
 
     if training:
+        if not local_test_flag:
+            # save the training and testing dir list
+            with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+                for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                    f.write(dir + '\n')
+            with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+                for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                    f.write(dir + '\n')
         run_network(sess=sess, model=model, config=icehockey_lstm_win_config, log_dir=log_dir,
                     save_network_dir=saved_network_dir, data_store=data_store_dir,
                     training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,

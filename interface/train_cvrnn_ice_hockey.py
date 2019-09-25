@@ -1,3 +1,5 @@
+import csv
+import datetime
 import sys
 import traceback
 from random import shuffle
@@ -252,6 +254,12 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             match_q_values_players_dict]
 
 
+def validate_network(sess, model, config, log_dir, save_network_dir,
+                     training_dir_games_all, testing_dir_games_all):
+    for dir_game in testing_dir_games_all:
+        pass
+
+
 def run_network(sess, model, config, log_dir, save_network_dir,
                 training_dir_games_all, testing_dir_games_all,
                 data_store, source_data_dir, player_id_cluster_dir, save_flag=False):
@@ -330,12 +338,19 @@ def train_score_diff(model, sess, config, input_data_t0, trace_lengths_t0, selec
                                                  model.trace_length_ph: trace_lengths_t1})
         y_batch = []
         for i in range(0, len(readout_t1_batch)):
+            if cut and i == len(readout_t1_batch) - 1:
+                y_home = readout_t1_batch[i].tolist()[0] + float(reward_t[i][0])
+                y_away = readout_t1_batch[i].tolist()[1] + float(reward_t[i][1])
+                y_end = readout_t1_batch[i].tolist()[2] + float(reward_t[i][2])
+                # print([y_home, y_away, y_end])
+                y_batch.append([y_home, y_away, y_end])
+                break
             # if terminal, only equals reward
-            if (terminal or cut) and i == len(readout_t1_batch) - 1:
+            if terminal and i == len(readout_t1_batch) - 1:
                 y_home = float(reward_t[i][0])
                 y_away = float(reward_t[i][1])
                 y_end = float(reward_t[i][2])
-                # print([y_home, y_away, y_end])
+                print('game is ending with {0}'.format(str([y_home, y_away, y_end])))
                 y_batch.append([y_home, y_away, y_end])
                 break
             else:
@@ -649,7 +664,8 @@ def diff_validation(sess, model, input_data, trace_lengths,
 
 
 def validate_model(testing_dir_games_all, data_store, source_data_dir, config, sess, model,
-                   player_id_cluster_dir, train_game_number, validate_cvrnn_flag, validate_td_flag, validate_diff_flag):
+                   player_id_cluster_dir, train_game_number, validate_cvrnn_flag, validate_td_flag,
+                   validate_diff_flag, file_writer=None):
     output_decoder_all = None
     target_data_all = None
     selection_matrix_all = None
@@ -706,8 +722,12 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
         acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
                               selection_matrix=selection_matrix_all, config=config, if_print=True)
         print ("validation acc is {0}".format(str(acc)))
+        if file_writer is not None:
+            file_writer.write("validation acc is {0}\n".format(str(acc)))
     if validate_td_flag:
         print ("validation avg qs is {0}".format(str(np.mean(q_values_all, axis=0))))
+        if file_writer is not None:
+            file_writer.write("validation avg qs is {0}\n".format(str(np.mean(q_values_all, axis=0))))
 
     if validate_diff_flag:
         # print ('general real label is {0}'.format(str(np.sum(real_label_record, axis=1))))
@@ -728,9 +748,12 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
             if print_flag:
                 if i % 100 == 0 and total_number > 0:
                     print('diff of time {0} is {1}'.format(str(i), str(float(diff_sum) / total_number)))
+                    if file_writer is not None:
+                        file_writer.write('diff of time {0} is {1}\n'.format(str(i), str(float(diff_sum) / total_number)))
 
 
 def run():
+    training = False
     local_test_flag = False
     player_id_type = 'local_id'
     if player_id_type == 'ap_cluster':
@@ -771,11 +794,48 @@ def run():
     cvrnn = CVRNN(config=icehockey_cvrnn_config)
     cvrnn()
     sess.run(tf.global_variables_initializer())
-    run_network(sess=sess, model=cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
-                save_network_dir=saved_network_dir, data_store=data_store_dir, source_data_dir=source_data_dir,
-                training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
-                player_id_cluster_dir=player_id_cluster_dir)
-    sess.close()
+    if training:
+        if not local_test_flag:
+            # save the training and testing dir list
+            with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+                for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                    f.write(dir + '\n')
+            with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+                for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                    f.write(dir + '\n')
+        print('training the model.')
+        run_network(sess=sess, model=cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
+                    save_network_dir=saved_network_dir, data_store=data_store_dir, source_data_dir=source_data_dir,
+                    training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
+                    player_id_cluster_dir=player_id_cluster_dir)
+        sess.close()
+    else:
+        print('testing the model')
+        model_number = 9301
+        testing_dir_games_all = dir_games_all[len(dir_games_all) / 10 * 9:]
+        saver = tf.train.Saver()
+        model_path = saved_network_dir + '/' + icehockey_cvrnn_config.Learn.data_name + '-game--{0}'.format(
+            str(model_number))
+        # save_network_dir + '/' + config.Learn.data_name + '-game-'
+        saver.restore(sess, model_path)
+        print 'successfully load data from' + model_path
+
+        with open('./cvrnn_testing_results{0}.txt'. \
+                          format(datetime.date.today().strftime("%Y%B%d")), 'wb') as testing_file:
+
+            validate_model(testing_dir_games_all,
+                           data_store=data_store_dir,
+                           source_data_dir=source_data_dir,
+                           config=icehockey_cvrnn_config,
+                           sess=sess,
+                           model=cvrnn,
+                           player_id_cluster_dir=player_id_cluster_dir,
+                           train_game_number=None,
+                           validate_cvrnn_flag=True,
+                           validate_td_flag=True,
+                           validate_diff_flag=True,
+                           file_writer=testing_file)
+        sess.close()
 
 
 if __name__ == '__main__':
