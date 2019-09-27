@@ -7,8 +7,6 @@ from random import shuffle
 print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import os
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
 from support.model_tools import ExperienceReplayBuffer
@@ -721,13 +719,13 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
     if validate_cvrnn_flag:
         acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
                               selection_matrix=selection_matrix_all, config=config, if_print=True)
-        print ("validation acc is {0}".format(str(acc)))
+        print ("testing acc is {0}".format(str(acc)))
         if file_writer is not None:
-            file_writer.write("validation acc is {0}\n".format(str(acc)))
+            file_writer.write("testing acc is {0}\n".format(str(acc)))
     if validate_td_flag:
-        print ("validation avg qs is {0}".format(str(np.mean(q_values_all, axis=0))))
+        print ("testing avg qs is {0}".format(str(np.mean(q_values_all, axis=0))))
         if file_writer is not None:
-            file_writer.write("validation avg qs is {0}\n".format(str(np.mean(q_values_all, axis=0))))
+            file_writer.write("testing avg qs is {0}\n".format(str(np.mean(q_values_all, axis=0))))
 
     if validate_diff_flag:
         # print ('general real label is {0}'.format(str(np.sum(real_label_record, axis=1))))
@@ -753,8 +751,9 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
 
 
 def run():
-    training = True
+    training = False
     local_test_flag = False
+    box_msg = ''
     player_id_type = 'local_id'
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -769,7 +768,7 @@ def run():
         player_id_cluster_dir = None
         predicted_target = ''
 
-    icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config.yaml".format(predicted_target)
+    icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config{1}.yaml".format(predicted_target, box_msg)
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config, model_catagoery='cvrnn')
 
@@ -790,13 +789,24 @@ def run():
     number_of_total_game = len(dir_games_all)
     icehockey_cvrnn_config.Learn.number_of_total_game = number_of_total_game
 
-    sess = tf.Session()
-    cvrnn = CVRNN(config=icehockey_cvrnn_config)
-    cvrnn()
-    sess.run(tf.global_variables_initializer())
+
     if training:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+        sess = tf.Session()
+        cvrnn = CVRNN(config=icehockey_cvrnn_config)
+        cvrnn()
+        sess.run(tf.global_variables_initializer())
+
         if not local_test_flag:
+            if not os.path.exists(saved_network_dir):
+                os.mkdir(saved_network_dir)
             # save the training and testing dir list
+            if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/training_file_dirs_all.csv',
+                          saved_network_dir + '/bak_training_file_dirs_all.csv')
+            if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
+                          saved_network_dir + '/bak_testing_file_dirs_all.csv')
             with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                     f.write(dir + '\n')
@@ -810,9 +820,18 @@ def run():
                     player_id_cluster_dir=player_id_cluster_dir)
         sess.close()
     else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+        sess = tf.Session()
+        cvrnn = CVRNN(config=icehockey_cvrnn_config)
+        cvrnn()
+        sess.run(tf.global_variables_initializer())
         print('testing the model')
-        model_number = 9301
-        testing_dir_games_all = dir_games_all[len(dir_games_all) / 10 * 9:]
+        model_number = 2101
+        testing_dir_games_all = []
+        with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
+            testing_files = f.readlines()
+        for testing_file in testing_files:
+            testing_dir_games_all.append(str(int(testing_file)))
         saver = tf.train.Saver()
         model_path = saved_network_dir + '/' + icehockey_cvrnn_config.Learn.data_name + '-game--{0}'.format(
             str(model_number))
@@ -820,8 +839,8 @@ def run():
         saver.restore(sess, model_path)
         print 'successfully load data from' + model_path
 
-        with open('./cvrnn_testing_results{0}.txt'. \
-                          format(datetime.date.today().strftime("%Y%B%d")), 'wb') as testing_file:
+        with open('./cvrnn{1}_testing_results{0}.txt'. \
+                          format(datetime.date.today().strftime("%Y%B%d"), box_msg), 'wb') as testing_file:
 
             validate_model(testing_dir_games_all,
                            data_store=data_store_dir,

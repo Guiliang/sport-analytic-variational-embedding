@@ -15,13 +15,13 @@ Learn:
   apply_box_score: False
   apply_stochastic: False
   apply_rl: True
-  apply_pid: False
+  apply_pid: True
 
 Arch:
   LSTM:
     h_size: 512
     lstm_layer_num: 1
-    feature_number: 39 #27+12
+    feature_number: 1042 #27+12+1003
   Dense:
     dense_layer_num : 2
     hidden_size: 256

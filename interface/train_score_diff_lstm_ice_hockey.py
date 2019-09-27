@@ -386,7 +386,10 @@ def diff_validation(sess, model, input_data,
 def run():
     local_test_flag = False
     training = True
-    icehockey_lstm_diff_config_path = "../environment_settings/ice_hockey_predict_score_diff_lstm.yaml"
+
+    player_id_info = '_pid'
+
+    icehockey_lstm_diff_config_path = "../environment_settings/ice_hockey_predict_score_diff_lstm{0}.yaml".format(player_id_info)
     icehockey_lstm_diff_config = LSTMDiffCongfig.load(icehockey_lstm_diff_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_lstm_diff_config, model_catagoery='lstm_diff')
 
@@ -415,9 +418,16 @@ def run():
 
     if training:
         if not local_test_flag:
-            # save the training and testing dir list
             if not os.path.exists(saved_network_dir):
                 os.mkdir(saved_network_dir)
+            # save the training and testing dir list
+            if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/training_file_dirs_all.csv',
+                          saved_network_dir + '/bak_training_file_dirs_all.csv')
+            if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
+                          saved_network_dir + '/bak_testing_file_dirs_all.csv')
+            # save the training and testing dir list
             with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                     f.write(dir + '\n')

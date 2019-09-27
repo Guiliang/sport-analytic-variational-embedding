@@ -6,6 +6,7 @@ import json
 
 from nn_structure.cvrnn import CVRNN
 from nn_structure.lstm_Qs_nn import TD_Prediction
+from nn_structure.lstm_score_diff_nn import Diff_Prediction
 from support.data_processing_tools import get_icehockey_game_data, generate_selection_matrix, transfer2seq
 
 
@@ -67,6 +68,25 @@ def get_data_name(config, model_catagoery, model_number):
                                                                                   box_info
                                                                                   )
     elif model_catagoery == 'lstm_Qs':
+        data_name = "model_{1}_three_cut_lstm_Qs_feature{2}_{8}" \
+                    "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
+                    "_dense{11}{12}".format(config.Learn.save_mother_dir,
+                                            model_number,
+                                            str(config.Learn.feature_type),
+                                            str(config.Learn.batch_size),
+                                            str(config.Learn.iterate_num),
+                                            str(config.Learn.learning_rate),
+                                            str(config.Learn.model_type),
+                                            str(
+                                                config.Learn.max_seq_length),
+                                            config.Learn.predict_target,
+                                            None,
+                                            str(config.Arch.LSTM.h_size),
+                                            str(
+                                                config.Arch.Dense.hidden_size),
+                                            box_info
+                                            )
+    elif model_catagoery == 'lstm_diff':
         data_name = "model_{1}_three_cut_lstm_Qs_feature{2}_{8}" \
                     "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
                     "_dense{11}{12}".format(config.Learn.save_mother_dir,
@@ -345,6 +365,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             box_info,
             player_id_info
         )
+
     elif model_catagoery == 'cvae':  # TODO: add more parameters
         log_dir = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN" \
                   "/{1}cvae_log_feature{2}_latent{8}_x{9}_y{10}" \
@@ -376,6 +397,42 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                                     str(config.Arch.CVAE.latent_dim),
                                                                     str(config.Arch.CVAE.x_dim),
                                                                     str(config.Arch.CVAE.y_dim),
+                                                                    None,
+                                                                    box_info
+                                                                    )
+
+    elif model_catagoery == 'encoder':
+
+        log_dir = "{0}/oschulte/Galen/icehockey-models/stats_encoder_saved_NN" \
+                  "/{1}cvae_log_feature{2}_embed{8}_in{9}_out{10}" \
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
+                                                              train_msg,
+                                                              str(config.Learn.feature_type),
+                                                              str(config.Learn.batch_size),
+                                                              str(config.Learn.iterate_num),
+                                                              str(config.Learn.learning_rate),
+                                                              str(config.Learn.model_type),
+                                                              None,
+                                                              str(config.Arch.Encoder.embed_dim),
+                                                              str(config.Arch.Encoder.input_dim),
+                                                              str(config.Arch.Encoder.output_dim),
+                                                              None,
+                                                              box_info
+                                                              )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/stats_encoder_saved_NN/" \
+                        "{1}cvae_saved_networks_feature{2}_embed{8}_in{9}_out{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
+                                                                    train_msg,
+                                                                    str(config.Learn.feature_type),
+                                                                    str(config.Learn.batch_size),
+                                                                    str(config.Learn.iterate_num),
+                                                                    str(config.Learn.learning_rate),
+                                                                    str(config.Learn.model_type),
+                                                                    None,
+                                                                    str(config.Arch.Encoder.embed_dim),
+                                                                    str(config.Arch.Encoder.input_dim),
+                                                                    str(config.Arch.Encoder.output_dim),
                                                                     None,
                                                                     box_info
                                                                     )
@@ -490,21 +547,30 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config, player_id_
             selection_matrix_t0 = generate_selection_matrix(trace_lengths,
                                                             max_trace_length=config.Learn.max_seq_length)
 
-        [readout] = sess_nn.run([model.sarsa_output],
-                                feed_dict={model.input_data_ph: input_data,
-                                           model.trace_length_ph: trace_lengths,
-                                           model.selection_matrix_ph: selection_matrix_t0
-                                           })
+        [readout_next_Q, readout_accumu_Q] = sess_nn.run([model.sarsa_output,
+                                                          model.diff_output],
+                                                         feed_dict={model.input_data_ph: input_data,
+                                                                    model.trace_length_ph: trace_lengths,
+                                                                    model.selection_matrix_ph: selection_matrix_t0
+                                                                    })
     elif model_category == 'lstm_Qs':
         input_data = np.concatenate([np.asarray(state_input), np.asarray(action_seq)], axis=2)
         trace_lengths = state_trace_length
-        [readout] = sess_nn.run([model.read_out],
-                                feed_dict={model.rnn_input_ph: input_data,
-                                           model.trace_lengths_ph: trace_lengths})
+        [readout_next_Q] = sess_nn.run([model.read_out],
+                                       feed_dict={model.rnn_input_ph: input_data,
+                                                  model.trace_lengths_ph: trace_lengths})
+        readout_accumu_Q = None
+    elif model_category == 'lstm_diff':
+        input_data = np.concatenate([np.asarray(state_input), np.asarray(action_seq)], axis=2)
+        trace_lengths = state_trace_length
+        [readout_accumu_Q] = sess_nn.run([model.read_out],
+                                         feed_dict={model.rnn_input_ph: input_data,
+                                                    model.trace_lengths_ph: trace_lengths})
+        readout_next_Q = None
     else:
         raise ValueError('unknown model {0}'.format(model_category))
 
-    return readout
+    return readout_next_Q, readout_accumu_Q
 
 
 def compute_games_Q_values(config, data_store_dir, dir_all,
@@ -525,6 +591,11 @@ def compute_games_Q_values(config, data_store_dir, dir_all,
         model_nn()
         sess_nn.run(tf.global_variables_initializer())
         model_path = saved_network_dir + '/Ice-Hockey-game--{0}'.format(model_number)
+    elif model_category == 'lstm_diff':
+        model_nn = Diff_Prediction(config=config)
+        model_nn()
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/Ice-Hockey-game--{0}'.format(model_number)
     else:
         raise ValueError('unknown model type {0}'.format(model_category))
 
@@ -536,36 +607,50 @@ def compute_games_Q_values(config, data_store_dir, dir_all,
     else:
         raise ValueError('please provide a model number or no model will be loaded')
 
-    model_values_all = []
-
+    model_next_Q_values_all = []
+    model_accumu_Q_value_all = []
     for game_name_dir in dir_all:
         print('working for game {0}'.format(game_name_dir))
         game_name = game_name_dir.split('.')[0]
         # game_time_all = get_game_time(data_path, game_name_dir)
-        model_value = compute_game_values(sess_nn=sess_nn,
-                                          model=model_nn,
-                                          data_store=data_store_dir,
-                                          dir_game=game_name,
-                                          config=config,
-                                          player_id_cluster_dir=player_id_cluster_dir,
-                                          model_category=model_category)
+        readout_next_Q, readout_accumu_Q = compute_game_values(sess_nn=sess_nn,
+                                                               model=model_nn,
+                                                               data_store=data_store_dir,
+                                                               dir_game=game_name,
+                                                               config=config,
+                                                               player_id_cluster_dir=player_id_cluster_dir,
+                                                               model_category=model_category)
         # plot_game_Q_values(model_value)
-        model_value_json = {}
-        for value_index in range(0, len(model_value)):
-            model_value_json.update({value_index: {'home': float(model_value[value_index][0]),
-                                                   'away': float(model_value[value_index][1]),
-                                                   'end': float(model_value[value_index][2])}})
+        if readout_next_Q is not None:
+            model_next_Q_value_json = {}
+            for value_index in range(0, len(readout_next_Q)):
+                model_next_Q_value_json.update({value_index: {'home': float(readout_next_Q[value_index][0]),
+                                                              'away': float(readout_next_Q[value_index][1]),
+                                                              'end': float(readout_next_Q[value_index][2])}})
+            model_next_Q_values_all.append(model_next_Q_value_json)
+        if readout_accumu_Q is not None:
+            model_accumu_Q_value_json = {}
+            for value_index in range(0, len(readout_accumu_Q)):
+                model_accumu_Q_value_json.update({value_index: {'home': float(readout_accumu_Q[value_index][0]),
+                                                                'away': float(readout_accumu_Q[value_index][1]),
+                                                                'end': float(readout_accumu_Q[value_index][2])}})
+            model_accumu_Q_value_all.append(model_accumu_Q_value_json)
 
         game_store_dir = game_name_dir.split('.')[0]
-        model_values_all.append(model_value_json)
         if not return_values_flag:
-            with open(data_store_dir + "/" + game_store_dir + "/" + data_name, 'w') as outfile:
-                json.dump(model_value_json, outfile)
+            if readout_next_Q is not None:
+                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs'),
+                          'w') as outfile:
+                    json.dump(model_next_Q_value_json, outfile)
+            if readout_accumu_Q is not None:
+                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs'),
+                          'w') as outfile:
+                    json.dump(model_accumu_Q_value_json, outfile)
 
             # sio.savemat(data_store_dir + "/" + game_name_dir + "/" + data_name,
             #             {'model_value': np.asarray(model_value)})
     if return_values_flag:
-        return model_values_all
+        return model_next_Q_values_all, model_accumu_Q_value_all
     else:
         return data_name
 

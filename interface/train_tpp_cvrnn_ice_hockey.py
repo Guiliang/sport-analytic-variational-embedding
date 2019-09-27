@@ -505,9 +505,9 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
     if validate_cvrnn_flag:
         acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
                               selection_matrix=selection_matrix_all, config=config, if_print=True)
-        print ("validation acc is {0}".format(str(acc)))
+        print ("testing acc is {0}".format(str(acc)))
     if validate_td_flag:
-        print ("validation avg qs is {0}".format(str(np.mean(q_values_all, axis=0))))
+        print ("testing avg qs is {0}".format(str(np.mean(q_values_all, axis=0))))
 
 
 def run():
@@ -550,11 +550,20 @@ def run():
     tpp_cvrnn()
     sess.run(tf.global_variables_initializer())
     if not local_test_flag:
+        if not os.path.exists(saved_network_dir):
+            os.mkdir(saved_network_dir)
         # save the training and testing dir list
-        with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+        if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
+            os.rename(saved_network_dir + '/training_file_dirs_all.csv',
+                      saved_network_dir + '/bak_training_file_dirs_all.csv')
+        if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
+            os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
+                      saved_network_dir + '/bak_testing_file_dirs_all.csv')
+        # save the training and testing dir list
+        with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
             for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                 f.write(dir + '\n')
-        with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+        with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
             for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
                 f.write(dir + '\n')
     run_network(sess=sess, model=tpp_cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,

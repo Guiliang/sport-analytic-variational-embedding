@@ -149,8 +149,6 @@ def run_calibration():
         predicted_target = '_PlayerLocalId'
         icehockey_config_path = "../environment_settings/icehockey_cvrnn{0}_config.yaml".format(predicted_target)
         config = CVRNNCongfig.load(icehockey_config_path)
-        config.Learn.apply_box_score = False  # TODO: tmp setting, remove me
-        config.Arch.CVRNN.y_dim = 70  # TODO: tmp setting, remove me
     elif model_type == 'lstm_Qs':
         model_number = 901
         icehockey_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm.yaml"

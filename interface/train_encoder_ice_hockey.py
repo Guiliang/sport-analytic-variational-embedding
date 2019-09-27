@@ -11,8 +11,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
 from support.model_tools import ExperienceReplayBuffer, compute_acc
-from config.cvae_config import CVAECongfig
-from nn_structure.cvae_nn import CVAE_NN
+from config.stats_encoder_config import EncoderConfig
+from nn_structure.stats_encoder_nn import Encoder_NN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
     get_together_training_batch, write_game_average_csv, compute_game_win_vec, compute_game_score_diff_vec, \
     read_feature_within_events
@@ -164,10 +164,10 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 sample_target_data_t0 = target_data_t0
                 sampled_outcome_t = win_id_t_batch
 
-            likelihood_loss, kl_loss = train_cvae_model(model, sess, config, sample_input_data_t0,
-                                                        sample_target_data_t0, train_mask)
+            likelihood_loss = train_encoder_model(model, sess, config, sample_input_data_t0,
+                                                           sample_target_data_t0, train_mask)
             if terminal or cut:
-                print('\n kl loss is {0} while ll lost is {1}'.format(str(kl_loss), str(likelihood_loss)))
+                print('\n ll lost is {0}'.format(str(likelihood_loss)))
 
             """we skip sampling for TD learning"""
             train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch, train_mask, terminal, cut)
@@ -182,7 +182,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             #         if terminal or cut:
             #             print(r_t_batch[i])
             if validate_cvrnn_flag:
-                output_decoder = cvae_validation(sess, model, input_data_t0, target_data_t0, train_mask, config)
+                output_decoder = encoder_validation(sess, model, input_data_t0, target_data_t0, train_mask, config)
 
                 if output_decoder_all is None:
                     output_decoder_all = output_decoder
@@ -222,11 +222,6 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
     return [output_decoder_all, target_data_all,
             q_values_all, real_label_all, output_label_all]
 
-
-def validate_network(sess, model, config, log_dir, save_network_dir,
-                     training_dir_games_all, testing_dir_games_all):
-    for dir_game in testing_dir_games_all:
-        pass
 
 
 def run_network(sess, model, config, log_dir, save_network_dir,
@@ -301,9 +296,8 @@ def train_score_diff(model, sess, config, input_data_t0,
                      input_data_t1, reward_t, outcome_data,
                      score_diff_base_t0, train_mask, terminal, cut):
     [readout_t1_batch] = sess.run([model.q_values_diff],
-                                  feed_dict={model.x_ph: input_data_t1[:, : config.Arch.CVAE.x_dim],
-                                             model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
-                                             model.train_flag_ph: train_mask,
+                                  feed_dict={model.output_ph: input_data_t1[:, : config.Arch.Encoder.output_dim],
+                                             model.input_ph: input_data_t1[:, config.Arch.Encoder.output_dim:],
                                              })
     y_batch = []
     for i in range(0, len(readout_t1_batch)):
@@ -334,9 +328,8 @@ def train_score_diff(model, sess, config, input_data_t0,
     train_outputs = \
         sess.run(
             train_list,
-            feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
-                       model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
-                       model.train_flag_ph: train_mask,
+            feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
+                       model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
                        model.score_diff_target_ph: y_batch
                        }
         )
@@ -354,9 +347,8 @@ def train_score_diff(model, sess, config, input_data_t0,
 
 def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch, train_mask, terminal, cut):
     [readout_t1_batch] = sess.run([model.q_values_sarsa],
-                                  feed_dict={model.x_ph: input_data_t1[:, : config.Arch.CVAE.x_dim],
-                                             model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
-                                             model.train_flag_ph: train_mask,
+                                  feed_dict={model.output_ph: input_data_t1[:, : config.Arch.Encoder.output_dim],
+                                             model.input_ph: input_data_t1[:, config.Arch.Encoder.output_dim:],
                                              })
     # r_t_batch = safely_expand_reward(reward_batch=r_t_batch, max_trace_length=config.Learn.max_seq_length)
     y_batch = []
@@ -399,10 +391,9 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
             model.train_td_op,
             model.q_values_sarsa
         ],
-        feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
-                   model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+        feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
+                   model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
                    model.sarsa_target_ph: y_batch,
-                   model.train_flag_ph: train_mask,
                    }
     )
 
@@ -414,22 +405,19 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
                                                  np.mean(avg_diff)))
 
 
-def train_cvae_model(model, sess, config, input_data, target_data, train_mask,
-                     pretrain_flag=False):
+def train_encoder_model(model, sess, config, input_data, target_data, train_mask,
+                        pretrain_flag=False):
     [
         output_x,
-        kl_loss,
         likelihood_loss,
         _
     ] = sess.run([
-        model.x_,
+        model.player_prediction,
         # model.cost,
-        model.KL_divergence_loss,
-        model.marginal_likelihood_loss,
-        model.train_cvae_op],
-        feed_dict={model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
-                   model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
-                   model.train_flag_ph: train_mask,
+        model.likelihood_loss,
+        model.train_encoder_op],
+        feed_dict={model.output_ph: input_data[:, : config.Arch.Encoder.output_dim],
+                   model.input_ph: input_data[:, config.Arch.Encoder.output_dim:],
                    }
     )
 
@@ -438,17 +426,16 @@ def train_cvae_model(model, sess, config, input_data, target_data, train_mask,
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
     #     converge_flag = False
     # print('kl loss is {0} while ll lost is {1}'.format(str(kl_loss), str(likelihood_loss)))
-    return likelihood_loss, kl_loss
+    return likelihood_loss
 
 
-def cvae_validation(sess, model, input_data_t0, target_data_t0, train_mask, config):
+def encoder_validation(sess, model, input_data_t0, target_data_t0, train_mask, config):
     [
         output_x,
     ] = sess.run([
         model.x_],
-        feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
-                   model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
-                   model.train_flag_ph: train_mask,
+        feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
+                   model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
                    }
     )
 
@@ -457,47 +444,22 @@ def cvae_validation(sess, model, input_data_t0, target_data_t0, train_mask, conf
 
 def td_validation(sess, model, input_data_t0, train_mask, config):
     [readout] = sess.run([model.q_values_sarsa],
-                         feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
-                                    model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
-                                    model.train_flag_ph: train_mask,
+                         feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
+                                    model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
                                     })
     # readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
     #                                       max_trace_length=config.Learn.max_seq_length)
     return readout
 
 
-# def win_validation(sess, model, input_data,
-#                    trace_lengths, selection_matrix,
-#                    config, outcome_data):
-#     [
-#         # _,
-#         win_output
-#     ] = sess.run([
-#         # model.train_win_op,
-#         model.win_output],
-#         feed_dict={model.input_data_ph: input_data,
-#                    model.win_target_ph: outcome_data,
-#                    model.trace_length_ph: trace_lengths,
-#                    model.selection_matrix_ph: selection_matrix
-#                    })
-#     output_label = np.argmax(win_output, axis=1)
-#     real_label = np.argmax(outcome_data, axis=1)
-#
-#     # correct_num = 0
-#     # for index in range(0, len(input_data)):
-#     #     if output_label[index] == real_label[index]:
-#     #         correct_num += 1
-#     #
-#     return output_label, real_label
 
 
 def diff_validation(sess, model, input_data, train_mask,
                     score_diff_base_t0,
                     config, outcome_data):
     train_outputs = sess.run([model.q_values_diff],
-                             feed_dict={model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
-                                        model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
-                                        model.train_flag_ph: train_mask,
+                             feed_dict={model.output_ph: input_data[:, : config.Arch.Encoder.output_dim],
+                                        model.input_ph: input_data[:, config.Arch.Encoder.output_dim:],
                                         })
     if train_outputs[0].shape[0] > 1:
         output_label = train_outputs[0][:, 0] - train_outputs[0][:, 1] + np.asarray(score_diff_base_t0)
@@ -601,9 +563,9 @@ def run():
         player_id_cluster_dir = None
         predicted_target = ''
 
-    icehockey_cvae_config_path = "../environment_settings/icehockey_cvae{0}_config.yaml".format(predicted_target)
-    icehockey_cvae_config = CVAECongfig.load(icehockey_cvae_config_path)
-    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvae_config, model_catagoery='cvae')
+    icehockey_encoder_config_path = "../environment_settings/icehockey_stats_encoder{0}_config.yaml".format(predicted_target)
+    icehockey_encoder_config = EncoderConfig.load(icehockey_encoder_config_path)
+    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_encoder_config, model_catagoery='encoder')
 
     if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
@@ -613,24 +575,30 @@ def run():
         source_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
     else:
         source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
-        data_store_dir = icehockey_cvae_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
+        data_store_dir = icehockey_encoder_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
         shuffle(dir_games_all)  # randomly shuffle the list
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
     number_of_total_game = len(dir_games_all)
-    icehockey_cvae_config.Learn.number_of_total_game = number_of_total_game
+    icehockey_encoder_config.Learn.number_of_total_game = number_of_total_game
 
     sess = tf.Session()
-    cvae = CVAE_NN(config=icehockey_cvae_config)
-    cvae()
+    encoder = Encoder_NN(config=icehockey_encoder_config)
+    encoder()
     sess.run(tf.global_variables_initializer())
     if training:
         if not local_test_flag:
             # save the training and testing dir list
             if not os.path.exists(saved_network_dir):
                 os.mkdir(saved_network_dir)
+            if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/training_file_dirs_all.csv',
+                          saved_network_dir + '/bak_training_file_dirs_all.csv')
+            if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
+                          saved_network_dir + '/bak_testing_file_dirs_all.csv')
             with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                     f.write(dir + '\n')
@@ -638,7 +606,7 @@ def run():
                 for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
                     f.write(dir + '\n')
         print('training the model.')
-        run_network(sess=sess, model=cvae, config=icehockey_cvae_config, log_dir=log_dir,
+        run_network(sess=sess, model=encoder, config=icehockey_encoder_config, log_dir=log_dir,
                     save_network_dir=saved_network_dir, data_store=data_store_dir, source_data_dir=source_data_dir,
                     training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
                     player_id_cluster_dir=player_id_cluster_dir)
@@ -648,7 +616,7 @@ def run():
         model_number = 9301
         testing_dir_games_all = dir_games_all[len(dir_games_all) / 10 * 9:]
         saver = tf.train.Saver()
-        model_path = saved_network_dir + '/' + icehockey_cvae_config.Learn.data_name + '-game--{0}'.format(
+        model_path = saved_network_dir + '/' + icehockey_encoder_config.Learn.data_name + '-game--{0}'.format(
             str(model_number))
         # save_network_dir + '/' + config.Learn.data_name + '-game-'
         saver.restore(sess, model_path)
@@ -657,9 +625,9 @@ def run():
         validate_model(testing_dir_games_all,
                        data_store=data_store_dir,
                        source_data_dir=source_data_dir,
-                       config=icehockey_cvae_config,
+                       config=icehockey_encoder_config,
                        sess=sess,
-                       model=cvae,
+                       model=encoder,
                        player_id_cluster_dir=player_id_cluster_dir,
                        train_game_number=None,
                        validate_cvrnn_flag=True,

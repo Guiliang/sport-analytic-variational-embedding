@@ -7,11 +7,13 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import PolyCollection, LineCollection, PatchCollection
 from matplotlib import colors as mcolors
 
-fig = plt.figure()
-ax = fig.gca(projection='3d')
+# fig = plt.figure()
+# ax = fig.gca(projection='3d')
 
 
 def line_plot_3d():
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
     def cc(arg):
         return mcolors.to_rgba(arg, alpha=0.6)
 
@@ -47,6 +49,15 @@ def plot_shadow(x_values_list, y_mean_values_list,
                          y_upper_values_list[:, i], alpha=.3, color=colors[i], edgecolor="none")
         plt.plot(x_values_list, y_mean_values_list[:, i], linewidth=2, )
     plt.show()
+
+
+def plot_diff(game_time_list, diff_values_list, model_category_all):
+    # event_numbers = range(0, len(diff_values))
+    plt.figure()
+    for i in range(0, len(game_time_list)):
+        plt.plot(game_time_list[i], diff_values_list[i], label=model_category_all[i])
+    plt.show()
+
 
 
 def plot_game_Q_values(Q_values):
