@@ -399,11 +399,20 @@ def run():
 
     if training:
         if not local_test_flag:
+            if not os.path.exists(saved_network_dir):
+                os.mkdir(saved_network_dir)
             # save the training and testing dir list
-            with open(saved_network_dir + '/training_file_dirs_all.csv') as f:
+            if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/training_file_dirs_all.csv',
+                          saved_network_dir + '/bak_training_file_dirs_all.csv')
+            if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
+                          saved_network_dir + '/bak_testing_file_dirs_all.csv')
+            # save the training and testing dir list
+            with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                     f.write(dir + '\n')
-            with open(saved_network_dir + '/testing_file_dirs_all.csv') as f:
+            with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
                     f.write(dir + '\n')
         run_network(sess=sess, model=model, config=icehockey_lstm_win_config, log_dir=log_dir,

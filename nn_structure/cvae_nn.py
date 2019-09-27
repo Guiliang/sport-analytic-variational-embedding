@@ -229,8 +229,8 @@ class CVAE_NN(object):
         tvars_cvae = tf.trainable_variables(scope='cvae')
         for t in tvars_cvae:
             print ('cvae_var: ' + str(t.name))
-        cvrnn_grads = tf.gradients(tf.reduce_mean(cvae_loss), tvars_cvae)
-        self.train_cvae_op = self.optimizer.apply_gradients(zip(cvrnn_grads, tvars_cvae))
+        cvae_grads = tf.gradients(tf.reduce_mean(cvae_loss), tvars_cvae)
+        self.train_cvae_op = self.optimizer.apply_gradients(zip(cvae_grads, tvars_cvae))
 
         self.q_values_sarsa = self.sarsa_value_function(self.z)
         self.td_loss = tf.reduce_mean(tf.square(self.q_values_sarsa - self.sarsa_target_ph), axis=-1)

@@ -297,7 +297,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
 
     acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
                           selection_matrix=selection_matrix_all, config=config, if_print=True)
-    print ("validation acc is {0}".format(str(acc)))
+    print ("testing acc is {0}".format(str(acc)))
 
 
 def run():
