@@ -751,7 +751,7 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
 
 
 def run():
-    training = False
+    training = True
     local_test_flag = False
     box_msg = ''
     player_id_type = 'local_id'
@@ -791,7 +791,7 @@ def run():
 
 
     if training:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         sess = tf.Session()
         cvrnn = CVRNN(config=icehockey_cvrnn_config)
         cvrnn()
@@ -803,10 +803,12 @@ def run():
             # save the training and testing dir list
             if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
                 os.rename(saved_network_dir + '/training_file_dirs_all.csv',
-                          saved_network_dir + '/bak_training_file_dirs_all.csv')
+                          saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
             if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
                 os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
-                          saved_network_dir + '/bak_testing_file_dirs_all.csv')
+                          saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
             with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                     f.write(dir + '\n')

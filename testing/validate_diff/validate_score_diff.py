@@ -90,28 +90,44 @@ if __name__ == '__main__':
     # cvrnn_result_dir = '../interface/cvrnn_testing_results2019September23.txt'
     # game_time, cvrnn_results = read_results_values(cvrnn_result_dir)
     # plot_diff(game_time, cvrnn_results)
-    model_number = '2101'
-    model_category_all = ['cvrnn', 'lstm_diff']
+
+    validated_model_type = [
+        {'model_category': 'cvrnn', 'model_number': '1501', 'player_info': '_box'},
+        {'model_category': 'cvrnn', 'model_number': '2101', 'player_info': ''},
+        # {'model_category': 'cvrnn', 'model_number': '1501', 'player_info': ''},
+        # {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': ''},
+        # {'model_category': 'lstm_diff', 'model_number': '1801', 'player_info': ''},
+        {'model_category': 'lstm_diff', 'model_number': '1501', 'player_info': ''},
+        {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': '_pid'},
+    ]
+
+    model_category_msg_all = []
     event_numbers_all = []
     acc_diff_all = []
-    for model_category in model_category_all:
+    for model_info_setting in validated_model_type:
+
+        model_category = model_info_setting.get('model_category')
+        model_number = model_info_setting.get('model_number')
+        player_info = model_info_setting.get('player_info')
         if model_category == 'cvrnn':
-            box_msg = '_box'
             predicted_target = '_PlayerLocalId'  # playerId_
-            icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config{1}.yaml". \
-                format(predicted_target, box_msg)
+            icehockey_cvrnn_config_path = "../../environment_settings/icehockey_cvrnn{0}_config{1}.yaml". \
+                format(predicted_target, player_info)
             icehockey_model_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
             testing_file = open('./cvrnn{1}_model{2}_testing_results{0}.txt'. \
-                                format(datetime.date.today().strftime("%Y%B%d"), box_msg, str(model_number)), 'wb')
+                                format(datetime.date.today().strftime("%Y%B%d"), player_info, str(model_number)),
+                                'wb')
         elif model_category == 'lstm_diff':
-            icehockey_config_path = "../environment_settings/ice_hockey_predict_score_diff_lstm.yaml"
+            icehockey_config_path = "../../environment_settings/ice_hockey_predict_score_diff_lstm{0}.yaml"\
+                .format(player_info)
             icehockey_model_config = LSTMDiffCongfig.load(icehockey_config_path)
             testing_file = open('./LSTM_diff{1}_model{2}_testing_results{0}.txt'. \
                                 format(datetime.date.today().strftime("%Y%B%d"), '', str(model_number)), 'wb')
         else:
             raise ValueError("uknown model catagoery {0}".format(model_category))
 
-        saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_model_config, model_catagoery=model_category)
+        saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_model_config,
+                                                            model_catagoery=model_category)
         testing_dir_games_all = []
         with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
             testing_dir_all = f.readlines()
@@ -130,6 +146,8 @@ if __name__ == '__main__':
                                                       testing_file)
         event_numbers_all.append(event_numbers)
         acc_diff_all.append(acc_diff)
+        model_category_msg_all.append(model_category + '_' + model_number + player_info)
         testing_file.close()
 
-    plot_diff(game_time_list=event_numbers_all, diff_values_list=acc_diff_all, model_category_all=model_category_all)
+    plot_diff(game_time_list=event_numbers_all, diff_values_list=acc_diff_all,
+              model_category_all=model_category_msg_all)

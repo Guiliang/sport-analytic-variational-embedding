@@ -10,7 +10,9 @@ from support.model_tools import get_data_name
 class Calibration:
     def __init__(self, bins, source_data_dir, calibration_features,
                  config, model_data_store_dir,
-                 apply_old, apply_difference, model_type, model_number, focus_actions_list=[]):
+                 apply_old, apply_difference, model_type,
+                 model_number, player_info,
+                 focus_actions_list=[]):
         self.bins = bins
         # self.bins_names = bins.keys()
         self.apply_old = apply_old
@@ -25,11 +27,11 @@ class Calibration:
         self.config = config
         self.focus_actions_list = focus_actions_list
         if self.apply_difference:
-            self.save_calibration_dir = './calibration_results/difference-calibration-{2}-{0}-{1}.txt'. \
-                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type)
+            self.save_calibration_dir = './calibration_results/difference-calibration_{2}_{0}_{1}{3}.txt'. \
+                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type, player_info)
         else:
-            self.save_calibration_dir = './calibration_results/calibration-{2}-{0}-{1}.txt'. \
-                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type)
+            self.save_calibration_dir = './calibration_results/calibration_{2}_{0}_{1}{3}.txt'. \
+                format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type, player_info)
         self.save_calibration_file = open(self.save_calibration_dir, 'w')
         if apply_difference:
             self.teams = ['home-away']
@@ -38,6 +40,7 @@ class Calibration:
             # learning_rate = tt_lstm_config.learn.learning_rate
             # pass
         self.data_name = get_data_name(config=config, model_catagoery=model_type, model_number=model_number)
+        self.data_name = self.data_name.replace('Qs', 'next_Qs')
         print(self.data_name)
 
     def __del__(self):

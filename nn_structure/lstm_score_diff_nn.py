@@ -38,8 +38,8 @@ class Diff_Prediction:
                     self.lstm_cell_all.append(
                         tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.LSTM.h_size, state_is_tuple=True,
                                                 initializer=tf.random_uniform_initializer(-0.05, 0.05)))
-                    if not self.config.Learn.apply_rl:
-                        self.config.Arch.Dense.output_layer_size = 1
+                    # if not self.config.Learn.apply_rl:
+                    #     self.config.Arch.Dense.output_layer_size = 1
             with tf.name_scope("Dense_Layer"):
                 for i in range(self.config.Arch.Dense.dense_layer_num):
                     w_input_size = self.config.Arch.Dense.hidden_size if i > 0 else \

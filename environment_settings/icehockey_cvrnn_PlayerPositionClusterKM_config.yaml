@@ -17,6 +17,7 @@ Learn:
   sport : 'Ice-Hockey'
   apply_box_score: True
   diff_apply_rl: True
+  apply_pid: False
 
 Arch:
   CVRNN:

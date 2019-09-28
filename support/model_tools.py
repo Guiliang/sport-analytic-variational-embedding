@@ -48,9 +48,11 @@ def load_nn_model(saver, sess, saved_network_dir):
 
 
 def get_data_name(config, model_catagoery, model_number):
-    box_info = ''
+    player_info = ''
     if config.Learn.apply_box_score:
-        box_info = '_box'
+        player_info += '_box'
+    if config.Learn.apply_pid:
+        player_info += '_pid'
     if model_catagoery == 'cvrnn':
         data_name = "model_{1}_three_cut_cvrnn_Qs_feature{2}_latent{8}_x{9}_y{10}" \
                     "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}".format(config.Learn.save_mother_dir,
@@ -65,7 +67,7 @@ def get_data_name(config, model_catagoery, model_number):
                                                                                   str(config.Arch.CVRNN.y_dim),
                                                                                   str(config.Arch.CVRNN.x_dim),
                                                                                   str(config.Arch.CVRNN.hidden_dim),
-                                                                                  box_info
+                                                                                  player_info
                                                                                   )
     elif model_catagoery == 'lstm_Qs':
         data_name = "model_{1}_three_cut_lstm_Qs_feature{2}_{8}" \
@@ -84,7 +86,7 @@ def get_data_name(config, model_catagoery, model_number):
                                             str(config.Arch.LSTM.h_size),
                                             str(
                                                 config.Arch.Dense.hidden_size),
-                                            box_info
+                                            player_info
                                             )
     elif model_catagoery == 'lstm_diff':
         data_name = "model_{1}_three_cut_lstm_Qs_feature{2}_{8}" \
@@ -103,7 +105,7 @@ def get_data_name(config, model_catagoery, model_number):
                                             str(config.Arch.LSTM.h_size),
                                             str(
                                                 config.Arch.Dense.hidden_size),
-                                            box_info
+                                            player_info
                                             )
 
     return data_name
@@ -403,39 +405,46 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
 
     elif model_catagoery == 'encoder':
 
+        if config.Learn.apply_lstm:
+            lstm_msg = '_lstm'
+        else:
+            lstm_msg = ''
+
         log_dir = "{0}/oschulte/Galen/icehockey-models/stats_encoder_saved_NN" \
-                  "/{1}cvae_log_feature{2}_embed{8}_in{9}_out{10}" \
-                  "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
-                                                              train_msg,
-                                                              str(config.Learn.feature_type),
-                                                              str(config.Learn.batch_size),
-                                                              str(config.Learn.iterate_num),
-                                                              str(config.Learn.learning_rate),
-                                                              str(config.Learn.model_type),
-                                                              None,
-                                                              str(config.Arch.Encoder.embed_dim),
-                                                              str(config.Arch.Encoder.input_dim),
-                                                              str(config.Arch.Encoder.output_dim),
-                                                              None,
-                                                              box_info
-                                                              )
+                  "/{1}encoder_log_feature{2}_embed{8}_in{9}_out{10}" \
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                                                                  train_msg,
+                                                                  str(config.Learn.feature_type),
+                                                                  str(config.Learn.batch_size),
+                                                                  str(config.Learn.iterate_num),
+                                                                  str(config.Learn.learning_rate),
+                                                                  str(config.Learn.model_type),
+                                                                  None,
+                                                                  str(config.Arch.Encoder.embed_dim),
+                                                                  str(config.Arch.Encoder.input_dim),
+                                                                  str(config.Arch.Encoder.output_dim),
+                                                                  None,
+                                                                  box_info,
+                                                                  lstm_msg
+                                                                  )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/stats_encoder_saved_NN/" \
-                        "{1}cvae_saved_networks_feature{2}_embed{8}_in{9}_out{10}" \
-                        "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
-                                                                    train_msg,
-                                                                    str(config.Learn.feature_type),
-                                                                    str(config.Learn.batch_size),
-                                                                    str(config.Learn.iterate_num),
-                                                                    str(config.Learn.learning_rate),
-                                                                    str(config.Learn.model_type),
-                                                                    None,
-                                                                    str(config.Arch.Encoder.embed_dim),
-                                                                    str(config.Arch.Encoder.input_dim),
-                                                                    str(config.Arch.Encoder.output_dim),
-                                                                    None,
-                                                                    box_info
-                                                                    )
+                        "{1}encoder_saved_networks_feature{2}_embed{8}_in{9}_out{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                                                                        train_msg,
+                                                                        str(config.Learn.feature_type),
+                                                                        str(config.Learn.batch_size),
+                                                                        str(config.Learn.iterate_num),
+                                                                        str(config.Learn.learning_rate),
+                                                                        str(config.Learn.model_type),
+                                                                        None,
+                                                                        str(config.Arch.Encoder.embed_dim),
+                                                                        str(config.Arch.Encoder.input_dim),
+                                                                        str(config.Arch.Encoder.output_dim),
+                                                                        None,
+                                                                        box_info,
+                                                                        lstm_msg
+                                                                        )
 
     return saved_network, log_dir
 
@@ -561,7 +570,11 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config, player_id_
                                                   model.trace_lengths_ph: trace_lengths})
         readout_accumu_Q = None
     elif model_category == 'lstm_diff':
-        input_data = np.concatenate([np.asarray(state_input), np.asarray(action_seq)], axis=2)
+        if config.Learn.apply_pid:
+            input_data = np.concatenate([np.asarray(player_index_seq),
+                                         np.asarray(state_input), np.asarray(action_seq)], axis=2)
+        else:
+            input_data = np.concatenate([np.asarray(state_input), np.asarray(action_seq)], axis=2)
         trace_lengths = state_trace_length
         [readout_accumu_Q] = sess_nn.run([model.read_out],
                                          feed_dict={model.rnn_input_ph: input_data,
