@@ -1,4 +1,5 @@
 import csv
+import datetime
 import sys
 import traceback
 from random import shuffle
@@ -45,17 +46,39 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
     state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
         data_store=data_store, dir_game=dir_game, config=config, player_id_cluster_dir=player_id_cluster_dir)
-    state_zero_trace = [1] * len(state_trace_length)
-    state_zero_input = []
-    for trace_index in range(0, len(state_trace_length)):
-        trace_length = state_trace_length[trace_index]
-        trace_length = trace_length - 1
-        if trace_length > 9:
-            trace_length = 9
-        state_zero_input.append(state_input[trace_index, trace_length, :])
-    state_zero_input = np.asarray(state_zero_input)
-    score_diff = compute_game_score_diff_vec(rewards=reward)
 
+    if config.Learn.apply_lstm:
+        encoder_trace = state_trace_length
+        encoder_state_input = state_input
+        player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                        max_length=config.Learn.max_seq_length)
+        encoder_player_index = player_index_seq
+        action_seq = transfer2seq(data=action, trace_length=state_trace_length,
+                                  max_length=config.Learn.max_seq_length)
+        encoder_action = action_seq
+        team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
+                                   max_length=config.Learn.max_seq_length)
+        encoder_team_id = team_id_seq
+        axis_concat = 2
+
+    else:
+        state_zero_trace = [1] * len(state_trace_length)
+        state_zero_input = []
+        for trace_index in range(0, len(state_trace_length)):
+            trace_length = state_trace_length[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            state_zero_input.append(state_input[trace_index, trace_length, :])
+        state_zero_input = np.asarray(state_zero_input)
+        encoder_trace = state_zero_trace
+        encoder_state_input = state_zero_input
+        encoder_player_index = player_index
+        encoder_action = action
+        encoder_team_id = team_id
+        axis_concat = 1
+
+    score_diff = compute_game_score_diff_vec(rewards=reward)
     score_difference_game = read_feature_within_events(dir_game,
                                                        source_data_dir,
                                                        'scoreDifferential',
@@ -69,7 +92,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
     train_len = len(state_input)
     train_number = 0
-    s_t0 = state_zero_input[train_number]
+    s_t0 = encoder_state_input[train_number]
     train_number += 1
     while True:
         # try:
@@ -77,14 +100,14 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         train_number, \
         s_tl, \
         print_flag = get_together_training_batch(s_t0=s_t0,
-                                                 state_input=state_zero_input,
+                                                 state_input=encoder_state_input,
                                                  reward=reward,
-                                                 player_index=player_index,
+                                                 player_index=encoder_player_index,
                                                  train_number=train_number,
                                                  train_len=train_len,
-                                                 state_trace_length=state_zero_trace,
-                                                 action=action,
-                                                 team_id=team_id,
+                                                 state_trace_length=encoder_trace,
+                                                 action=encoder_action,
+                                                 team_id=encoder_team_id,
                                                  win_info=score_diff,
                                                  score_info=score_difference_game,
                                                  config=config)
@@ -120,37 +143,60 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         for i in range(0, len(terminal_batch)):
             terminal = terminal_batch[i]
             cut = cut_batch[i]
+        if config.Learn.apply_lstm:
+            target_data_t0 = []
+            for trace_index in range(0, len(trace_t0_batch)):
+                trace_length = trace_t0_batch[trace_index]
+                trace_length = trace_length - 1
+                target_data_t0.append(player_id_t0_batch[trace_index][trace_length, :])
+            target_data_t0 = np.asarray(target_data_t0)
+
+            target_data_t1 = []
+            for trace_index in range(0, len(trace_t1_batch)):
+                trace_length = trace_t1_batch[trace_index]
+                trace_length = trace_length - 1
+                target_data_t1.append(player_id_t1_batch[trace_index][trace_length, :])
+            target_data_t1 = np.asarray(target_data_t1)
+
+        else:
+            target_data_t0 = np.asarray(player_id_t0_batch)
+            target_data_t1 = np.asarray(player_id_t1_batch)
         if config.Learn.predict_target == 'PlayerLocalId':
             input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch),
                                             np.asarray(team_id_t0_batch),
                                             np.asarray(s_t0_batch),
-                                            np.asarray(action_id_t0)], axis=1)
-            target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
+                                            np.asarray(action_id_t0)], axis=axis_concat)
+            # target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
             input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch),
                                             np.asarray(team_id_t1_batch),
                                             np.asarray(s_t1_batch),
-                                            np.asarray(action_id_t1)], axis=1)
-            target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+                                            np.asarray(action_id_t1)], axis=axis_concat)
+            # target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+            trace_length_t0 = np.asarray(trace_t0_batch)
+            trace_length_t1 = np.asarray(trace_t1_batch)
         else:
             input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
-                                            np.asarray(action_id_t0)], axis=1)
-            target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
+                                            np.asarray(action_id_t0)], axis=axis_concat)
+            # target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
             input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch), np.asarray(s_t1_batch),
-                                            np.asarray(action_id_t1)], axis=1)
-            target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+                                            np.asarray(action_id_t1)], axis=axis_concat)
+            # target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+            trace_length_t0 = np.asarray(trace_t0_batch)
+            trace_length_t1 = np.asarray(trace_t1_batch)
 
         if training_flag:
 
             if config.Learn.apply_stochastic:
                 for i in range(len(input_data_t0)):
-                    MemoryBuffer.push([input_data_t0[i], target_data_t0[i],
-                                       input_data_t1[i], target_data_t1[i],
+                    MemoryBuffer.push([input_data_t0[i], target_data_t0[i], trace_length_t0[i],
+                                       input_data_t1[i], target_data_t1[i], trace_length_t1[i],
                                        r_t_batch[i], win_id_t_batch[i],
                                        terminal_batch[i], cut_batch[i]
                                        ])
                 sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
                 sample_input_data_t0 = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
                 sample_target_data_t0 = np.asarray([sampled_data[j][1] for j in range(len(sampled_data))])
+                sample_trace_length_t0 = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
                 if training_flag:
                     train_mask = np.asarray([1] * len(sample_input_data_t0))
                 else:
@@ -162,19 +208,25 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             else:
                 sample_input_data_t0 = input_data_t0
                 sample_target_data_t0 = target_data_t0
-                sampled_outcome_t = win_id_t_batch
+                sample_trace_length_t0 = trace_length_t0
 
             likelihood_loss = train_encoder_model(model, sess, config, sample_input_data_t0,
-                                                           sample_target_data_t0, train_mask)
+                                                  sample_target_data_t0, sample_trace_length_t0,
+                                                  train_mask)
             if terminal or cut:
                 print('\n ll lost is {0}'.format(str(likelihood_loss)))
 
             """we skip sampling for TD learning"""
-            train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch, train_mask, terminal, cut)
+            train_td_model(model, sess, config,
+                           input_data_t0, target_data_t0, trace_length_t0,
+                           input_data_t1, target_data_t1, trace_length_t1,
+                           r_t_batch, train_mask, terminal, cut)
 
-            train_score_diff(model, sess, config, input_data_t0,
-                             input_data_t1, r_t_batch, outcome_data,
-                             score_diff_base_t0, train_mask, terminal, cut)
+            train_score_diff(model, sess, config,
+                             input_data_t0, target_data_t0, trace_length_t0,
+                             input_data_t1, target_data_t1, trace_length_t1,
+                             r_t_batch, score_diff_base_t0, outcome_data,
+                             train_mask, terminal, cut)
 
         else:
             # for i in range(0, len(r_t_batch)):
@@ -182,7 +234,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             #         if terminal or cut:
             #             print(r_t_batch[i])
             if validate_cvrnn_flag:
-                output_decoder = encoder_validation(sess, model, input_data_t0, target_data_t0, train_mask, config)
+                output_decoder = encoder_validation(sess, model, input_data_t0, target_data_t0,
+                                                    trace_length_t0, train_mask, config)
 
                 if output_decoder_all is None:
                     output_decoder_all = output_decoder
@@ -194,7 +247,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
             if validate_td_flag:
                 # validate_variance_flag = validate_variance_flag if train_number <= 500 else False
-                q_values = td_validation(sess, model, input_data_t0, train_mask, config)
+                q_values = td_validation(sess, model, input_data_t0, target_data_t0, trace_length_t0, train_mask,
+                                         config)
 
                 if q_values_all is None:
                     q_values_all = q_values
@@ -202,7 +256,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                     q_values_all = np.concatenate([q_values_all, q_values], axis=0)
 
             if validate_diff_flag:
-                output_label, real_label = diff_validation(sess, model, input_data_t0, train_mask,
+                output_label, real_label = diff_validation(sess, model, input_data_t0, target_data_t0,
+                                                           trace_length_t0, train_mask,
                                                            score_diff_base_t0,
                                                            config, outcome_data)
                 if real_label_all is None:
@@ -221,7 +276,6 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
     return [output_decoder_all, target_data_all,
             q_values_all, real_label_all, output_label_all]
-
 
 
 def run_network(sess, model, config, log_dir, save_network_dir,
@@ -292,13 +346,23 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 #     # print('accuracy of win prob is {0}'.format(str(float(correct_num)/len(input_data))))
 
 
-def train_score_diff(model, sess, config, input_data_t0,
-                     input_data_t1, reward_t, outcome_data,
-                     score_diff_base_t0, train_mask, terminal, cut):
+def train_score_diff(model, sess, config,
+                     input_data_t0, target_data_t0, trace_length_t0,
+                     input_data_t1, target_data_t1, trace_length_t1,
+                     reward_t, score_diff_base_t0, outcome_data,
+                     train_mask, terminal, cut):
+    if config.Learn.apply_lstm:
+        feed_dict_1 = {model.output_ph: target_data_t1,
+                       model.input_ph: input_data_t1[:, :, config.Arch.Encoder.output_dim:],
+                       model.trace_lengths_ph: trace_length_t1
+                       }
+    else:
+        feed_dict_1 = {model.output_ph: target_data_t1,
+                       model.input_ph: input_data_t1[:, config.Arch.Encoder.output_dim:],
+                       }
+
     [readout_t1_batch] = sess.run([model.q_values_diff],
-                                  feed_dict={model.output_ph: input_data_t1[:, : config.Arch.Encoder.output_dim],
-                                             model.input_ph: input_data_t1[:, config.Arch.Encoder.output_dim:],
-                                             })
+                                  feed_dict=feed_dict_1)
     y_batch = []
     for i in range(0, len(readout_t1_batch)):
         if cut and i == len(readout_t1_batch) - 1:
@@ -325,13 +389,22 @@ def train_score_diff(model, sess, config, input_data_t0,
 
     train_list = [model.q_values_diff, model.td_score_diff_diff, model.train_diff_op]
 
+    if config.Learn.apply_lstm:
+        feed_dict_0 = {model.output_ph: target_data_t0,
+                       model.input_ph: input_data_t0[:, :, config.Arch.Encoder.output_dim:],
+                       model.trace_lengths_ph: trace_length_t0,
+                       model.score_diff_target_ph: y_batch,
+                       }
+    else:
+        feed_dict_0 = {model.output_ph: target_data_t0,
+                       model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
+                       model.score_diff_target_ph: y_batch,
+                       }
+
     train_outputs = \
         sess.run(
             train_list,
-            feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
-                       model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
-                       model.score_diff_target_ph: y_batch
-                       }
+            feed_dict=feed_dict_0
         )
     if terminal or cut:
         print('the avg diff Q values are home {0}, away {1} '
@@ -345,11 +418,22 @@ def train_score_diff(model, sess, config, input_data_t0,
     return output_label, real_label
 
 
-def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch, train_mask, terminal, cut):
+def train_td_model(model, sess, config,
+                   input_data_t0, target_data_t0, trace_length_t0,
+                   input_data_t1, target_data_t1, trace_length_t1,
+                   r_t_batch, train_mask, terminal, cut):
+    if config.Learn.apply_lstm:
+        feed_dict_1 = {model.output_ph: target_data_t1,
+                       model.input_ph: input_data_t1[:, :, config.Arch.Encoder.output_dim:],
+                       model.trace_lengths_ph: trace_length_t1
+                       }
+    else:
+        feed_dict_1 = {model.output_ph: target_data_t1,
+                       model.input_ph: input_data_t1[:, config.Arch.Encoder.output_dim:],
+                       }
+
     [readout_t1_batch] = sess.run([model.q_values_sarsa],
-                                  feed_dict={model.output_ph: input_data_t1[:, : config.Arch.Encoder.output_dim],
-                                             model.input_ph: input_data_t1[:, config.Arch.Encoder.output_dim:],
-                                             })
+                                  feed_dict=feed_dict_1)
     # r_t_batch = safely_expand_reward(reward_batch=r_t_batch, max_trace_length=config.Learn.max_seq_length)
     y_batch = []
     # print(len(r_t_batch))
@@ -371,6 +455,18 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
                 ((readout_t1_batch[i]).tolist())[2]
         y_batch.append([y_home, y_away, y_end])
 
+    if config.Learn.apply_lstm:
+        feed_dict_0 = {model.output_ph: target_data_t0,
+                       model.input_ph: input_data_t0[:, :, config.Arch.Encoder.output_dim:],
+                       model.trace_lengths_ph: trace_length_t0,
+                       model.sarsa_target_ph: y_batch,
+                       }
+    else:
+        feed_dict_0 = {model.output_ph: target_data_t0,
+                       model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
+                       model.sarsa_target_ph: y_batch,
+                       }
+
     # perform gradient step
     y_batch = np.asarray(y_batch)
     [
@@ -391,10 +487,7 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
             model.train_td_op,
             model.q_values_sarsa
         ],
-        feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
-                   model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
-                   model.sarsa_target_ph: y_batch,
-                   }
+        feed_dict=feed_dict_0
     )
 
     if terminal or cut:
@@ -405,8 +498,18 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
                                                  np.mean(avg_diff)))
 
 
-def train_encoder_model(model, sess, config, input_data, target_data, train_mask,
+def train_encoder_model(model, sess, config, input_data, target_data, sample_trace_length_t0, train_mask,
                         pretrain_flag=False):
+    if config.Learn.apply_lstm:
+        feed_dict = {model.output_ph: target_data,
+                     model.input_ph: input_data[:, :, config.Arch.Encoder.output_dim:],
+                     model.trace_lengths_ph: sample_trace_length_t0
+                     }
+    else:
+        feed_dict = {model.output_ph: target_data,
+                     model.input_ph: input_data[:, config.Arch.Encoder.output_dim:],
+                     }
+
     [
         output_x,
         likelihood_loss,
@@ -416,9 +519,7 @@ def train_encoder_model(model, sess, config, input_data, target_data, train_mask
         # model.cost,
         model.likelihood_loss,
         model.train_encoder_op],
-        feed_dict={model.output_ph: input_data[:, : config.Arch.Encoder.output_dim],
-                   model.input_ph: input_data[:, config.Arch.Encoder.output_dim:],
-                   }
+        feed_dict=feed_dict
     )
 
     acc = compute_acc(target_actions_prob=target_data, output_actions_prob=output_x)
@@ -429,38 +530,62 @@ def train_encoder_model(model, sess, config, input_data, target_data, train_mask
     return likelihood_loss
 
 
-def encoder_validation(sess, model, input_data_t0, target_data_t0, train_mask, config):
+def encoder_validation(sess, model, input_data, target_data, trace_length_t0, train_mask, config):
+    if config.Learn.apply_lstm:
+        feed_dict = {model.output_ph: target_data,
+                     model.input_ph: input_data[:, :, config.Arch.Encoder.output_dim:],
+                     model.trace_lengths_ph: trace_length_t0
+                     }
+    else:
+        feed_dict = {model.output_ph: target_data,
+                     model.input_ph: input_data[:, config.Arch.Encoder.output_dim:],
+                     }
+
     [
-        output_x,
+        output_player_prediction,
     ] = sess.run([
-        model.x_],
-        feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
-                   model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
-                   }
+        model.player_prediction],
+        feed_dict=feed_dict
     )
 
-    return output_x
+    return output_player_prediction
 
 
-def td_validation(sess, model, input_data_t0, train_mask, config):
+def td_validation(sess, model, input_data_t0, target_data_t0, trace_length_t0, train_mask, config):
+    if config.Learn.apply_lstm:
+        feed_dict = {model.output_ph: target_data_t0,
+                     model.input_ph: input_data_t0[:, :, config.Arch.Encoder.output_dim:],
+                     model.trace_lengths_ph: trace_length_t0
+                     }
+    else:
+        feed_dict = {model.output_ph: target_data_t0,
+                     model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
+                     }
+
     [readout] = sess.run([model.q_values_sarsa],
-                         feed_dict={model.output_ph: input_data_t0[:, : config.Arch.Encoder.output_dim],
-                                    model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
-                                    })
+                         feed_dict=feed_dict)
     # readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
     #                                       max_trace_length=config.Learn.max_seq_length)
     return readout
 
 
-
-
-def diff_validation(sess, model, input_data, train_mask,
+def diff_validation(sess, model, input_data_t0, target_data_t0,
+                    trace_length_t0, train_mask,
                     score_diff_base_t0,
                     config, outcome_data):
+
+    if config.Learn.apply_lstm:
+        feed_dict = {model.output_ph: target_data_t0,
+                     model.input_ph: input_data_t0[:, :, config.Arch.Encoder.output_dim:],
+                     model.trace_lengths_ph: trace_length_t0
+                     }
+    else:
+        feed_dict = {model.output_ph: target_data_t0,
+                     model.input_ph: input_data_t0[:, config.Arch.Encoder.output_dim:],
+                     }
+
     train_outputs = sess.run([model.q_values_diff],
-                             feed_dict={model.output_ph: input_data[:, : config.Arch.Encoder.output_dim],
-                                        model.input_ph: input_data[:, config.Arch.Encoder.output_dim:],
-                                        })
+                             feed_dict=feed_dict)
     if train_outputs[0].shape[0] > 1:
         output_label = train_outputs[0][:, 0] - train_outputs[0][:, 1] + np.asarray(score_diff_base_t0)
         real_label = outcome_data
@@ -494,7 +619,7 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
             continue
 
         [output_decoder_all, target_data_all,
-            q_values_all, real_label_all,
+         q_values_all, real_label_all,
          output_label_all] = gathering_running_and_run(dir_game, config,
                                                        player_id_cluster_dir,
                                                        data_store,
@@ -550,6 +675,7 @@ def run():
     training = True
     local_test_flag = False
     player_id_type = 'local_id'
+    rnn_type = ''
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
@@ -563,7 +689,8 @@ def run():
         player_id_cluster_dir = None
         predicted_target = ''
 
-    icehockey_encoder_config_path = "../environment_settings/icehockey_stats_encoder{0}_config.yaml".format(predicted_target)
+    icehockey_encoder_config_path = "../environment_settings/" \
+                                    "icehockey_stats{1}_encoder{0}_config.yaml".format(predicted_target, rnn_type)
     icehockey_encoder_config = EncoderConfig.load(icehockey_encoder_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_encoder_config, model_catagoery='encoder')
 
@@ -595,10 +722,12 @@ def run():
                 os.mkdir(saved_network_dir)
             if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
                 os.rename(saved_network_dir + '/training_file_dirs_all.csv',
-                          saved_network_dir + '/bak_training_file_dirs_all.csv')
+                          saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
             if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
                 os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
-                          saved_network_dir + '/bak_testing_file_dirs_all.csv')
+                          saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
             with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
                 for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
                     f.write(dir + '\n')

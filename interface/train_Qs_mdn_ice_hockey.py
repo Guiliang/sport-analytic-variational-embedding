@@ -1,3 +1,4 @@
+import datetime
 import sys
 import traceback
 
@@ -229,10 +230,12 @@ def run():
         # save the training and testing dir list
         if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
             os.rename(saved_network_dir + '/training_file_dirs_all.csv',
-                      saved_network_dir + '/bak_training_file_dirs_all.csv')
+                      saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
+                      .format(datetime.date.today().strftime("%Y%B%d")))
         if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
             os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
-                      saved_network_dir + '/bak_testing_file_dirs_all.csv')
+                      saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
+                      .format(datetime.date.today().strftime("%Y%B%d")))
         # save the training and testing dir list
         with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
             for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:

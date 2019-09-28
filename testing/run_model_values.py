@@ -9,8 +9,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 if __name__ == '__main__':
 
-    model_type = 'cvrnn'
-    box_msg = '_box'
+    model_type = 'lstm_diff'
+    player_info = ''
+    model_number = 301
     local_test_flag = False
     if model_type == 'cvrnn':
         player_id_type = 'local_id'
@@ -27,21 +28,18 @@ if __name__ == '__main__':
             player_id_cluster_dir = None
             predicted_target = ''
         icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config{1}.yaml".format(
-            predicted_target, box_msg)
+            predicted_target, player_info)
         icehockey_model_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
-        model_number = 1801
 
     elif model_type == 'lstm_Qs':
         icehockey_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm.yaml"
         icehockey_model_config = LSTMQsCongfig.load(icehockey_config_path)
         player_id_cluster_dir = None
-        model_number = 901
 
     elif model_type == 'lstm_diff':
-        icehockey_config_path = "../environment_settings/ice_hockey_predict_score_diff_lstm.yaml"
+        icehockey_config_path = "../environment_settings/ice_hockey_predict_score_diff_lstm{0}.yaml".format(player_info)
         icehockey_model_config = LSTMDiffCongfig.load(icehockey_config_path)
         player_id_cluster_dir = None
-        model_number = 1801
     else:
         raise ValueError('incorrect model type {0}'.format(model_type))
 
