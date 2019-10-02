@@ -2,7 +2,7 @@ import csv
 import datetime
 import sys
 import traceback
-from random import shuffle
+# from random import shuffle
 
 print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
@@ -616,7 +616,7 @@ def run():
         source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
         data_store_dir = icehockey_cvae_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
-        shuffle(dir_games_all)  # randomly shuffle the list
+        # shuffle(dir_games_all)  # randomly shuffle the list
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-10:]  # TODO: testing

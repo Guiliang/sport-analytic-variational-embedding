@@ -170,8 +170,9 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
     return np.asarray(selection_matrix)
 
 
-def get_game_date(game_id):
-    game_date_dir = "../resource/ice_hockey_201819/game_dates_2018_2019.json"
+def get_game_date(game_id, game_date_dir):
+    if game_date_dir is None:
+        game_date_dir = "../resource/ice_hockey_201819/game_dates_2018_2019.json"
     with open(game_date_dir, 'rb') as f:
         game_date_items = json.load(f)
 
@@ -183,12 +184,18 @@ def get_game_date(game_id):
     return None
 
 
-def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=None, game_date=None):
+def get_icehockey_game_data(data_store, dir_game, config,
+                            player_id_cluster_dir=None,
+                            game_date=None,
+                            player_basic_info_dir=None,
+                            game_date_dir=None,
+                            player_box_score_dir=None
+                            ):
     if game_date is None:
-        game_date = get_game_date(int(dir_game))
+        game_date = get_game_date(int(dir_game), game_date_dir)
         assert game_date is not None
-
-    player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+    if player_basic_info_dir is None:
+        player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
 
@@ -253,8 +260,8 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
         data_store + "/" + dir_game + "/" + trace_length_name)['lt'][0]
 
     if config.Learn.apply_box_score:
-
-        player_box_score_dir = '../resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv'
+        if player_box_score_dir is None:
+            player_box_score_dir = '../resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv'
         # print ('horizontal rescale is to hard')
         with open(player_box_score_dir, 'r') as f:
             player_box_score_all = json.load(f)
@@ -286,7 +293,7 @@ def get_icehockey_game_data(data_store, dir_game, config, player_id_cluster_dir=
                             box_score_find_flag = True
                             break
                         elif game_date == measured_game_date:
-                            player_box_score_item_index_pre = player_box_score_item_index-1  # it is important
+                            player_box_score_item_index_pre = player_box_score_item_index - 1  # it is important
                             if player_box_score_item_index_pre >= 0:
                                 target_player_box_score_item = player_box_score_list[player_box_score_item_index_pre]
                             else:

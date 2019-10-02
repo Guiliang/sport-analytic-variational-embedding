@@ -6,7 +6,7 @@ print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import tensorflow as tf
 import numpy as np
 from config.LSTM_diff_config import LSTMDiffCongfig
@@ -388,7 +388,7 @@ def run():
     local_test_flag = False
     training = True
 
-    player_id_info = '_pid'
+    player_id_info = '_v2'
 
     icehockey_lstm_diff_config_path = "../environment_settings/ice_hockey_predict_score_diff_lstm{0}.yaml".format(player_id_info)
     icehockey_lstm_diff_config = LSTMDiffCongfig.load(icehockey_lstm_diff_config_path)
