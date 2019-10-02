@@ -526,7 +526,72 @@ def normal_td(mu1, mu2, var1, var2, y):
     return com1 * com2 * com3
 
 
-def compute_game_values(sess_nn, model, data_store, dir_game, config, player_id_cluster_dir, model_category):
+def compute_game_ids(sess_nn, model, data_store,
+                     dir_game, config,
+                     player_id_cluster_dir,
+                     model_category,
+                     player_basic_info_dir=None,
+                     game_date_dir=None,
+                     player_box_score_dir=None
+                     ):
+    state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
+        data_store=data_store, dir_game=dir_game, config=config,
+        player_id_cluster_dir=player_id_cluster_dir,
+        player_basic_info_dir=player_basic_info_dir,
+        game_date_dir=game_date_dir,
+        player_box_score_dir=player_box_score_dir
+    )
+
+    action_seq = transfer2seq(data=action, trace_length=state_trace_length,
+                              max_length=config.Learn.max_seq_length)
+    team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
+                               max_length=config.Learn.max_seq_length)
+    player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                    max_length=config.Learn.max_seq_length)
+
+    if model_category == "cvrnn":
+        train_mask = np.asarray([[[0]] * config.Learn.max_seq_length] * len(player_index))
+        if config.Learn.predict_target == 'PlayerLocalId':
+            input_data = np.concatenate([player_index_seq,
+                                         team_id_seq,
+                                         state_input,
+                                         action_seq,
+                                         train_mask],
+                                        axis=2)
+            trace_lengths = state_trace_length
+            selection_matrix = generate_selection_matrix(trace_lengths,
+                                                         max_trace_length=config.Learn.max_seq_length)
+        else:
+            input_data = np.concatenate([player_index, state_input,
+                                         action, train_mask], axis=2)
+            trace_lengths = state_trace_length
+            selection_matrix = generate_selection_matrix(trace_lengths,
+                                                         max_trace_length=config.Learn.max_seq_length)
+
+        [output_x] = sess_nn.run([model.output],
+                                 feed_dict={model.input_data_ph: input_data,
+                                            model.trace_length_ph: trace_lengths,
+                                            model.selection_matrix_ph: selection_matrix
+                                            })
+
+    output_decoder = []
+    for batch_index in range(0, len(output_x)):
+        output_decoder_batch = []
+        for trace_length_index in range(0, config.Learn.max_seq_length):
+            if selection_matrix[batch_index][trace_length_index]:
+                output_decoder_batch.append(output_x[batch_index][trace_length_index])
+            else:
+                output_decoder_batch.append(np.asarray([0] * config.Arch.CVRNN.x_dim))
+        output_decoder.append(output_decoder_batch)
+    output_decoder = np.asarray(output_decoder)
+
+    return output_decoder, player_index_seq, selection_matrix
+
+
+def compute_game_values(sess_nn, model, data_store, dir_game, config,
+                        player_id_cluster_dir,
+                        model_category
+                        ):
     state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
         data_store=data_store, dir_game=dir_game, config=config, player_id_cluster_dir=player_id_cluster_dir)
 
@@ -584,6 +649,75 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config, player_id_
         raise ValueError('unknown model {0}'.format(model_category))
 
     return readout_next_Q, readout_accumu_Q
+
+
+def compute_games_player_id(config,
+                            data_store_dir,
+                            dir_all,
+                            # model_nn,
+                            # sess_nn,
+                            # model_path,
+                            player_basic_info_dir,
+                            game_date_dir,
+                            player_box_score_dir,
+                            model_number=None,
+                            player_id_cluster_dir=None,
+                            saved_network_dir=None,
+                            model_category=None,
+                            file_writer=None):
+
+    sess_nn = tf.InteractiveSession()
+    if model_category == 'cvrnn':
+        cvrnn = CVRNN(config=config)
+        cvrnn()
+        model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'cvae':
+        pass
+
+    if model_number is not None:
+        saver = tf.train.Saver()
+        saver.restore(sess_nn, model_path)
+        print 'successfully load data from' + model_path
+    else:
+        raise ValueError('please provide a model number or no model will be loaded')
+    output_decoder_all = None
+    target_data_all = None
+    selection_matrix_all = None
+    for game_name_dir in dir_all:
+        print('working for game {0}'.format(game_name_dir))
+        game_name = game_name_dir.split('.')[0]
+        # game_time_all = get_game_time(data_path, game_name_dir)
+        output_decoder, \
+        player_index_seq, \
+        selection_matrix = compute_game_ids(sess_nn=sess_nn,
+                                            model=model_nn,
+                                            data_store=data_store_dir,
+                                            dir_game=game_name,
+                                            config=config,
+                                            player_id_cluster_dir=player_id_cluster_dir,
+                                            model_category=model_category,
+                                            player_basic_info_dir=player_basic_info_dir,
+                                            game_date_dir=game_date_dir,
+                                            player_box_score_dir=player_box_score_dir
+                                            )
+
+        if output_decoder_all is None:
+            output_decoder_all = output_decoder
+            target_data_all = player_index_seq
+            selection_matrix_all = selection_matrix
+        else:
+            # try:
+            output_decoder_all = np.concatenate([output_decoder_all, output_decoder], axis=0)
+            target_data_all = np.concatenate([target_data_all, player_index_seq], axis=0)
+            selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix], axis=0)
+    acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
+                          selection_matrix=selection_matrix_all, config=config, if_print=True)
+    print ("testing acc is {0}".format(str(acc)))
+
+    if file_writer is not None:
+        file_writer.write("testing acc is {0}\n".format(str(acc)))
 
 
 def compute_games_Q_values(config, data_store_dir, dir_all,

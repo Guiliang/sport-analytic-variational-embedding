@@ -177,7 +177,7 @@ class Encoder_NN(object):
                 self.batch_size = tf.shape(outputs)[0]
                 # Start indices for each sample
                 self.index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
-                             + (self.trace_lengths_ph - 1)
+                                + (self.trace_lengths_ph - 1)
                 rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Arch.Encoder.h_size]), self.index)
                 input_ = rnn_last
             else:

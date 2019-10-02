@@ -9,9 +9,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 if __name__ == '__main__':
 
-    model_type = 'lstm_diff'
-    player_info = ''
-    model_number = 301
+    model_type = 'cvrnn'
+    player_info = '_box_v2'
+    model_number = 601
     local_test_flag = False
     if model_type == 'cvrnn':
         player_id_type = 'local_id'

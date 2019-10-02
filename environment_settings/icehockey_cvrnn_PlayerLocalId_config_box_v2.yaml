@@ -23,8 +23,8 @@ Learn:
 
 Arch:
   CVRNN:
-    hidden_dim : 256
-    latent_dim : 128
+    hidden_dim : 1024
+    latent_dim : 256
     x_dim : 150 # playerId dimension
     y_dim : 83 # 12state+27action+31team+13box-score
   SARSA:

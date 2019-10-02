@@ -54,6 +54,8 @@ def plot_shadow(x_values_list, y_mean_values_list,
 def plot_diff(game_time_list, diff_values_list, model_category_all):
     # event_numbers = range(0, len(diff_values))
     plt.figure()
+    plt.xlabel('Event Number')
+    plt.ylabel('Average Difference')
     for i in range(0, len(game_time_list)):
         plt.plot(game_time_list[i], diff_values_list[i], label=model_category_all[i])
     plt.legend()

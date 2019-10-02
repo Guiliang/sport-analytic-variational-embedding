@@ -1,6 +1,6 @@
 import sys
 import traceback
-from random import shuffle
+# from random import shuffle
 
 from config.tpp_cvrnn_config import TPPCVRNNConfig
 from nn_structure.tpp_cvrnn import TPPCVRNN
@@ -530,7 +530,7 @@ def run():
     icehockey_cvrnn_config = TPPCVRNNConfig.load(icehockey_tpp_cvrnn_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config, model_catagoery='tpp_cvrnn')
 
-    if test_flag:
+    if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
@@ -538,7 +538,7 @@ def run():
     else:
         data_store_dir = icehockey_cvrnn_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
-        shuffle(dir_games_all)  # randomly shuffle the list
+        # shuffle(dir_games_all)  # randomly shuffle the list
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-10:]  # TODO: testing

@@ -2,7 +2,7 @@ import csv
 import datetime
 import sys
 import traceback
-from random import shuffle
+# from random import shuffle
 
 print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
@@ -675,7 +675,7 @@ def run():
     training = True
     local_test_flag = False
     player_id_type = 'local_id'
-    rnn_type = ''
+    rnn_type = '_lstm'
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
@@ -704,7 +704,7 @@ def run():
         source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
         data_store_dir = icehockey_encoder_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
-        shuffle(dir_games_all)  # randomly shuffle the list
+        # shuffle(dir_games_all)  # randomly shuffle the list
         training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
