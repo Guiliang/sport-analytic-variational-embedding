@@ -1,5 +1,6 @@
-import os
-import tensorflow as tf
+import sys
+print sys.path
+sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 from config.cvae_config import CVAECongfig
 from config.cvrnn_config import CVRNNCongfig
 from config.lstm_prediction_config import LSTMPredictConfig
@@ -10,7 +11,7 @@ if __name__ == '__main__':
     local_test_flag = False
     model_category = 'lstm_prediction'
     model_number = 1501
-    player_info = ''
+    player_info = '_box'
 
     if model_category == 'cvrnn':
         predicted_target = '_PlayerLocalId_predict_nex_goal'  # playerId_
@@ -19,7 +20,7 @@ if __name__ == '__main__':
             format(predicted_target, player_info)
         icehockey_model_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
     elif model_category == 'lstm_prediction':
-        icehockey_config_path = "../../environment_settings/ice_hockey_ActionGoal_prediction.yaml"
+        icehockey_config_path = "../../environment_settings/ice_hockey_ActionGoal_prediction{0}.yaml".format(player_info)
         player_id_cluster_dir = '../../resource/ice_hockey_201819/local_player_id_2018_2019.json'
         icehockey_model_config = LSTMPredictConfig.load(icehockey_config_path)
     elif model_category == 'cvae':
