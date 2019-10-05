@@ -12,6 +12,7 @@ Learn:
   predict_target : 'action'
   sport : 'Ice-Hockey'
   apply_box_score: False
+  data_name: 'ice_hockey-2019'
 
 Arch:
   LSTM:

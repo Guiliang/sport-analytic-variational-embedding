@@ -14,7 +14,7 @@ Learn:
   sport : 'Ice-Hockey'
   apply_softmax : True
   apply_box_score: False
-  apply_pid: False
+  apply_pid: True
 
 Arch:
   LSTM:

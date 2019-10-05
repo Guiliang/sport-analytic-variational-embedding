@@ -20,6 +20,7 @@ Learn:
   apply_box_score: False
   diff_apply_rl: True
   apply_pid: False
+  integral_update_flag: False
 
 Arch:
   CVRNN:

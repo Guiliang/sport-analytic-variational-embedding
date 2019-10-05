@@ -1,16 +1,23 @@
 import os
+import sys
 from random import shuffle
 
+sys.path.append('/Local-Scratch/miyunLuo/Code/sport')
 from config.LSTM_Qs_config import LSTMQsCongfig
 from config.cvrnn_config import CVRNNCongfig
-from support.model_tools import compute_games_Q_values
+from support.model_tools import compute_games_Q_values, tmp_compute_games_Q_values
 from support.plot_tools import plot_game_Q_values
+
+hockey_data_dir = '/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019/'
+# save_Q_dir = '/Local-Scratch/miyunLuo/Code/sport/Q_data/'
+game_all = os.listdir(hockey_data_dir)
 
 if __name__ == '__main__':
 
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
     model_type = 'lstm_Qs'
     test_flag = False
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     if model_type == 'cvrnn':
         player_id_type = 'local_id'
         if player_id_type == 'ap_cluster':
@@ -46,20 +53,34 @@ if __name__ == '__main__':
         dir_games_all = os.listdir(data_store_dir)
     else:
         data_store_dir = icehockey_model_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
-        dir_games_all = ['16314']
+        dir_games_all = game_all
+
+        # dir_games_all = ['16314']
         # shuffle(dir_games_all)  # randomly shuffle the list
 
-    model_values_all = compute_games_Q_values(config=icehockey_model_config,
-                                              data_store_dir=data_store_dir,
-                                              dir_all=dir_games_all,
-                                              model_number=model_number,
-                                              player_id_cluster_dir=player_id_cluster_dir,
-                                              model_category=model_type,
-                                              return_values_flag=True)
+    model_values_all = tmp_compute_games_Q_values(config=icehockey_model_config,
+                                                  data_store_dir=data_store_dir,
+                                                  dir_all=dir_games_all,
+                                                  model_number=model_number,
+                                                  player_id_cluster_dir=player_id_cluster_dir,
+                                                  model_category=model_type,
+                                                  return_values_flag=True)
 
-    # print(model_values_all[0].get(968))
-    # print(model_values_all[0].get(969))
-    # print(model_values_all[0].get(970))
+    if len(game_all) != len(model_values_all):
+        print('Game and Value not match')
 
-    for model_value in model_values_all:
-        plot_game_Q_values(Q_values=model_value[0])
+    # for i in range(len(game_all)):
+    #    game = game_all[i]
+    #    model_value = model_values_all[i]
+    #    event_numbers = range(0, len(model_value))
+    #    homeQ_list = [model_value[i]['home'] for i in event_numbers]
+    #    awayQ_list = [model_value[i]['away'] for i in event_numbers]
+    #    save_gameQ_dir = save_Q_dir + game
+    #    if not os.path.isdir(save_gameQ_dir):
+    #        os.mkdir(save_gameQ_dir)
+    #    home_file = save_gameQ_dir + '/homeQ'
+    #    away_file = sabe_gameQ_dir + '/awayQ'
+    #    with open(home_file, 'wb') as f:
+    #        pickle.dump(homeQ_list, f)
+    #    with open(away_file, 'wb') as f:
+    #        pickle.dump(awayQ_list, f)

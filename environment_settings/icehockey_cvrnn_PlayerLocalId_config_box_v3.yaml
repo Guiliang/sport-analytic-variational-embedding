@@ -20,12 +20,12 @@ Learn:
   apply_box_score: True
   diff_apply_rl: True
   apply_pid: False
-  integral_update_flag: False
+  integral_update_flag: True
 
 Arch:
   CVRNN:
     hidden_dim : 512
-    latent_dim : 128
+    latent_dim : 256
     x_dim : 150 # playerId dimension
     y_dim : 83 # 12state+27action+31team+13box-score
   SARSA:

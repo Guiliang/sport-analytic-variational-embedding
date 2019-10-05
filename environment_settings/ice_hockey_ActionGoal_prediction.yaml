@@ -1,5 +1,4 @@
 Learn:
-  dense_layer_num: 1
   feature_number : 39
   save_mother_dir : '/Local-Scratch'
   batch_size : 32
@@ -8,16 +7,18 @@ Learn:
   number_of_total_game : 1202
   max_seq_length : 10
   feature_type : 'v1'
-  iterate_num : 1
+  iterate_num : 2
   model_type : 'v1'
-  embed_size : 1024
-  output_layer_size : 26
-  player_cluster_number: 26
   apply_softmax : 1
-  player_Id_style: 'PlayerPositionCluster'
+  predict_target: 'ActionGoal'
+  player_Id_style: 'PlayerId'
   sport : 'Ice-Hockey'
   gamma : 1
   apply_box_score: False
+  apply_stochastic: True
+  data_name: 'ice_hockey-2019'
+  apply_pid: False
+
 
 Arch:
   LSTM:
@@ -26,3 +27,4 @@ Arch:
   Dense:
     dense_layer_number : 2
     dense_layer_size : 256
+    output_layer_size : 2

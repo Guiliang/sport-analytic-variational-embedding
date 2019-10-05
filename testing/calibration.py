@@ -116,10 +116,10 @@ class Calibration:
 
         for index in range(0, len(reward)):
             if reward[index] == 1:
-                for i in range(index+1, len(reward)):
+                for i in range(index + 1, len(reward)):
                     base_home_goal[i] += 1
             if reward[index] == -1:
-                for i in range(index+1, len(reward)):
+                for i in range(index + 1, len(reward)):
                     base_away_goal[i] += 1
             pass
         # print(base_home_goal)
@@ -181,15 +181,13 @@ class Calibration:
                         away_final_goal += 1
 
                 base_goals = self.compute_score_diff_based_values(directory=json_dir.split('-')[0],
-                                                                                      reward=reward)
+                                                                  reward=reward)
                 calibration_values = self.compute_score_diff_calibration_values(home_final_goal=home_final_goal,
                                                                                 away_final_goal=away_final_goal,
                                                                                 home_away=home_away)
 
             else:
                 raise ValueError('unknown calibration type {0}'.format(self.calibration_type))
-
-
 
             features_values_dict_all = read_features_within_events(feature_name_list=features_all,
                                                                    data_path=self.data_path,
@@ -242,8 +240,13 @@ class Calibration:
                 number = cali_bin_info.get('number')
                 number += 1
                 if self.apply_difference:
-                    cali_sum[0] = cali_sum[0] + (calibration_value[0] - calibration_value[1])
-                    model_sum[0] = model_sum[0] + (model_value['home'] - model_value['away'])
+                    if self.calibration_type == 'next_goal':
+                        cali_sum[0] = cali_sum[0] + (calibration_value[0] - calibration_value[1])
+                        model_sum[0] = model_sum[0] + (model_value['home'] - model_value['away'])
+                    elif self.calibration_type == 'score_diff':
+                        cali_sum[0] = cali_sum[0] + (calibration_value[0] + base_goals[0][index] -
+                                                     calibration_value[1] - base_goals[1][index])
+                        model_sum[0] = model_sum[0] + (model_value['home'] - model_value['away'])
                 else:
                     for i in range(len(self.teams)):  # [home, away,end]
                         cali_sum[i] = cali_sum[i] + calibration_value[i]
