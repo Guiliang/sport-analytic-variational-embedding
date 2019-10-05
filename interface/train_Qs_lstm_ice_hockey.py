@@ -61,6 +61,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                                                  state_trace_length=state_trace_length,
                                                  action=action_seq,
                                                  team_id=team_id_seq,
+                                                 # win_info=None,
                                                  config=config)
 
         # get the batch variables
@@ -97,8 +98,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         if training_flag:
             # print (len(state_input) / (config.Learn.batch_size*10))
             print_flag = True if batch_number % (len(state_input) / (config.Learn.batch_size * 10)) == 0 else False
-            train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
-                           input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut,
+            train_td_model(model, sess, config, input_data_t0, trace_lengths_t0,
+                           input_data_t1, trace_lengths_t1, r_t_batch, terminal, cut,
                            pretrain_flag, print_flag)
         else:
             pass
@@ -152,8 +153,8 @@ def save_model(game_number, saver, sess, save_network_dir, config):
                    global_step=game_number)
 
 
-def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_embed_t0,
-                   input_data_t1, trace_lengths_t1, player_embed_t1, r_t_batch, terminal, cut,
+def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0,
+                   input_data_t1, trace_lengths_t1, r_t_batch, terminal, cut,
                    pretrain_flag, print_flag):
     [readout_t1_batch] = sess.run([model.read_out],
                                   feed_dict={model.rnn_input_ph: input_data_t1,
@@ -163,7 +164,7 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, player_
         # if terminal, only equals reward
         # if terminal:
         #     pass
-        if (terminal or cut) and i == len(readout_t1_batch)-1:
+        if (terminal or cut) and i == len(readout_t1_batch) - 1:
             y_home = float(r_t_batch[i][0])
             y_away = float(r_t_batch[i][1])
             y_end = float(r_t_batch[i][2])

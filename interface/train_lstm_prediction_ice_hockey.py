@@ -363,6 +363,7 @@ def save_model(game_number, saver, sess, save_network_dir, config):
                    global_step=game_number)
 
 def run():
+    play_info = '_box'
     type = 'action_goal'
     if type == 'ap_playerId':
         player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -384,7 +385,7 @@ def run():
 
     MemoryBuffer.set_cache_memory(cache_number=2)
 
-    tt_lstm_config_path = "../environment_settings/ice_hockey_{0}_prediction.yaml".format(predicted_target)
+    tt_lstm_config_path = "../environment_settings/ice_hockey_{0}_prediction{1}.yaml".format(predicted_target, play_info)
     lstm_prediction_config = LSTMPredictConfig.load(tt_lstm_config_path)
 
     local_test_flag = False

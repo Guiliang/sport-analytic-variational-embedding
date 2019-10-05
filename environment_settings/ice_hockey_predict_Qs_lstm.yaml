@@ -7,7 +7,7 @@ Learn:
   number_of_total_game: 1202
   max_seq_length: 10
   feature_type: 'v1'
-  iterate_num: 2
+  iterate_num: 10
   model_type: 'v1'
   player_Id_style : 'PlayerId'
   predict_target : 'Qs'
