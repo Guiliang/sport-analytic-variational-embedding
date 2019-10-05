@@ -810,7 +810,8 @@ def find_game_dir(dir_all, data_path, target_game_id, sports='IceHockey'):
         raise ValueError("can't find the game {0}".format(str(target_game_id)))
 
 
-def read_feature_within_events(directory, data_path, feature_name, transfer_home_number=False, data_store=None):
+def read_feature_within_events(directory, data_path, feature_name,
+                               transfer_home_number=False, data_store=None):
     if transfer_home_number:
         home_away_identifier = sio.loadmat(data_store + directory +
                                            '/home_away_identifier_game_{0}-playsequence-wpoi.mat'.format(

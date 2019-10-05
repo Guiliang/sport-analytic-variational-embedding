@@ -1,3 +1,5 @@
+import os
+import pickle
 import random
 
 import tensorflow as tf
@@ -6,8 +8,10 @@ import json
 
 from nn_structure.cvrnn import CVRNN
 from nn_structure.lstm_Qs_nn import TD_Prediction
+from nn_structure.lstm_prediction_nn import Td_Prediction_NN
 from nn_structure.lstm_score_diff_nn import Diff_Prediction
-from support.data_processing_tools import get_icehockey_game_data, generate_selection_matrix, transfer2seq
+from support.data_processing_tools import get_icehockey_game_data, generate_selection_matrix, transfer2seq, \
+    read_feature_within_events
 
 
 # from support.plot_tools import plot_game_Q_values
@@ -25,6 +29,35 @@ class ExperienceReplayBuffer:
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
+
+
+class BalanceExperienceReplayBuffer:
+    def __init__(self, capacity_number):
+        self.capacity = capacity_number
+        self.memory = []
+        self.cache_number = None
+
+    def set_cache_memory(self, cache_number):
+        self.cache_number = cache_number
+        for i in range(0, cache_number):
+            self.memory.append([])
+
+    def push(self, transition, cache_label):
+        memory_selected = self.memory[cache_label]
+        memory_selected.append(transition)
+        if len(self.memory[cache_label]) > self.capacity:
+            del self.memory[cache_label][random.randint(0, len(self.memory) - 1)]
+
+    def sample(self, batch_size):
+        return_samples = []
+        for i in range(0, batch_size):
+            cache_label = random.randint(0, self.cache_number - 1)
+            sampled_point = random.sample(self.memory[cache_label], 1)
+            return_samples.append(sampled_point[0])
+        return return_samples
 
     def __len__(self):
         return len(self.memory)
@@ -54,6 +87,8 @@ def get_data_name(config, model_catagoery, model_number):
     if config.Learn.apply_pid:
         player_info += '_pid'
     if model_catagoery == 'cvrnn':
+        if config.Learn.integral_update_flag:
+            player_info += '_integral'
         data_name = "model_{1}_three_cut_cvrnn_Qs_feature{2}_latent{8}_x{9}_y{10}" \
                     "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}".format(config.Learn.save_mother_dir,
                                                                                   model_number,
@@ -117,11 +152,15 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
     else:
         train_msg = ''
 
-    box_info = ''
+    player_info = ''
     if config.Learn.apply_box_score:
-        box_info = '_box'
+        player_info = '_box'
 
     if model_catagoery == 'cvrnn':  # TODO: add more parameters
+        if config.Learn.integral_update_flag:
+            player_info += '_integral'
+        if config.Arch.Predict.predict_target is not None:
+            player_info += '_' + config.Arch.Predict.predict_target
         log_dir = "{0}/oschulte/Galen/icehockey-models/cvrnn_log_NN" \
                   "/{1}cvrnn_log_feature{2}_latent{8}_x{9}_y{10}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}".format(config.Learn.save_mother_dir,
@@ -137,7 +176,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                                                 # TODO: reorder x_dim and y_dim
                                                                                 str(config.Arch.CVRNN.x_dim),
                                                                                 str(config.Arch.CVRNN.hidden_dim),
-                                                                                box_info
+                                                                                player_info
                                                                                 )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/cvrnn_saved_NN/" \
@@ -155,7 +194,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                                                       # TODO: reorder x_dim and y_dim
                                                                                       str(config.Arch.CVRNN.x_dim),
                                                                                       str(config.Arch.CVRNN.hidden_dim),
-                                                                                      box_info
+                                                                                      player_info
                                                                                       )
     elif model_catagoery == 'de_embed':
         if embedding_tag is not None:
@@ -176,7 +215,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                           str(config.Arch.Encode.latent_size),
                                           str(config.Arch.LSTM.h_size),
                                           str(config.Arch.Dense.hidden_node_size),
-                                          box_info
+                                          player_info
                                           )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/de_model_saved_NN/" \
@@ -194,7 +233,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                 str(config.Arch.Encode.latent_size),
                                                 str(config.Arch.LSTM.h_size),
                                                 str(config.Arch.Dense.hidden_node_size),
-                                                box_info
+                                                player_info
                                                 )
     elif model_catagoery == 'mdn_Qs':
         log_dir = "{0}/oschulte/Galen/icehockey-models/mdn_Qs_log_NN" \
@@ -212,7 +251,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                           None,
                                           str(config.Arch.LSTM.h_size),
                                           str(config.Arch.Dense.hidden_size),
-                                          box_info
+                                          player_info
                                           )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/mdn_Qs_model_saved_NN/" \
@@ -231,7 +270,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             None,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
-            box_info
+            player_info
         )
 
     elif model_catagoery == 'lstm_Qs':
@@ -254,7 +293,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                               None,
                                               str(config.Arch.LSTM.h_size),
                                               str(config.Arch.Dense.hidden_size),
-                                              box_info,
+                                              player_info,
                                               player_id_info
                                               )
 
@@ -274,7 +313,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             None,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
-            box_info,
+            player_info,
             player_id_info
         )
 
@@ -298,7 +337,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                               None,
                                               str(config.Arch.LSTM.h_size),
                                               str(config.Arch.Dense.hidden_size),
-                                              box_info,
+                                              player_info,
                                               player_id_info
                                               )
 
@@ -318,7 +357,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             None,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
-            box_info,
+            player_info,
             player_id_info
         )
 
@@ -344,7 +383,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                               None,
                                               str(config.Arch.LSTM.h_size),
                                               str(config.Arch.Dense.hidden_size),
-                                              box_info,
+                                              player_info,
                                               player_id_info
                                               )
 
@@ -364,7 +403,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             None,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
-            box_info,
+            player_info,
             player_id_info
         )
 
@@ -383,7 +422,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                               str(config.Arch.CVAE.x_dim),
                                                               str(config.Arch.CVAE.y_dim),
                                                               None,
-                                                              box_info
+                                                              player_info
                                                               )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN/" \
@@ -400,7 +439,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                                     str(config.Arch.CVAE.x_dim),
                                                                     str(config.Arch.CVAE.y_dim),
                                                                     None,
-                                                                    box_info
+                                                                    player_info
                                                                     )
 
     elif model_catagoery == 'encoder':
@@ -424,7 +463,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                                   str(config.Arch.Encoder.input_dim),
                                                                   str(config.Arch.Encoder.output_dim),
                                                                   None,
-                                                                  box_info,
+                                                                  player_info,
                                                                   lstm_msg
                                                                   )
 
@@ -442,9 +481,52 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
                                                                         str(config.Arch.Encoder.input_dim),
                                                                         str(config.Arch.Encoder.output_dim),
                                                                         None,
-                                                                        box_info,
+                                                                        player_info,
                                                                         lstm_msg
                                                                         )
+
+    elif model_catagoery == 'lstm_prediction':
+
+        predict_target = config.Learn.predict_target
+
+        log_dir = "{0}/oschulte/Galen/icehockey-models/lstm_predict_log_NN" \
+                  "/{1}lstm_predict_{13}_log_feature{2}_{8}" \
+                  "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
+                  "_dense{11}{12}".format(config.Learn.save_mother_dir,
+                                          train_msg,
+                                          str(config.Learn.feature_type),
+                                          str(config.Learn.batch_size),
+                                          str(config.Learn.iterate_num),
+                                          str(config.Learn.learning_rate),
+                                          str(config.Learn.model_type),
+                                          str(config.Learn.max_seq_length),
+                                          config.Learn.predict_target,
+                                          None,
+                                          str(config.Arch.LSTM.h_size),
+                                          str(config.Arch.Dense.dense_layer_size),
+                                          player_info,
+                                          predict_target
+                                          )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/lstm_predict_model_saved_NN/" \
+                        "{1}lstm_predict_{13}_saved_networks_feature{2}_{8}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
+                        "_dense{11}{12}{13}".format(
+            config.Learn.save_mother_dir,
+            train_msg,
+            str(config.Learn.feature_type),
+            str(config.Learn.batch_size),
+            str(config.Learn.iterate_num),
+            str(config.Learn.learning_rate),
+            str(config.Learn.model_type),
+            str(config.Learn.max_seq_length),
+            config.Learn.predict_target,
+            None,
+            str(config.Arch.LSTM.h_size),
+            str(config.Arch.Dense.dense_layer_size),
+            player_info,
+            predict_target
+        )
 
     return saved_network, log_dir
 
@@ -588,6 +670,115 @@ def compute_game_ids(sess_nn, model, data_store,
     return output_decoder, player_index_seq, selection_matrix
 
 
+def compute_game_prediction(sess_nn, model,
+                            data_store,
+                            source_data_dir,
+                            dir_game, config,
+                            player_id_cluster_dir,
+                            model_category,
+                            prediction_target,
+                            player_basic_info_dir=None,
+                            game_date_dir=None,
+                            player_box_score_dir=None
+                            ):
+    state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
+        data_store=data_store, dir_game=dir_game,
+        config=config,
+        player_id_cluster_dir=player_id_cluster_dir,
+        player_basic_info_dir=player_basic_info_dir,
+        game_date_dir=game_date_dir,
+        player_box_score_dir=player_box_score_dir)
+
+    action_seq = transfer2seq(data=action, trace_length=state_trace_length,
+                              max_length=config.Learn.max_seq_length)
+    team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
+                               max_length=config.Learn.max_seq_length)
+    player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                    max_length=config.Learn.max_seq_length)
+
+    # if config.Arch.Predict.predict_target == 'ActionGoal':
+    if prediction_target == 'ActionGoal':
+        actions_all = read_feature_within_events(directory=dir_game,
+                                                 data_path=source_data_dir,
+                                                 feature_name='name')
+        next_goal_label = []
+        data_length = state_trace_length.shape[0]
+        new_reward = []
+        new_action_seq = []
+        new_state_input = []
+        new_state_trace_length = []
+        new_team_id_seq = []
+        new_player_index_seq = []
+        for action_index in range(0, data_length):
+            action = actions_all[action_index]
+            if 'shot' in action:
+                if action_index + 1 == data_length:
+                    continue
+                new_reward.append(reward[action_index])
+                new_action_seq.append(action_seq[action_index])
+                new_state_input.append(state_input[action_index])
+                new_state_trace_length.append(state_trace_length[action_index])
+                new_team_id_seq.append(team_id_seq[action_index])
+                new_player_index_seq.append(player_index_seq[action_index])
+                if actions_all[action_index + 1] == 'goal':
+                    # print(actions_all[action_index+1])
+                    next_goal_label.append([1, 0])
+                else:
+                    # print(actions_all[action_index + 1])
+                    next_goal_label.append([0, 1])
+        pred_target = next_goal_label
+    elif prediction_target == 'Action':
+        add_pred_flag = True
+        pred_target = action[1:, :]
+        new_reward = reward[:-1]
+        new_action_seq = action_seq[:-1, :, :]
+        new_state_input = state_input[:-1, :, :]
+        new_state_trace_length = state_trace_length[:-1]
+        new_team_id_seq = team_id_seq[:-1, :, :]
+    else:
+        # raise ValueError()
+        add_pred_flag = False
+
+    if model_category == "cvrnn":
+
+        train_mask = np.asarray([[[1]] * config.Learn.max_seq_length] * len(new_state_input))
+        if config.Learn.predict_target == 'PlayerLocalId':
+            pred_input_data = np.concatenate([np.asarray(new_player_index_seq),
+                                              np.asarray(new_team_id_seq),
+                                              np.asarray(new_state_input),
+                                              np.asarray(new_action_seq),
+                                              train_mask], axis=2)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_trace_length
+            pred_selection_matrix = generate_selection_matrix(new_state_trace_length,
+                                                              max_trace_length=config.Learn.max_seq_length)
+        else:
+            pred_input_data = np.concatenate([np.asarray(new_player_index_seq), np.asarray(new_state_input),
+                                              np.asarray(new_action_seq), train_mask], axis=2)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_trace_length
+            pred_selection_matrix = generate_selection_matrix(new_state_trace_length,
+                                                              max_trace_length=config.Learn.max_seq_length)
+
+        [readout_pred_output] = sess_nn.run([
+                                             model.action_pred_output],
+                                            feed_dict={model.input_data_ph: pred_input_data,
+                                                       model.trace_length_ph: pred_trace_lengths,
+                                                       model.selection_matrix_ph: pred_selection_matrix
+                                                       })
+    elif model_category == 'lstm_prediction':
+        pred_input_data = np.concatenate([np.asarray(new_action_seq), np.asarray(new_state_input)], axis=2)
+        pred_trace_lengths = new_state_trace_length
+        pred_target_data = pred_target
+        [readout_pred_output] = sess_nn.run([model.read_out],
+                                            feed_dict={model.rnn_input_ph: pred_input_data,
+                                                       model.trace_lengths_ph: pred_trace_lengths})
+    else:
+        raise ValueError('unknown model {0}'.format(model_category))
+
+    return readout_pred_output, pred_target_data
+
+
 def compute_game_values(sess_nn, model, data_store, dir_game, config,
                         player_id_cluster_dir,
                         model_category
@@ -651,21 +842,92 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config,
     return readout_next_Q, readout_accumu_Q
 
 
-def compute_games_player_id(config,
-                            data_store_dir,
-                            dir_all,
-                            # model_nn,
-                            # sess_nn,
-                            # model_path,
-                            player_basic_info_dir,
-                            game_date_dir,
-                            player_box_score_dir,
-                            model_number=None,
-                            player_id_cluster_dir=None,
-                            saved_network_dir=None,
-                            model_category=None,
-                            file_writer=None):
+def validate_games_prediction(config,
+                              data_store_dir,
+                              source_data_dir,
+                              dir_all,
+                              # model_nn,
+                              # sess_nn,
+                              # model_path,
+                              player_basic_info_dir,
+                              game_date_dir,
+                              player_box_score_dir,
+                              model_number=None,
+                              player_id_cluster_dir=None,
+                              saved_network_dir=None,
+                              model_category=None,
+                              file_writer=None):
+    sess_nn = tf.InteractiveSession()
+    if model_category == 'cvrnn':
+        prediction_target = config.Arch.Predict.predict_target
+        cvrnn = CVRNN(config=config, extra_prediction_flag=True)
+        cvrnn()
+        model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'lstm_prediction':
+        prediction_target = config.Learn.predict_target
+        model_nn = Td_Prediction_NN(config=config)
+        model_nn.initialize_ph()
+        model_nn.build()
+        model_nn.call()
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    if model_number is not None:
+        saver = tf.train.Saver()
+        saver.restore(sess_nn, model_path)
+        print 'successfully load data from' + model_path
+    else:
+        raise ValueError('please provide a model number or no model will be loaded')
+    output_decoder_all = None
+    target_data_all = None
+    for game_name_dir in dir_all:
+        print('working for game {0}'.format(game_name_dir))
+        game_name = game_name_dir.split('.')[0]
+        # game_time_all = get_game_time(data_path, game_name_dir)
+        output_prediction_prob, \
+        target_prediction, = compute_game_prediction(sess_nn=sess_nn,
+                                                     model=model_nn,
+                                                     data_store=data_store_dir,
+                                                     source_data_dir=source_data_dir,
+                                                     dir_game=game_name,
+                                                     config=config,
+                                                     player_id_cluster_dir=player_id_cluster_dir,
+                                                     model_category=model_category,
+                                                     prediction_target=prediction_target,
+                                                     player_basic_info_dir=player_basic_info_dir,
+                                                     game_date_dir=game_date_dir,
+                                                     player_box_score_dir=player_box_score_dir
+                                                     )
 
+        if output_decoder_all is None:
+            output_decoder_all = output_prediction_prob
+            target_data_all = target_prediction
+        else:
+            # try:
+            output_decoder_all = np.concatenate([output_decoder_all, output_prediction_prob], axis=0)
+            target_data_all = np.concatenate([target_data_all, target_prediction], axis=0)
+    acc = compute_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all)
+    print ("prediction testing acc is {0}".format(str(acc)))
+
+    if file_writer is not None:
+        file_writer.write("testing acc is {0}\n".format(str(acc)))
+
+
+def validate_games_player_id(config,
+                             data_store_dir,
+                             dir_all,
+                             # model_nn,
+                             # sess_nn,
+                             # model_path,
+                             player_basic_info_dir,
+                             game_date_dir,
+                             player_box_score_dir,
+                             model_number=None,
+                             player_id_cluster_dir=None,
+                             saved_network_dir=None,
+                             model_category=None,
+                             file_writer=None):
     sess_nn = tf.InteractiveSession()
     if model_category == 'cvrnn':
         cvrnn = CVRNN(config=config)
@@ -726,6 +988,13 @@ def compute_games_Q_values(config, data_store_dir, dir_all,
                            model_category=None,
                            return_values_flag=False):
     saved_network_dir, log_dir = get_model_and_log_name(config=config, model_catagoery=model_category)
+
+    # saved_network_dir = saved_network_dir.replace('cvrnn_saved_networks', 'bak_cvrnn_saved_networks')
+
+    # saved_network_dir = '/Local-Scratch/oschulte/Galen/icehockey-models/cvrnn_saved_NN/' \
+    #                     'bak_cvrnn_saved_networks_featureV1_latent128_x83_y150_batch32_iterate30_lr0.0001_' \
+    #                     'normal_MaxTL10_LSTM512_box'
+
     sess_nn = tf.InteractiveSession()
     if model_category == 'cvrnn':
         cvrnn = CVRNN(config=config)
@@ -775,6 +1044,110 @@ def compute_games_Q_values(config, data_store_dir, dir_all,
                                                               'away': float(readout_next_Q[value_index][1]),
                                                               'end': float(readout_next_Q[value_index][2])}})
             model_next_Q_values_all.append(model_next_Q_value_json)
+        if readout_accumu_Q is not None:
+            model_accumu_Q_value_json = {}
+            for value_index in range(0, len(readout_accumu_Q)):
+                model_accumu_Q_value_json.update({value_index: {'home': float(readout_accumu_Q[value_index][0]),
+                                                                'away': float(readout_accumu_Q[value_index][1]),
+                                                                'end': float(readout_accumu_Q[value_index][2])}})
+            model_accumu_Q_value_all.append(model_accumu_Q_value_json)
+
+        game_store_dir = game_name_dir.split('.')[0]
+        if not return_values_flag:
+            if readout_next_Q is not None:
+                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs'),
+                          'w') as outfile:
+                    json.dump(model_next_Q_value_json, outfile)
+            if readout_accumu_Q is not None:
+                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs'),
+                          'w') as outfile:
+                    json.dump(model_accumu_Q_value_json, outfile)
+
+            # sio.savemat(data_store_dir + "/" + game_name_dir + "/" + data_name,
+            #             {'model_value': np.asarray(model_value)})
+    if return_values_flag:
+        return model_next_Q_values_all, model_accumu_Q_value_all
+    else:
+        return data_name
+
+
+def tmp_compute_games_Q_values(config, data_store_dir, dir_all,
+                               model_number=None,
+                               player_id_cluster_dir=None,
+                               model_category=None,
+                               return_values_flag=False):
+    saved_network_dir, log_dir = get_model_and_log_name(config=config, model_catagoery=model_category)
+    save_Q_dir = '/Local-Scratch/tmp_Q_datas/'
+
+    # saved_network_dir = saved_network_dir.replace('cvrnn_saved_networks', 'bak_cvrnn_saved_networks')
+
+    # saved_network_dir = '/Local-Scratch/oschulte/Galen/icehockey-models/cvrnn_saved_NN/' \
+    #                     'bak_cvrnn_saved_networks_featureV1_latent128_x83_y150_batch32_iterate30_lr0.0001_' \
+    #                     'normal_MaxTL10_LSTM512_box'
+
+    sess_nn = tf.InteractiveSession()
+    if model_category == 'cvrnn':
+        cvrnn = CVRNN(config=config)
+        cvrnn()
+        model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'lstm_Qs':
+        model_nn = TD_Prediction(config=config)
+        model_nn()
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/Ice-Hockey-game--{0}'.format(model_number)
+    elif model_category == 'lstm_diff':
+        model_nn = Diff_Prediction(config=config)
+        model_nn()
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/Ice-Hockey-game--{0}'.format(model_number)
+    else:
+        raise ValueError('unknown model type {0}'.format(model_category))
+
+    data_name = get_data_name(config=config, model_catagoery=model_category, model_number=model_number)
+    if model_number is not None:
+        saver = tf.train.Saver()
+        saver.restore(sess_nn, model_path)
+        print 'successfully load data from' + model_path
+    else:
+        raise ValueError('please provide a model number or no model will be loaded')
+
+    model_next_Q_values_all = []
+    model_accumu_Q_value_all = []
+    for game_name_dir in dir_all:
+        print('working for game {0}'.format(game_name_dir))
+        game_name = game_name_dir.split('.')[0]
+        # game_time_all = get_game_time(data_path, game_name_dir)
+        readout_next_Q, readout_accumu_Q = compute_game_values(sess_nn=sess_nn,
+                                                               model=model_nn,
+                                                               data_store=data_store_dir,
+                                                               dir_game=game_name,
+                                                               config=config,
+                                                               player_id_cluster_dir=player_id_cluster_dir,
+                                                               model_category=model_category)
+        # plot_game_Q_values(model_value)
+        if readout_next_Q is not None:
+            model_next_Q_value_json = {}
+            for value_index in range(0, len(readout_next_Q)):
+                model_next_Q_value_json.update({value_index: {'home': float(readout_next_Q[value_index][0]),
+                                                              'away': float(readout_next_Q[value_index][1]),
+                                                              'end': float(readout_next_Q[value_index][2])}})
+            model_next_Q_values_all.append(model_next_Q_value_json)
+
+            event_numbers = range(0, len(model_next_Q_value_json))
+            homeQ_list = [model_next_Q_value_json[i]['home'] for i in event_numbers]
+            awayQ_list = [model_next_Q_value_json[i]['away'] for i in event_numbers]
+            save_gameQ_dir = save_Q_dir + game_name
+            if not os.path.isdir(save_gameQ_dir):
+                os.mkdir(save_gameQ_dir)
+            home_file = save_gameQ_dir + '/homeQ'
+            away_file = save_gameQ_dir + '/awayQ'
+            with open(home_file, 'wb') as f:
+                pickle.dump(homeQ_list, f)
+            with open(away_file, 'wb') as f:
+                pickle.dump(awayQ_list, f)
+
         if readout_accumu_Q is not None:
             model_accumu_Q_value_json = {}
             for value_index in range(0, len(readout_accumu_Q)):

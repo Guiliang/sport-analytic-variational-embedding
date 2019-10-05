@@ -110,8 +110,10 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
 
 
 class CVRNN():
-    def __init__(self, config):
+    def __init__(self, config, extra_prediction_flag=False):
+        self.extra_prediction_flag = extra_prediction_flag
         self.win_score_diff = True
+        self.predict_action_goal = True
         self.config = config
         self.target_data_ph = tf.placeholder(dtype=tf.float32,
                                              shape=[None, self.config.Learn.max_seq_length,
@@ -133,6 +135,11 @@ class CVRNN():
 
         self.score_diff_target_ph = tf.placeholder(dtype=tf.float32,
                                                    shape=[None, 3], name='win_target')
+
+        self.action_pred_target_ph = tf.placeholder(dtype=tf.float32,
+                                                    shape=[None, self.config.Arch.Predict.output_size],
+                                                    name='action_predict')
+
         self.cell = None
         self.initial_state_c = None
         self.initial_state_h = None
@@ -165,6 +172,7 @@ class CVRNN():
 
         self.sarsa_lstm_cell = []
         self.win_lstm_cell = []
+        self.action_lstm_cell = []
         self.build_sarsa()
 
     def build_sarsa(self):
@@ -180,6 +188,13 @@ class CVRNN():
                 for i in range(self.config.Arch.WIN.lstm_layer_num):
                     self.win_lstm_cell.append(
                         tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.WIN.h_size, state_is_tuple=True,
+                                                initializer=tf.random_uniform_initializer(-0.05, 0.05)))
+
+        with tf.name_scope("prediction"):
+            with tf.name_scope("LSTM-layer"):
+                for i in range(self.config.Arch.Predict.lstm_layer_num):
+                    self.action_lstm_cell.append(
+                        tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.Predict.h_size, state_is_tuple=True,
                                                 initializer=tf.random_uniform_initializer(-0.05, 0.05)))
 
     # @property
@@ -215,15 +230,15 @@ class CVRNN():
                 else:
                     return tf.where(condition=condition, x=td_loss_all, y=zero_loss_all)
 
-        def tf_win_cross_entropy(win_output, target_win, condition, if_last_output):
+        def tf_cross_entropy(ce_output, ce_target, condition, if_last_output):
             with tf.variable_scope('win_cross_entropy'):
-                win_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=target_win,
-                                                               logits=win_output, reduction=tf.losses.Reduction.NONE)
-                zero_loss_all = tf.zeros(shape=[tf.shape(win_loss_all)[0]])
+                ce_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=ce_target,
+                                                               logits=ce_output, reduction=tf.losses.Reduction.NONE)
+                zero_loss_all = tf.zeros(shape=[tf.shape(ce_loss_all)[0]])
                 if if_last_output:
-                    return win_loss_all
+                    return ce_loss_all
                 else:
-                    return tf.where(condition=condition, x=win_loss_all, y=zero_loss_all)
+                    return tf.where(condition=condition, x=ce_loss_all, y=zero_loss_all)
 
         def tf_score_diff(win_output, target_diff, condition, if_last_output):
             with tf.variable_scope('mean_difference'):
@@ -273,12 +288,16 @@ class CVRNN():
             return td_loss, td_diff
 
         def get_win_lossfunc(win_output, win_target_ph, condition, if_last_output):
-            win_loss = tf_win_cross_entropy(win_output, win_target_ph, condition, if_last_output)
+            win_loss = tf_cross_entropy(win_output, win_target_ph, condition, if_last_output)
             return win_loss
 
         def get_diff_lossfunc(diff_output, diff_target_ph, condition, if_last_output):
             square_diff_loss, abs_diff_loss = tf_score_diff(diff_output, diff_target_ph, condition, if_last_output)
             return square_diff_loss, abs_diff_loss
+
+        def get_action_pred_lossfunc(action_pred_output, action_pred_target_ph, condition, if_last_output):
+            action_pred_loss = tf_cross_entropy(action_pred_output, action_pred_target_ph, condition, if_last_output)
+            return action_pred_loss
 
         # self.args = args
         # if sample:
@@ -402,8 +421,10 @@ class CVRNN():
             #                                           self.config.Learn.max_seq_length, -1])
             self.td_loss = td_loss
             self.td_avg_diff = tf.reduce_mean(td_diff)
-
-        tvars_td = tf.trainable_variables(scope='sarsa')
+        if self.config.Learn.integral_update_flag:
+            tvars_td = tf.trainable_variables()
+        else:
+            tvars_td = tf.trainable_variables(scope='sarsa')
         for t in tvars_td:
             print ('td_var: ' + str(t.name))
         td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_td)
@@ -411,35 +432,37 @@ class CVRNN():
 
         if self.win_score_diff:
             with tf.variable_scope('score_diff'):
-                data_input_diff = self.input_data_ph[
+                data_input_action_pred = self.input_data_ph[
                                   :, :,
                                   self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
 
                 self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (
                         self.trace_length_ph - 1)
-                z_encoder_diff = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
-                                                                   self.config.Arch.CVRNN.latent_dim])
+                z_encoder_action_pred = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
+                                                                          self.config.Arch.CVRNN.latent_dim])
                 for i in range(self.config.Arch.WIN.lstm_layer_num):
                     rnn_output = None
                     for i in range(self.config.Arch.WIN.lstm_layer_num):
-                        rnn_input = tf.concat([data_input_diff, z_encoder_diff], axis=2) if i == 0 else rnn_output
+                        rnn_input = tf.concat([data_input_action_pred, z_encoder_action_pred],
+                                              axis=2) if i == 0 else rnn_output
                         rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
                             inputs=rnn_input, cell=self.win_lstm_cell[i],
                             sequence_length=self.trace_length_ph, dtype=tf.float32,
                             scope='score_diff_rnn_{0}'.format(str(i)))
-                    score_diff_rnn_outputs = tf.stack(rnn_output)
+                    action_pred_rnn_outputs = tf.stack(rnn_output)
                     # Indexing
-                    diff_rnn_last = tf.gather(tf.reshape(score_diff_rnn_outputs,
-                                                         [-1, self.config.Arch.SARSA.h_size]), self.select_index)
+                    action_pred_rnn_last = tf.gather(tf.reshape(action_pred_rnn_outputs,
+                                                                [-1, self.config.Arch.SARSA.h_size]), self.select_index)
 
                 for j in range(self.config.Arch.WIN.dense_layer_number - 1):
-                    diff_input = diff_rnn_last if j == 0 else diff_output
-                    diff_output = tf.nn.relu(linear(diff_input, output_size=self.config.Arch.WIN.dense_layer_size,
-                                                    scope='win_dense_Linear'))
-                diff_input = diff_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else diff_output
-                diff_output = linear(diff_input, output_size=3, scope='score_diff')
+                    action_pred_input = action_pred_rnn_last if j == 0 else action_pred_output
+                    action_pred_output = tf.nn.relu(
+                        linear(action_pred_input, output_size=self.config.Arch.WIN.dense_layer_size,
+                               scope='win_dense_Linear'))
+                action_pred_input = action_pred_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else action_pred_output
+                action_pred_output = linear(action_pred_input, output_size=3, scope='score_diff')
                 # self.diff_output = tf.nn.softmax(diff_output)
-                self.diff_output = diff_output
+                self.diff_output = action_pred_output
 
                 with tf.variable_scope('score_diff_cost'):
                     square_diff_loss, abs_diff_loss = get_diff_lossfunc(self.diff_output, self.score_diff_target_ph,
@@ -450,12 +473,69 @@ class CVRNN():
 
                     # self.win_acc, win_acc_op = tf.metrics.accuracy(labels=tf.argmax(self.win_target_ph, 1),
                     #                                                predictions=tf.argmax(self.win_output, 1))
-
-            tvars_score_diff = tf.trainable_variables(scope='score_diff')
+            if self.config.Learn.integral_update_flag:
+                tvars_score_diff = tf.trainable_variables()
+            else:
+                tvars_score_diff = tf.trainable_variables(scope='score_diff')
             for t in tvars_score_diff:
                 print ('tvars_score_diff: ' + str(t.name))
             score_diff_grads = tf.gradients(tf.reduce_mean(self.diff_loss), tvars_score_diff)
             self.train_diff_op = optimizer.apply_gradients(zip(score_diff_grads, tvars_score_diff))
+
+        if self.extra_prediction_flag:
+            with tf.variable_scope('prediction'):
+                data_input_action_pred = self.input_data_ph[
+                                  :, :,
+                                  self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
+
+                self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (
+                        self.trace_length_ph - 1)
+                z_encoder_action_pred = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
+                                                                          self.config.Arch.CVRNN.latent_dim])
+                for i in range(self.config.Arch.Predict.lstm_layer_num):
+                    rnn_output = None
+                    for i in range(self.config.Arch.Predict.lstm_layer_num):
+                        rnn_input = tf.concat([data_input_action_pred, z_encoder_action_pred],
+                                              axis=2) if i == 0 else rnn_output
+                        rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
+                            inputs=rnn_input, cell=self.action_lstm_cell[i],
+                            sequence_length=self.trace_length_ph, dtype=tf.float32,
+                            scope='action_pred_rnn_{0}'.format(str(i)))
+                    action_pred_rnn_outputs = tf.stack(rnn_output)
+                    # Indexing
+                    action_pred_rnn_last = tf.gather(tf.reshape(action_pred_rnn_outputs,
+                                                                [-1, self.config.Arch.SARSA.h_size]), self.select_index)
+
+                for j in range(self.config.Arch.Predict.dense_layer_number - 1):
+                    action_pred_input = action_pred_rnn_last if j == 0 else action_pred_output
+                    action_pred_output = tf.nn.relu(linear(action_pred_input,
+                                                           output_size=self.config.Arch.Predict.dense_layer_size,
+                                                           scope='action_dense_Linear'))
+                action_pred_input = action_pred_rnn_last if self.config.Arch.Predict.dense_layer_number == 1 else action_pred_output
+                action_pred_output = linear(action_pred_input, output_size=self.config.Arch.Predict.output_size,
+                                            scope='action_next')
+                # self.diff_output = tf.nn.softmax(diff_output)
+                self.action_pred_output = tf.nn.softmax(action_pred_output)
+
+                with tf.variable_scope('action_pred_cost'):
+                    action_pred_loss = get_action_pred_lossfunc(self.action_pred_output,
+                                                                self.action_pred_target_ph,
+                                                                condition,
+                                                                if_last_output=True)
+                    self.action_pred_loss = action_pred_loss
+
+                    # self.win_acc, win_acc_op = tf.metrics.accuracy(labels=tf.argmax(self.win_target_ph, 1),
+                    #                                                predictions=tf.argmax(self.win_output, 1))
+            if self.config.Learn.integral_update_flag:
+                tvars_action_pred= tf.trainable_variables()
+            else:
+                tvars_action_pred = tf.trainable_variables(scope='action')
+            for t in tvars_action_pred:
+                print ('tvars_action_pred: ' + str(t.name))
+            action_grads = tf.gradients(tf.reduce_mean(self.action_pred_loss), tvars_action_pred)
+            self.train_action_pred_op = optimizer.apply_gradients(zip(action_grads, tvars_action_pred))
+
+        # if
         # def sample(self, sess, args, num=4410, start=None):
         #
         #     def sample_gaussian(mu, sigma):

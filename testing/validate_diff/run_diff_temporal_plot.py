@@ -48,15 +48,21 @@ def validate_score_diff(model_data_store_dir,
     for dir_index in range(0, len(testing_dir_games_all)):
         print('Processing game {0}'.format(dir_index))
         testing_dir = testing_dir_games_all[dir_index]
-        model_values = obtain_model_predictions(model_data_store_dir, testing_dir, data_name)
+        if data_name is not None:
+            model_values = obtain_model_predictions(model_data_store_dir, testing_dir, data_name)
 
         score_difference_game = read_feature_within_events(testing_dir,
                                                            data_store,
                                                            'scoreDifferential',
                                                            transfer_home_number=True,
                                                            data_store=source_data_dir)
-        real_label_all = [score_difference_game[-1]] * len(model_values)
-        output_label_all = model_values[:, 0] - model_values[:, 1] + score_difference_game[:len(model_values)]
+
+        if data_name is None:
+            output_label_all = np.asarray(len(score_difference_game) * [0]) + score_difference_game
+            real_label_all = [score_difference_game[-1]] * len(score_difference_game)
+        else:
+            real_label_all = [score_difference_game[-1]] * len(model_values)
+            output_label_all = model_values[:, 0] - model_values[:, 1] + score_difference_game[:len(model_values)]
 
         real_label_record[dir_index][:len(real_label_all)] = real_label_all[:len(real_label_all)]
         output_label_record[dir_index][:len(output_label_all)] = output_label_all[:len(output_label_all)]
@@ -97,18 +103,22 @@ if __name__ == '__main__':
     # plot_diff(game_time, cvrnn_results)
 
     validated_model_type = [
+        {'model_category': 'cvrnn', 'model_number': '1501', 'player_info': '_box_v3'},
+        {'model_category': 'zero', 'model_number': '0', 'player_info': ''},
+        {'model_category': 'cvrnn', 'model_number': '901', 'player_info': '_box'},
+        {'model_category': 'cvrnn', 'model_number': '1201', 'player_info': '_box'},
         {'model_category': 'cvrnn', 'model_number': '2101', 'player_info': '_box'},
-        {'model_category': 'cvrnn', 'model_number': '1801', 'player_info': '_box'},
+        # {'model_category': 'cvrnn', 'model_number': '1801', 'player_info': '_box'},
         {'model_category': 'cvrnn', 'model_number': '1501', 'player_info': '_box'},
         # {'model_category': 'cvrnn', 'model_number': '1801', 'player_info': ''},
         # {'model_category': 'cvrnn', 'model_number': '1501', 'player_info': ''},
         # {'model_category': 'cvrnn', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': ''},
+        {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': ''},
         # {'model_category': 'lstm_diff', 'model_number': '1801', 'player_info': ''},
-        {'model_category': 'lstm_diff', 'model_number': '301', 'player_info': ''},
-        {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': '_pid'},
-        {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': '_v2'},
-        {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': '_pid_v2'},
+        # {'model_category': 'lstm_diff', 'model_number': '301', 'player_info': ''},
+        # {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': '_pid'},
+        # {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': '_v2'},
+        # {'model_category': 'lstm_diff', 'model_number': '2101', 'player_info': '_pid_v2'},
     ]
 
     model_category_msg_all = []
@@ -133,33 +143,39 @@ if __name__ == '__main__':
             icehockey_model_config = LSTMDiffCongfig.load(icehockey_config_path)
             # testing_file = open('./LSTM_diff{1}_model{2}_testing_results{0}.txt'. \
             #                     format(datetime.date.today().strftime("%Y%B%d"), '', str(model_number)), 'wb')
+        elif model_category == 'zero':
+            icehockey_model_config = None
         else:
             raise ValueError("uknown model catagoery {0}".format(model_category))
 
-        saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_model_config,
-                                                            model_catagoery=model_category)
+        if icehockey_model_config is not None:
+            saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_model_config,
+                                                                model_catagoery=model_category)
         testing_dir_games_all = []
-        # with open('../../resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
 
         if 'v2' not in player_info and model_category == 'cvrnn':
             saved_network_dir = saved_network_dir.replace('cvrnn_saved_networks', 'bak_cvrnn_saved_networks')
         if 'v2' not in player_info and model_category == 'lstm_diff':
             saved_network_dir = saved_network_dir.replace('lstm_saved_networks', 'bak_lstm_saved_networks')
 
-        with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
+        with open('../../resource/ice_hockey_201819/' + '/testing_file_dirs_all_v2.csv', 'rb') as f:
+            # with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
             testing_dir_all = f.readlines()
         for testing_dir in testing_dir_all:
             testing_dir_games_all.append(str(int(testing_dir)))
-        model_data_store_dir = icehockey_model_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
+        model_data_store_dir = "/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019/"
         data_store = '/Local-Scratch/oschulte/Galen/2018-2019/'
-
-        data_name = get_data_name(icehockey_model_config, model_category, model_number)
+        if model_category != 'zero':
+            data_name = get_data_name(icehockey_model_config, model_category, model_number)
+            data_name = data_name.replace('Qs', 'accumu_Qs')
+        else:
+            data_name = None
 
         print(model_category + '_' + model_number + player_info)
 
         acc_diff, event_numbers = validate_score_diff(model_data_store_dir,
                                                       testing_dir_games_all,
-                                                      data_name.replace('Qs', 'accumu_Qs'),
+                                                      data_name,
                                                       model_data_store_dir,
                                                       data_store,
                                                       None)

@@ -18,11 +18,12 @@ Learn:
   sport : 'Ice-Hockey'
   gamma : 1
   apply_box_score: False
+  apply_pid: False
 
 Arch:
   LSTM:
     h_size : 512
     lstm_layer_num : 1
-  SARSA:
+  Dense:
     dense_layer_number : 2
     dense_layer_size : 256

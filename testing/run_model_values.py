@@ -5,13 +5,13 @@ from config.LSTM_Qs_config import LSTMQsCongfig
 from config.LSTM_diff_config import LSTMDiffCongfig
 from config.cvrnn_config import CVRNNCongfig
 from support.model_tools import compute_games_Q_values
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 if __name__ == '__main__':
 
-    model_type = 'cvrnn'
-    player_info = '_box_v2'
-    model_number = 601
+    model_type = 'lstm_Qs'
+    player_info = ''
+    model_number = 901
     local_test_flag = False
     if model_type == 'cvrnn':
         player_id_type = 'local_id'

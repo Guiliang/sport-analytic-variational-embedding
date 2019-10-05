@@ -59,8 +59,8 @@ def generate_cali_latex_table(result_file_dir):
                                         h_model = round(float(eles[3].split(':')[1]), 4)
                                         a_cali = round(float(eles[5].split(':')[1]), 4)
                                         a_model = round(float(eles[6].split(':')[1]), 4)
-                                        kld = round(float(eles[7].split(':')[1].replace('\n', '')), 4)
-                                        mae = round(float(eles[8].split(':')[1].replace('\n', '')), 4)
+                                        kld = round(float(eles[10].split(':')[1].replace('\n', '')), 4)
+                                        mae = round(float(eles[11].split(':')[1].replace('\n', '')), 4)
                                 except:
                                     # raise ValueError('something wrong')
                                     print eles
@@ -164,16 +164,16 @@ def run_calibration():
     model_type = 'cvrnn'
     player_info = '_box'
     apply_old = False
-    apply_difference = True
+    apply_difference = False
     if model_type == 'cvrnn':
-        model_number = 2101
+        model_number = 1801
         predicted_target = '_PlayerLocalId'
         icehockey_config_path = "../../environment_settings/icehockey_cvrnn{0}_config{1}.yaml".format(predicted_target,
                                                                                                       player_info)
         config = CVRNNCongfig.load(icehockey_config_path)
 
-    elif model_type == 'lstm_diff':
-        model_number = 2101
+    elif model_type == 'lstm_Qs':
+        model_number = 901
         icehockey_config_path = "../../environment_settings/ice_hockey_predict_score_diff_lstm{0}.yaml".format(
             player_info)
         config = LSTMQsCongfig.load(icehockey_config_path)
@@ -206,7 +206,7 @@ def run_calibration():
                        model_data_store_dir=model_data_store_dir, apply_old=apply_old,
                        apply_difference=apply_difference,
                        model_type=model_type, model_number=model_number,
-                       player_info=player_info, calibration_type='score_diff',
+                       player_info=player_info, calibration_type='next_goal',
                        testing_dir_all=testing_dir_games_all,
                        focus_actions_list=[])
     Cali.construct_bin_dicts()
@@ -216,14 +216,14 @@ def run_calibration():
 
 
 if __name__ == '__main__':
-    run_calibration()
+    # run_calibration()
 
-    # save_calibration_dir = './calibration_results/calibration_cvrnn_[]_2019October01_model1501.txt'
-    # save_calibration_dir = './calibration_results/difference-calibration_lstm_diff_[]_2019October02_model2101.txt'
-    # save_calibration_dir = './calibration_results/difference-calibration_cvrnn_[]_2019October02_model1801.txt'
-    # save_calibration_dir = './calibration_results/difference-calibration_cvrnn_[]_2019October02_box_v3_model1501.txt'
+    # save_calibration_dir = './calibration_results/calibration_lstm_Qs_[]_2019October02_model901.txt'
+    save_calibration_dir = './calibration_results/calibration_cvrnn_[]_2019October02_box_model1801.txt'
+
     #
-    # generate_cali_latex_table(save_calibration_dir)
+    generate_cali_latex_table(save_calibration_dir)
     # tt_result_file_dir = "./calibration_results/bak_calibration-['shot', 'pass']-2019June05.txt"
     # markov_result_file_dir = "../resource/bak_calibration-markov-['shot', 'pass']-2019May30.txt"
     # generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir)
+

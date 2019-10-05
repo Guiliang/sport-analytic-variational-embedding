@@ -57,6 +57,8 @@ def plot_diff(game_time_list, diff_values_list, model_category_all):
     plt.xlabel('Event Number')
     plt.ylabel('Average Difference')
     for i in range(0, len(game_time_list)):
+
+        print('avg of {0} is {1}'.format(model_category_all[i], np.mean(diff_values_list[i])))
         plt.plot(game_time_list[i], diff_values_list[i], label=model_category_all[i])
     plt.legend()
     plt.show()

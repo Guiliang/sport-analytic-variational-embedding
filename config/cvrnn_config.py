@@ -28,13 +28,15 @@ class CVRNNCongfig(object):
         apply_stochastic = None
         apply_box_score = None
         diff_apply_rl = None
+        integral_update_flag = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
             # super(TTLSTMCongfig.Arch, self).__init__(init)
             self.CVRNN = CVRNNCongfig.Arch.CVRNN(init["CVRNN"])
             self.SARSA = CVRNNCongfig.Arch.SARSA(init["SARSA"])
-            self.WIN = CVRNNCongfig.Arch.SARSA(init["WIN"])
+            self.WIN = CVRNNCongfig.Arch.WIN(init["WIN"])
+            self.Predict = CVRNNCongfig.Arch.Predict(init["Predict"])
 
         class CVRNN(InitWithDict):
             hidden_dim = None
@@ -53,6 +55,14 @@ class CVRNNCongfig(object):
             h_size = None
             dense_layer_number = None
             dense_layer_size = None
+
+        class Predict(InitWithDict):
+            lstm_layer_num = None
+            h_size = None
+            dense_layer_number = None
+            dense_layer_size = None
+            predict_target = None
+            output_size = None
 
     @staticmethod
     def load(file_path):
