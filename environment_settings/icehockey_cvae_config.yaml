@@ -14,6 +14,7 @@ Learn:
   apply_box_score: True
   gamma : 1
   max_seq_length: 1
+  integral_update_flag: False
 Arch:
   CVAE:
     n_hidden: 256

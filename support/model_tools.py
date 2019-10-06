@@ -408,6 +408,10 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
         )
 
     elif model_catagoery == 'cvae':  # TODO: add more parameters
+
+        if config.Learn.integral_update_flag:
+            player_info += '_integral'
+
         log_dir = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN" \
                   "/{1}cvae_log_feature{2}_latent{8}_x{9}_y{10}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
@@ -801,7 +805,7 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config,
                                     max_length=config.Learn.max_seq_length)
 
     if model_category == "cvrnn":
-        train_mask = np.asarray([[[0]] * config.Learn.max_seq_length] * len(player_index))
+        train_mask = np.asarray([[[1]] * config.Learn.max_seq_length] * len(player_index))
         if config.Learn.predict_target == 'PlayerLocalId':
             input_data = np.concatenate([player_index_seq,
                                          team_id_seq,

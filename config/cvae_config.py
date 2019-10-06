@@ -13,6 +13,7 @@ class CVAECongfig(object):
         number_of_total_game = None
         player_Id_style = None
         sport = None
+        integral_update_flag = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
@@ -20,6 +21,7 @@ class CVAECongfig(object):
             self.CVAE = CVAECongfig.Arch.CVAE(init["CVAE"])
             self.Sarsa = CVAECongfig.Arch.Sarsa(init["Sarsa"])
             self.ScoreDiff = CVAECongfig.Arch.ScoreDiff(init["ScoreDiff"])
+            self.Predict = CVAECongfig.Arch.Predict(init["Predict"])
 
         class CVAE(InitWithDict):
             n_hidden = None
@@ -36,6 +38,12 @@ class CVAECongfig(object):
             layer_num = None
             n_hidden = None
             output_node = None
+
+        class Predict(InitWithDict):
+            layer_num = None
+            n_hidden = None
+            output_node = None
+            predict_target = None
 
     @staticmethod
     def load(file_path):

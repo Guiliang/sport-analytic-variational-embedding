@@ -25,6 +25,9 @@ class CVAE_NN(object):
                                               shape=[None, 3], name='sarsa_target')
         self.score_diff_target_ph = tf.placeholder(dtype=tf.float32,
                                                    shape=[None, 3], name='score_diff_target')
+        self.predict_target_ph = tf.placeholder(dtype=tf.float32,
+                                                shape=[None, self.config.Arch.Predict.output_node],
+                                                name='predict_target')
 
     def build(self):
         w_init = tf.random_normal_initializer(stddev=0.02)
@@ -109,6 +112,34 @@ class CVAE_NN(object):
                                                                 initializer=w_init)
                 self.score_diff_output_bias = tf.get_variable("bias_out", [self.config.Arch.ScoreDiff.output_node],
                                                               initializer=b_init)
+        with tf.variable_scope("predict"):
+            self.predict_weight = []
+            self.predict_bias = []
+
+            for i in range(0, self.config.Arch.Predict.layer_num):
+                with tf.name_scope("Dense_Layer_{0}".format(str(i))):
+                    if i == 0:
+                        w = tf.get_variable('weight_{0}'.format(str(i)),
+                                            [self.config.Arch.CVAE.latent_dim + self.config.Arch.CVAE.y_dim,
+                                             self.config.Arch.Predict.n_hidden],
+                                            initializer=w_init)
+                    # if i == self.sarsa_hidden_layer_num - 1:
+                    else:
+                        w = tf.get_variable('weight_{0}'.format(str(i)),
+                                            [self.config.Arch.Predict.n_hidden,
+                                             self.config.Arch.Predict.n_hidden],
+                                            initializer=w_init)
+                    b = tf.get_variable("bias_{0}".format(str(i)), [self.config.Arch.Predict.n_hidden],
+                                        initializer=b_init)
+                    self.predict_weight.append(w)
+                    self.predict_bias.append(b)
+
+            with tf.name_scope("output_Layer"):
+                self.predict_output_weight = tf.get_variable('weight_out', [self.config.Arch.Predict.n_hidden,
+                                                                            self.config.Arch.Predict.output_node],
+                                                             initializer=w_init)
+                self.predict_output_bias = tf.get_variable("bias_out", [self.config.Arch.Predict.output_node],
+                                                           initializer=b_init)
 
     # Gaussian MLP as conditional encoder
     def gaussian_MLP_conditional_encoder(self):
@@ -179,7 +210,7 @@ class CVAE_NN(object):
         with tf.variable_scope("score_diff"):
             with tf.name_scope('diff-dense-layer'):
                 dense_output = None
-                for i in range(self.config.Arch.Sarsa.layer_num):
+                for i in range(self.config.Arch.ScoreDiff.layer_num):
                     dense_input = tf.concat([self.y_ph, z], axis=1) if i == 0 else dense_output
                     # dense_input = embed_layer
                     dense_output = tf.matmul(dense_input, self.score_diff_weight[i]) + self.score_diff_bias[i]
@@ -187,7 +218,23 @@ class CVAE_NN(object):
                     dense_output = tf.nn.relu(dense_output, name='activation_{0}'.format(str(i)))
 
             with tf.name_scope('diff-output-layer'):
-                output = tf.matmul(dense_output, self.sarsa_output_weight) + self.sarsa_output_bias
+                output = tf.matmul(dense_output, self.score_diff_output_weight) + self.score_diff_output_bias
+
+        return output
+
+    def predict_value_function(self, z):
+        with tf.variable_scope("predict_"):
+            with tf.name_scope('predict-dense-layer'):
+                dense_output = None
+                for i in range(self.config.Arch.Predict.layer_num):
+                    dense_input = tf.concat([self.y_ph, z], axis=1) if i == 0 else dense_output
+                    # dense_input = embed_layer
+                    dense_output = tf.matmul(dense_input, self.predict_weight[i]) + self.predict_bias[i]
+                    # if i < self.sarsa_hidden_layer_num - 1:
+                    dense_output = tf.nn.relu(dense_output, name='activation_{0}'.format(str(i)))
+
+            with tf.name_scope('predict-output-layer'):
+                output = tf.matmul(dense_output, self.predict_output_weight) + self.predict_output_bias
 
         return output
 
@@ -235,7 +282,10 @@ class CVAE_NN(object):
         self.q_values_sarsa = self.sarsa_value_function(self.z)
         self.td_loss = tf.reduce_mean(tf.square(self.q_values_sarsa - self.sarsa_target_ph), axis=-1)
         self.td_avg_diff = tf.reduce_mean(tf.abs(self.q_values_sarsa - self.sarsa_target_ph), axis=-1)
-        tvars_sarsa = tf.trainable_variables(scope='sarsa')
+        if self.config.Learn.integral_update_flag:
+            tvars_sarsa = tf.trainable_variables()
+        else:
+            tvars_sarsa = tf.trainable_variables(scope='sarsa')
         for t in tvars_sarsa:
             print ('sarsa_var: ' + str(t.name))
         td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_sarsa)
@@ -244,11 +294,27 @@ class CVAE_NN(object):
         self.q_values_diff = self.score_diff_value_function(self.z)
         self.td_score_diff_loss = tf.reduce_mean(tf.square(self.q_values_diff - self.score_diff_target_ph), axis=-1)
         self.td_score_diff_diff = tf.reduce_mean(tf.abs(self.q_values_diff - self.score_diff_target_ph), axis=-1)
-        tvars_score_diff = tf.trainable_variables(scope='score_diff')
+        if self.config.Learn.integral_update_flag:
+            tvars_score_diff = tf.trainable_variables()
+        else:
+            tvars_score_diff = tf.trainable_variables(scope='score_diff')
         for t in tvars_score_diff:
             print ('score_diff: ' + str(t.name))
         td_diff_grads = tf.gradients(tf.reduce_mean(self.td_score_diff_loss), tvars_score_diff)
         self.train_diff_op = self.optimizer.apply_gradients(zip(td_diff_grads, tvars_score_diff))
+
+        self.predict_output = self.predict_value_function(self.z)
+        self.predict_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels=self.predict_target_ph,
+                                                                           logits=self.predict_output,
+                                                                           reduction=tf.losses.Reduction.NONE))
+        if self.config.Learn.integral_update_flag:
+            tvars_predict = tf.trainable_variables()
+        else:
+            tvars_predict = tf.trainable_variables(scope='predict')
+        for t in tvars_predict:
+            print ('predict: ' + str(t.name))
+        predict_grads = tf.gradients(tf.reduce_mean(self.predict_loss), tvars_predict)
+        self.train_predict_op = self.optimizer.apply_gradients(zip(predict_grads, tvars_predict))
 
     # Conditional Decoder (Generator)
     def decoder(self, z):
