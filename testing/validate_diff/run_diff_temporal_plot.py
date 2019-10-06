@@ -158,7 +158,7 @@ if __name__ == '__main__':
         if 'v2' not in player_info and model_category == 'lstm_diff':
             saved_network_dir = saved_network_dir.replace('lstm_saved_networks', 'bak_lstm_saved_networks')
 
-        with open('../../resource/ice_hockey_201819/' + '/testing_file_dirs_all_v2.csv', 'rb') as f:
+        with open('../../sport_resource/ice_hockey_201819/' + '/testing_file_dirs_all_v2.csv', 'rb') as f:
             # with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
             testing_dir_all = f.readlines()
         for testing_dir in testing_dir_all:

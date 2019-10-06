@@ -93,7 +93,7 @@ def horizontal_rescale(player_stats_summary, item_names, match_name_info_dict):
                                     'position': player_info['position'],
                                     'gbg_summary_list': scale_data_gbg_summary_list}})
 
-    with open("../resource/ice_hockey_201819/" + 'Scale_H_NHL_players_game_summary_201819.csv', 'w') as outfile:
+    with open("../sport_resource/ice_hockey_201819/" + 'Scale_H_NHL_players_game_summary_201819.csv', 'w') as outfile:
         json.dump(scaled_playerIndex_stats_summary, outfile)
     return scaled_player_stats_summary
 
@@ -153,7 +153,7 @@ def common_rescale(player_stats_summary, item_names, match_name_info_dict):
                                     'position': player_info['position'],
                                     'gbg_summary_list': scale_data_gbg_summary_list}})
 
-    with open("../resource/ice_hockey_201819/" + 'Scale_NHL_players_game_summary_201819.csv', 'w') as outfile:
+    with open("../sport_resource/ice_hockey_201819/" + 'Scale_NHL_players_game_summary_201819.csv', 'w') as outfile:
         json.dump(scaled_playerIndex_stats_summary, outfile)
     return scaled_player_stats_summary
 
@@ -194,20 +194,20 @@ def aggregate_player_stats_by_date(player_stats_gbg_all, item_names, match_name_
                                                                  'position': player_info['position'],
                                                                  'gbg_summary_list': data_gbg_summary_list}})
 
-    with open("../resource/ice_hockey_201819/" + 'NHL_players_game_summary_201819.csv', 'w') as outfile:
+    with open("../sport_resource/ice_hockey_201819/" + 'NHL_players_game_summary_201819.csv', 'w') as outfile:
         json.dump(playerIndex_stats_summary, outfile)
 
     return player_stats_summary
 
 
 if __name__ == '__main__':
-    player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+    player_basic_info_dir = '../sport_resource/ice_hockey_201819/player_info_2018_2019.json'
     player_data_stats_dir = '/Local-Scratch/oschulte/Galen/Ice-hockey-data/player_stats/NHL_game_by_game_stats.csv'
     player_stats_gbg_all, item_names = collect_player_stats_by_date(player_data_stats_dir=player_data_stats_dir)
     player_all = player_stats_gbg_all.keys()
     match_name_info_dict = match_player_name_NHLcom(player_basic_info_dir, player_names=player_all)
     player_stats_summary = aggregate_player_stats_by_date(player_stats_gbg_all, item_names, match_name_info_dict)
-    # with open("../resource/ice_hockey_201819/" + 'NHL_players_game_summary_201819.csv', 'r') as outfile:
+    # with open("../sport_resource/ice_hockey_201819/" + 'NHL_players_game_summary_201819.csv', 'r') as outfile:
     #     player_stats_summary = json.load(outfile)
     print('rescaling ...')
     common_rescale(player_stats_summary, item_names, match_name_info_dict)

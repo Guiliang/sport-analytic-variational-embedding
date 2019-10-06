@@ -71,7 +71,7 @@ class PlayerCluster(object):
                 cluster_set.add(cluster_number)
             base_number += len(cluster_set)
 
-        with open('../resource/ice_hockey_201819/player_id_{0}_cluster.json'.format(self.cluster_name), 'w') as f:
+        with open('../sport_resource/ice_hockey_201819/player_id_{0}_cluster.json'.format(self.cluster_name), 'w') as f:
             json.dump(player_id_cluster, f)
 
         return player_id_cluster

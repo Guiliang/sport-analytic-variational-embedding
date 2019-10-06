@@ -303,10 +303,10 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
 def run():
     cluster='km'
     if cluster == 'ap':
-        player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
     elif cluster == 'km':
-        player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_km_cluster.json'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_km_cluster.json'
         predicted_target = '_PlayerPositionClusterKM'  # playerId_
     else:
         player_id_cluster_dir = None
