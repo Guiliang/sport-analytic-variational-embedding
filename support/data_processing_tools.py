@@ -1,14 +1,16 @@
-import numpy as np
-import os
-import csv
-import math
-import json
-import scipy.io as sio
-import unicodedata
-from ice_hockey_data_config import player_position_index_dict
-from resource.ice_hockey_201819.player_name_matching_dir import nhl_stats_name_matching
-from sport_data_preprocessing.data_config import teamList, positions
 import copy
+import csv
+import json
+import math
+import os
+import unicodedata
+
+import numpy as np
+import scipy.io as sio
+
+from ice_hockey_data_config import player_position_index_dict
+from resource.player_name_matching_dir import nhl_stats_name_matching
+from sport_data_preprocessing.data_config import teamList, positions
 
 
 # from config.icehockey_feature_setting import select_feature_setting
@@ -933,7 +935,7 @@ def match_player_name_NHLcom(player_basic_info_dir, player_names):
 
 
 def generate_player_name_id_features(player_basic_info, player_scoring_stats, interest_features=[]):
-    from resource.ice_hockey_201819.player_name_matching_dir import fox_stats_name_matching, team_matching
+    from resource.player_name_matching_dir import fox_stats_name_matching, team_matching
     # TODO: fix 3 duplicated name with team name, but player might transfer team
 
     feature_name = player_scoring_stats[0].split(',')
