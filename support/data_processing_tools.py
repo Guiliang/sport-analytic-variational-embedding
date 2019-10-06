@@ -9,7 +9,7 @@ import numpy as np
 import scipy.io as sio
 
 from ice_hockey_data_config import player_position_index_dict
-from resource.player_name_matching_dir import nhl_stats_name_matching
+from sport_resource.player_name_matching_dir import nhl_stats_name_matching
 from sport_data_preprocessing.data_config import teamList, positions
 
 
@@ -935,7 +935,7 @@ def match_player_name_NHLcom(player_basic_info_dir, player_names):
 
 
 def generate_player_name_id_features(player_basic_info, player_scoring_stats, interest_features=[]):
-    from resource.player_name_matching_dir import fox_stats_name_matching, team_matching
+    from sport_resource.player_name_matching_dir import fox_stats_name_matching, team_matching
     # TODO: fix 3 duplicated name with team name, but player might transfer team
 
     feature_name = player_scoring_stats[0].split(',')
