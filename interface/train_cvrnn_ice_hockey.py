@@ -33,6 +33,7 @@ def gathering_data_and_run(dir_game, config, player_id_cluster_dir,
                            validate_td_flag=False,
                            validate_diff_flag=False,
                            validate_variance_flag=False,
+                           validate_predict_flag=False,
                            output_decoder_all=None,
                            target_data_all=None,
                            selection_matrix_all=None,
@@ -106,12 +107,16 @@ def gathering_data_and_run(dir_game, config, player_id_cluster_dir,
         new_state_input = state_input[:-1, :, :]
         new_state_trace_length = state_trace_length[:-1]
         new_team_id_seq = team_id_seq[:-1, :, :]
+        new_player_index_seq = player_index_seq[:-1, :, :]
     else:
         # raise ValueError()
         add_pred_flag = False
 
     if add_pred_flag:
-        train_mask = np.asarray([[[1]] * config.Learn.max_seq_length] * len(new_state_input))
+        if training_flag:
+            train_mask = np.asarray([[[1]] * config.Learn.max_seq_length] * len(new_state_input))
+        else:
+            train_mask = np.asarray([[[0]] * config.Learn.max_seq_length] * len(new_state_input))
         if config.Learn.predict_target == 'PlayerLocalId':
             pred_input_data = np.concatenate([np.asarray(new_player_index_seq),
                                               np.asarray(new_team_id_seq),
@@ -339,7 +344,7 @@ def gathering_data_and_run(dir_game, config, player_id_cluster_dir,
         if terminal:
             break
 
-    if add_pred_flag:
+    if validate_predict_flag and add_pred_flag:
         input_data, pred_output_prob = prediction_validation(model, sess, config,
                                                              pred_input_data,
                                                              pred_target_data,
@@ -543,11 +548,11 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
                 print([y_home, y_away, y_end])
                 break
         y_home = float((r_t_batch[i])[0]) + config.Learn.gamma * \
-                 ((readout_t1_batch[i]).tolist())[0]
+                                            ((readout_t1_batch[i]).tolist())[0]
         y_away = float((r_t_batch[i])[1]) + config.Learn.gamma * \
-                 ((readout_t1_batch[i]).tolist())[1]
+                                            ((readout_t1_batch[i]).tolist())[1]
         y_end = float((r_t_batch[i])[2]) + config.Learn.gamma * \
-                ((readout_t1_batch[i]).tolist())[2]
+                                           ((readout_t1_batch[i]).tolist())[2]
         y_batch.append([y_home, y_away, y_end])
 
     # perform gradient step
@@ -844,6 +849,7 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
                                                                validate_td_flag=validate_td_flag,
                                                                validate_diff_flag=validate_diff_flag,
                                                                validate_variance_flag=validate_variance_flag,
+                                                               validate_predict_flag=validate_pred_flag,
                                                                output_decoder_all=output_decoder_all,
                                                                target_data_all=target_data_all,
                                                                selection_matrix_all=selection_matrix_all,
@@ -922,13 +928,12 @@ def run():
         player_id_cluster_dir = None
         predicted_target = ''
 
-    Prediction_MemoryBuffer.set_cache_memory(cache_number=2)
-
     icehockey_cvrnn_config_path = "../environment_settings/" \
                                   "icehockey_cvrnn{0}{2}_config{1}.yaml".format(predicted_target,
                                                                                 box_msg,
                                                                                 predict_action)
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
+    Prediction_MemoryBuffer.set_cache_memory(cache_number=icehockey_cvrnn_config.Arch.Predict.output_size)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config, model_catagoery='cvrnn')
 
     if local_test_flag:

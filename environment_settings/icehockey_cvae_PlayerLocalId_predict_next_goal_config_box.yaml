@@ -13,10 +13,10 @@ Learn:
   player_Id_style: 'PlayerId'
   position_max_length : 15
   apply_stochastic: True
-  apply_box_score: False
+  apply_box_score: True
   gamma : 1
   max_seq_length: 1
-  integral_update_flag: False
+  integral_update_flag: True
 Arch:
   CVAE:
     n_hidden: 256
@@ -31,3 +31,8 @@ Arch:
     layer_num: 2
     n_hidden: 256
     output_node: 3
+  Predict:
+    layer_num: 2
+    n_hidden: 256
+    output_node: 2
+    predict_target: ActionGoal
