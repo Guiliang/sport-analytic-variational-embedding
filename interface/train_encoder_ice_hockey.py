@@ -677,13 +677,13 @@ def run():
     player_id_type = 'local_id'
     rnn_type = '_lstm'
     if player_id_type == 'ap_cluster':
-        player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
     elif player_id_type == 'km_cluster':
-        player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_km_cluster.json'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_km_cluster.json'
         predicted_target = '_PlayerPositionClusterKM'  # playerId_
     elif player_id_type == 'local_id':
-        player_id_cluster_dir = '../resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
         predicted_target = '_PlayerLocalId'  # playerId_
     else:
         player_id_cluster_dir = None

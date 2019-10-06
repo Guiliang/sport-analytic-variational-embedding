@@ -43,7 +43,7 @@ def get_local_id_by_team(players_id_by_team,
                          player_basic_info_dict,
                          local_id_dir,
                          position_max_length=15):
-    player_scoring_stats_dir = '../resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
+    player_scoring_stats_dir = '../sport_resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
     player_scoring_stats = read_player_stats(player_scoring_stats_dir)
     player_id_stats_info_dict = generate_player_name_id_features(player_basic_info_dict,
                                                                  player_scoring_stats,
@@ -87,16 +87,16 @@ def get_local_id_by_team(players_id_by_team,
 
 if __name__ == '__main__':
     test_flag = False
-    local_id_dir = "../resource/ice_hockey_201819/local_player_id_2018_2019.json"
+    local_id_dir = "../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json"
     if test_flag:
         hockey_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
         save_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample'
-        player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+        player_basic_info_dir = '../sport_resource/ice_hockey_201819/player_info_2018_2019.json'
     else:
         hockey_data_dir = '/cs/oschulte/2019-icehockey-data/2018-2019/'
         save_data_dir = '/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019'
-        player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
-    team_info_dir = '../resource/ice_hockey_201819/teams_NHL.json'
+        player_basic_info_dir = '../sport_resource/ice_hockey_201819/player_info_2018_2019.json'
+    team_info_dir = '../sport_resource/ice_hockey_201819/teams_NHL.json'
 
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info_dict = json.load(f)

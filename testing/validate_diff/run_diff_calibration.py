@@ -192,11 +192,11 @@ def run_calibration():
     model_data_store_dir = '/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019'
 
     testing_dir_games_all = []
-    # with open('../../resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
+    # with open('../../sport_resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
     saved_network_dir, log_dir = get_model_and_log_name(config=config,
                                                         model_catagoery=model_type)
     # with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
-    with open('../../resource/ice_hockey_201819/' + '/testing_file_dirs_all.csv', 'rb') as f:
+    with open('../../sport_resource/ice_hockey_201819/' + '/testing_file_dirs_all.csv', 'rb') as f:
         testing_dir_all = f.readlines()
     for testing_dir in testing_dir_all:
         testing_dir_games_all.append(str(int(testing_dir)) + '-playsequence-wpoi.json')
@@ -225,5 +225,5 @@ if __name__ == '__main__':
     #
     # generate_cali_latex_table(save_calibration_dir)
     # tt_result_file_dir = "./calibration_results/bak_calibration-['shot', 'pass']-2019June05.txt"
-    # markov_result_file_dir = "../resource/bak_calibration-markov-['shot', 'pass']-2019May30.txt"
+    # markov_result_file_dir = "../sport_resource/bak_calibration-markov-['shot', 'pass']-2019May30.txt"
     # generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir)

@@ -366,10 +366,10 @@ def run():
     play_info = '_box'
     type = 'action_goal'
     if type == 'ap_playerId':
-        player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_ap_cluster.json'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = 'PlayerPositionClusterAP'  # playerId_
     elif type == 'km_playerId':
-        player_id_cluster_dir = '../resource/ice_hockey_201819/player_id_km_cluster.json'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_km_cluster.json'
         predicted_target = 'PlayerPositionClusterKM'  # playerId_
     elif type == 'pos_playerId':
         player_id_cluster_dir = None

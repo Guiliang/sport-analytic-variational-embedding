@@ -15,17 +15,17 @@ if __name__ == '__main__':
 
     if model_category == 'cvrnn':
         predicted_target = '_PlayerLocalId_predict_nex_goal'  # playerId_
-        player_id_cluster_dir = '../../resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
         icehockey_cvrnn_config_path = "../../environment_settings/icehockey_cvrnn{0}_config{1}.yaml". \
             format(predicted_target, player_info)
         icehockey_model_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
     elif model_category == 'lstm_prediction':
         icehockey_config_path = "../../environment_settings/ice_hockey_ActionGoal_prediction{0}.yaml".format(player_info)
-        player_id_cluster_dir = '../../resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
         icehockey_model_config = LSTMPredictConfig.load(icehockey_config_path)
     elif model_category == 'cvae':
         predicted_target = '_PlayerLocalId_predict_nex_goal'  # playerId_
-        player_id_cluster_dir = '../../resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
         icehockey_config_path = "../../environment_settings/icehockey_cvae{0}_config.yaml".format(
             predicted_target)
         icehockey_model_config = CVAECongfig.load(icehockey_config_path)
@@ -38,7 +38,7 @@ if __name__ == '__main__':
                                                         model_catagoery=model_category)
 
     testing_dir_games_all = []
-    # with open('../../resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
+    # with open('../../sport_resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
     with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
         testing_dir_all = f.readlines()
     for testing_dir in testing_dir_all:
@@ -65,9 +65,9 @@ if __name__ == '__main__':
                                   # model_nn=model_nn,
                                   # sess_nn=sess_nn,
                                   # model_path=model_path,
-                                  player_basic_info_dir='../../resource/ice_hockey_201819/player_info_2018_2019.json',
-                                  game_date_dir='../../resource/ice_hockey_201819/game_dates_2018_2019.json',
-                                  player_box_score_dir='../../resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv',
+                                  player_basic_info_dir='../../sport_resource/ice_hockey_201819/player_info_2018_2019.json',
+                                  game_date_dir='../../sport_resource/ice_hockey_201819/game_dates_2018_2019.json',
+                                  player_box_score_dir='../../sport_resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv',
                                   model_number=model_number,
                                   player_id_cluster_dir=player_id_cluster_dir,
                                   saved_network_dir=saved_network_dir,

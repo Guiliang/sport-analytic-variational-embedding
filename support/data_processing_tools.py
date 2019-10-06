@@ -174,7 +174,7 @@ def generate_selection_matrix(trace_lengths, max_trace_length):
 
 def get_game_date(game_id, game_date_dir):
     if game_date_dir is None:
-        game_date_dir = "../resource/ice_hockey_201819/game_dates_2018_2019.json"
+        game_date_dir = "../sport_resource/ice_hockey_201819/game_dates_2018_2019.json"
     with open(game_date_dir, 'rb') as f:
         game_date_items = json.load(f)
 
@@ -197,7 +197,7 @@ def get_icehockey_game_data(data_store, dir_game, config,
         game_date = get_game_date(int(dir_game), game_date_dir)
         assert game_date is not None
     if player_basic_info_dir is None:
-        player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+        player_basic_info_dir = '../sport_resource/ice_hockey_201819/player_info_2018_2019.json'
     with open(player_basic_info_dir, 'rb') as f:
         player_basic_info = json.load(f)
 
@@ -263,7 +263,7 @@ def get_icehockey_game_data(data_store, dir_game, config,
 
     if config.Learn.apply_box_score:
         if player_box_score_dir is None:
-            player_box_score_dir = '../resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv'
+            player_box_score_dir = '../sport_resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv'
         # print ('horizontal rescale is to hard')
         with open(player_box_score_dir, 'r') as f:
             player_box_score_all = json.load(f)
@@ -1058,11 +1058,11 @@ if __name__ == '__main__':
     #           np.asarray([1, 0]))
 
 # if __name__ == '__main__':
-#     player_scoring_stats_dir = '../resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
+#     player_scoring_stats_dir = '../sport_resource/ice_hockey_201819/NHL_player_1819_scoring.csv'
 #     player_scoring_stats = read_player_stats(player_scoring_stats_dir)
 #     # check_duplicate_name(player_scoring_stats)
 #
-#     player_basic_info_dir = '../resource/ice_hockey_201819/player_info_2018_2019.json'
+#     player_basic_info_dir = '../sport_resource/ice_hockey_201819/player_info_2018_2019.json'
 #     with open(player_basic_info_dir, 'rb') as f:
 #         player_basic_info = json.load(f)
 #     position_set = set()
