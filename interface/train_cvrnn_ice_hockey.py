@@ -634,7 +634,7 @@ def train_cvrnn_model(model, sess, config, input_data, target_data, trace_length
         output_decoder.append(output_decoder_batch)
     output_decoder = np.asarray(output_decoder)
 
-    acc = compute_rnn_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
+    acc = compute_rnn_acc(output_prob=output_decoder, target_label=target_data,
                           selection_matrix=selection_matrix, config=config)
     # print acc
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
@@ -670,10 +670,11 @@ def cvrnn_validation(sess, model, input_data_t0, target_data_t0, trace_lengths_t
 def prediction_validation(model, sess, config, input_data, target_data, trace_lengths, selection_matrix):
     [
         output_prob,
-        _
+        # _
     ] = sess.run([
         model.action_pred_output,
-        model.train_action_pred_op],
+        # model.train_action_pred_op
+    ],
         feed_dict={
             model.selection_matrix_ph: selection_matrix,
             model.input_data_ph: input_data,
@@ -868,7 +869,7 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
             output_label_record[dir_index][:len(output_label_all)] = output_label_all[:len(output_label_all)]
 
     if validate_cvrnn_flag:
-        acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
+        acc = compute_rnn_acc(output_prob=output_decoder_all, target_label=target_data_all,
                               selection_matrix=selection_matrix_all, config=config, if_print=True)
         print ("testing acc is {0}".format(str(acc)))
         if file_writer is not None:

@@ -52,6 +52,8 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                                   max_length=config.Learn.max_seq_length)
         team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
                                    max_length=config.Learn.max_seq_length)
+        player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                        max_length=config.Learn.max_seq_length)
         if config.Learn.predict_target == 'ActionGoal':
             actions_all = read_feature_within_events(directory=dir_game,
                                                      data_path=source_data_store_dir,
@@ -115,7 +117,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
             print_flag = get_together_training_batch(s_t0=s_t0,
                                                      state_input=state_input,
                                                      reward=reward,
-                                                     player_index=player_index,
+                                                     player_index=player_index_seq,
                                                      train_number=train_number,
                                                      train_len=train_len,
                                                      state_trace_length=state_trace_length,
@@ -140,18 +142,22 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
             player_id_t1_batch = [d[10] for d in batch_return]
             win_info_t0_batch = [d[11] for d in batch_return]
 
-            if config.Learn.predict_target == 'ActionGoal':
-                input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch)], axis=2)
-                target_data = np.asarray(win_info_t0_batch)
-                trace_lengths = trace_t0_batch
-            elif config.Learn.predict_target == 'Action':
-                input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch)], axis=2)
-                target_data = np.asarray(win_info_t0_batch)
-                trace_lengths = trace_t0_batch
+            if config.Learn.apply_pid:
+                input_data = np.concatenate([np.asarray(action_id_t0),
+                                             np.asarray(s_t0_batch),
+                                             np.asarray(player_id_t0_batch)],
+                                            axis=2)
             else:
-                input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch)], axis=2)
-                target_data = np.asarray(player_id_t0_batch)
-                trace_lengths = trace_t0_batch
+                input_data = np.concatenate([np.asarray(action_id_t0),
+                                             np.asarray(s_t0_batch)],
+                                            axis=2)
+            trace_lengths = trace_t0_batch
+            if config.Learn.predict_target == 'ActionGoal':
+                target_data = np.asarray(win_info_t0_batch)
+            elif config.Learn.predict_target == 'Action':
+                target_data = np.asarray(win_info_t0_batch)
+            else:
+                raise ValueError('unknown predict_target {0}'.format(config.Learn.predict_target))
 
             for i in range(0, len(batch_return)):
                 terminal = batch_return[i][-2]
@@ -181,7 +187,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                 # game_diff_record_dict.update({dir_game: v_diff_record_average})
                 break
 
-    acc = compute_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all, if_print=True)
+    acc = compute_acc(output_prob=output_decoder_all, target_label=target_data_all, if_print=True)
     print ("testing acc is {0}".format(str(acc)))
 
 
@@ -214,6 +220,8 @@ def run_network(sess, model, config, training_dir_games_all,
                                       max_length=config.Learn.max_seq_length)
             team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
                                        max_length=config.Learn.max_seq_length)
+            player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                            max_length=config.Learn.max_seq_length)
             if config.Learn.predict_target == 'ActionGoal':
                 actions_all = read_feature_within_events(directory=dir_game,
                                                          data_path=source_data_store_dir,
@@ -277,7 +285,7 @@ def run_network(sess, model, config, training_dir_games_all,
                 print_flag = get_together_training_batch(s_t0=s_t0,
                                                          state_input=state_input,
                                                          reward=reward,
-                                                         player_index=player_index,
+                                                         player_index=player_index_seq,
                                                          train_number=train_number,
                                                          train_len=train_len,
                                                          state_trace_length=state_trace_length,
@@ -301,18 +309,23 @@ def run_network(sess, model, config, training_dir_games_all,
                 player_id_t0_batch = [d[9] for d in batch_return]
                 player_id_t1_batch = [d[10] for d in batch_return]
                 win_info_t0_batch = [d[11] for d in batch_return]
-                if config.Learn.predict_target == 'ActionGoal':
-                    input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch)], axis=2)
-                    target_data = np.asarray(win_info_t0_batch)
-                    trace_lengths = trace_t0_batch
-                elif config.Learn.predict_target == 'Action':
-                    input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch)], axis=2)
-                    target_data = np.asarray(win_info_t0_batch)
-                    trace_lengths = trace_t0_batch
+                if config.Learn.apply_pid:
+                    input_data = np.concatenate([np.asarray(action_id_t0),
+                                                 np.asarray(s_t0_batch),
+                                                 np.asarray(player_id_t0_batch)],
+                                                axis=2)
                 else:
-                    input_data = np.concatenate([np.asarray(action_id_t0), np.asarray(s_t0_batch)], axis=2)
-                    target_data = np.asarray(player_id_t0_batch)
-                    trace_lengths = trace_t0_batch
+                    input_data = np.concatenate([np.asarray(action_id_t0),
+                                                 np.asarray(s_t0_batch)],
+                                                axis=2)
+                trace_lengths = trace_t0_batch
+
+                if config.Learn.predict_target == 'ActionGoal':
+                    target_data = np.asarray(win_info_t0_batch)
+                elif config.Learn.predict_target == 'Action':
+                    target_data = np.asarray(win_info_t0_batch)
+                else:
+                    raise ValueError('unknown predict_target {0}'.format(config.Learn.predict_target))
 
                 for i in range(0, len(batch_return)):
                     terminal = batch_return[i][-2]
@@ -350,20 +363,20 @@ def run_network(sess, model, config, training_dir_games_all,
 
             save_model(game_number, saver, sess, save_network_dir, config)
 
-            if game_number % 10 == 1:
+            if game_number % 100 == 1:
                 validation_model(testing_dir_games_all, model_data_store_dir, config, sess, model,
                                  player_id_cluster_dir, source_data_store_dir)
 
 
 def save_model(game_number, saver, sess, save_network_dir, config):
-    if (game_number - 1) % 300 == 0:
+    if (game_number - 1) % 30 == 0:
         # save progress after a game
         print 'saving game', game_number
         saver.save(sess, save_network_dir + '/' + config.Learn.data_name + '-game-',
                    global_step=game_number)
 
 def run():
-    play_info = '_box'
+    play_info = '_pid'
     type = 'action_goal'
     if type == 'ap_playerId':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'

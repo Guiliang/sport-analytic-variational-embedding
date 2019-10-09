@@ -30,6 +30,9 @@ class Encoder_NN(object):
         self.sarsa_target_ph = tf.placeholder(dtype=tf.float32, shape=[None, 3], name='sarsa_target')
         self.score_diff_target_ph = tf.placeholder(dtype=tf.float32,
                                                    shape=[None, 3], name='score_diff_target')
+        self.predict_target_ph = tf.placeholder(dtype=tf.float32,
+                                                shape=[None, self.config.Arch.Predict.output_node],
+                                                name='predict_target')
         self.trace_lengths_ph = tf.placeholder(dtype=tf.int32, shape=[None], name="trace-length")
 
     def build(self):
@@ -70,8 +73,9 @@ class Encoder_NN(object):
                     if i == 0:
                         if not self.config.Learn.apply_lstm:
                             w = tf.get_variable('weight_{0}'.format(str(i)),
-                                                [self.config.Arch.Encoder.embed_dim + self.config.Arch.Encoder.input_dim,
-                                                 self.config.Arch.Sarsa.n_hidden],
+                                                [
+                                                    self.config.Arch.Encoder.embed_dim + self.config.Arch.Encoder.input_dim,
+                                                    self.config.Arch.Sarsa.n_hidden],
                                                 initializer=w_init)
                         else:
                             w = tf.get_variable('weight_{0}'.format(str(i)),
@@ -104,8 +108,9 @@ class Encoder_NN(object):
                     if i == 0:
                         if not self.config.Learn.apply_lstm:
                             w = tf.get_variable('weight_{0}'.format(str(i)),
-                                                [self.config.Arch.Encoder.embed_dim + self.config.Arch.Encoder.input_dim,
-                                                 self.config.Arch.Sarsa.n_hidden],
+                                                [
+                                                    self.config.Arch.Encoder.embed_dim + self.config.Arch.Encoder.input_dim,
+                                                    self.config.Arch.Sarsa.n_hidden],
                                                 initializer=w_init)
                         else:
                             w = tf.get_variable('weight_{0}'.format(str(i)),
@@ -127,6 +132,43 @@ class Encoder_NN(object):
                                                                                self.config.Arch.ScoreDiff.output_node],
                                                                 initializer=w_init)
                 self.score_diff_output_bias = tf.get_variable("bias_out", [self.config.Arch.ScoreDiff.output_node],
+                                                              initializer=b_init)
+
+        with tf.variable_scope("prediction"):
+            self.prediction_weight = []
+            self.prediction_bias = []
+
+            for i in range(0, self.config.Arch.Sarsa.layer_num):
+                with tf.name_scope("Dense_Layer_{0}".format(str(i))):
+                    if i == 0:
+                        if not self.config.Learn.apply_lstm:
+                            w = tf.get_variable('weight_{0}'.format(str(i)),
+                                                [
+                                                    self.config.Arch.Encoder.embed_dim + self.config.Arch.Encoder.input_dim,
+                                                    self.config.Arch.Predict.n_hidden],
+                                                initializer=w_init)
+                        else:
+                            w = tf.get_variable('weight_{0}'.format(str(i)),
+                                                [
+                                                    self.config.Arch.Encoder.embed_dim + self.config.Arch.Encoder.h_size,
+                                                    self.config.Arch.Predict.n_hidden],
+                                                initializer=w_init)
+                    # if i == self.sarsa_hidden_layer_num - 1:
+                    else:
+                        w = tf.get_variable('weight_{0}'.format(str(i)),
+                                            [self.config.Arch.Predict.n_hidden,
+                                             self.config.Arch.Predict.n_hidden],
+                                            initializer=w_init)
+                    b = tf.get_variable("bias_{0}".format(str(i)), [self.config.Arch.Predict.n_hidden],
+                                        initializer=b_init)
+                    self.prediction_weight.append(w)
+                    self.prediction_bias.append(b)
+
+            with tf.name_scope("output_Layer"):
+                self.prediction_output_weight = tf.get_variable('weight_out', [self.config.Arch.Predict.n_hidden,
+                                                                               self.config.Arch.Predict.output_node],
+                                                                initializer=w_init)
+                self.prediction_output_bias = tf.get_variable("bias_out", [self.config.Arch.Predict.output_node],
                                                               initializer=b_init)
 
     def sarsa_value_function(self, input_, embedding):
@@ -161,6 +203,22 @@ class Encoder_NN(object):
 
         return output
 
+    def prediction_value_function(self, input_, embedding):
+        with tf.variable_scope("prediction"):
+            with tf.name_scope('pred-dense-layer'):
+                dense_output = None
+                for i in range(self.config.Arch.Sarsa.layer_num):
+                    dense_input = tf.concat([input_, embedding], axis=1) if i == 0 else dense_output
+                    # dense_input = embed_layer
+                    dense_output = tf.matmul(dense_input, self.prediction_weight[i]) + self.prediction_bias[i]
+                    # if i < self.sarsa_hidden_layer_num - 1:
+                    dense_output = tf.nn.relu(dense_output, name='activation_{0}'.format(str(i)))
+
+            with tf.name_scope('pred-output-layer'):
+                output = tf.matmul(dense_output, self.prediction_output_weight) + self.prediction_output_bias
+
+        return output
+
     # Gateway
     def encoder(self):
         with tf.variable_scope("LSTM_encoder"):
@@ -177,7 +235,7 @@ class Encoder_NN(object):
                 self.batch_size = tf.shape(outputs)[0]
                 # Start indices for each sample
                 self.index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
-                                + (self.trace_lengths_ph - 1)
+                             + (self.trace_lengths_ph - 1)
                 rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Arch.Encoder.h_size]), self.index)
                 input_ = rnn_last
             else:
@@ -210,7 +268,10 @@ class Encoder_NN(object):
         self.q_values_sarsa = self.sarsa_value_function(self.embedding, input_)
         self.td_loss = tf.reduce_mean(tf.square(self.q_values_sarsa - self.sarsa_target_ph), axis=-1)
         self.td_avg_diff = tf.reduce_mean(tf.abs(self.q_values_sarsa - self.sarsa_target_ph), axis=-1)
-        tvars_sarsa = tf.trainable_variables(scope='sarsa')
+        if self.config.Learn.integral_update_flag:
+            tvars_sarsa = tf.trainable_variables()
+        else:
+            tvars_sarsa = tf.trainable_variables(scope='sarsa')
         for t in tvars_sarsa:
             print ('sarsa_var: ' + str(t.name))
         td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_sarsa)
@@ -219,11 +280,28 @@ class Encoder_NN(object):
         self.q_values_diff = self.score_diff_value_function(self.embedding, input_)
         self.td_score_diff_loss = tf.reduce_mean(tf.square(self.q_values_diff - self.score_diff_target_ph), axis=-1)
         self.td_score_diff_diff = tf.reduce_mean(tf.abs(self.q_values_diff - self.score_diff_target_ph), axis=-1)
-        tvars_score_diff = tf.trainable_variables(scope='score_diff')
+        if self.config.Learn.integral_update_flag:
+            tvars_score_diff = tf.trainable_variables()
+        else:
+            tvars_score_diff = tf.trainable_variables(scope='score_diff')
         for t in tvars_score_diff:
             print ('score_diff: ' + str(t.name))
         td_diff_grads = tf.gradients(tf.reduce_mean(self.td_score_diff_loss), tvars_score_diff)
         self.train_diff_op = self.optimizer.apply_gradients(zip(td_diff_grads, tvars_score_diff))
+
+        self.prediction_prob = self.prediction_value_function(self.embedding, input_)
+        self.predict_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels=self.predict_target_ph,
+                                                                           logits=self.prediction_prob,
+                                                                           reduction=tf.losses.Reduction.NONE))
+        if self.config.Learn.integral_update_flag:
+            tvars_prediction = tf.trainable_variables()
+        else:
+            tvars_prediction = tf.trainable_variables(scope='prediction')
+
+        for t in tvars_prediction:
+            print ('prediction: ' + str(t.name))
+        prediction_grads = tf.gradients(tf.reduce_mean(self.predict_loss), tvars_prediction)
+        self.train_prediction_op = self.optimizer.apply_gradients(zip(prediction_grads, tvars_prediction))
 
 
 if __name__ == '__main__':

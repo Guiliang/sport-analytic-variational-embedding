@@ -1,4 +1,7 @@
 import sys
+
+from config.stats_encoder_config import EncoderConfig
+
 print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 from config.cvae_config import CVAECongfig
@@ -6,12 +9,15 @@ from config.cvrnn_config import CVRNNCongfig
 from config.lstm_prediction_config import LSTMPredictConfig
 from support.model_tools import get_model_and_log_name, get_data_name, \
     validate_games_prediction
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 if __name__ == '__main__':
     local_test_flag = False
-    model_category = 'lstm_prediction'
-    model_number = 1501
-    player_info = '_box'
+    model_category = 'encoder'
+    model_number = 1
+    player_info = ''
 
     if model_category == 'cvrnn':
         predicted_target = '_PlayerLocalId_predict_nex_goal'  # playerId_
@@ -24,13 +30,20 @@ if __name__ == '__main__':
         player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
         icehockey_model_config = LSTMPredictConfig.load(icehockey_config_path)
     elif model_category == 'cvae':
-        predicted_target = '_PlayerLocalId_predict_nex_goal'  # playerId_
+        predicted_target = '_PlayerLocalId_predict_next_goal'  # playerId_
         player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
-        icehockey_config_path = "../../environment_settings/icehockey_cvae{0}_config.yaml".format(
-            predicted_target)
+        icehockey_config_path = "../../environment_settings/icehockey_cvae{0}_config{1}.yaml".format(predicted_target, player_info)
         icehockey_model_config = CVAECongfig.load(icehockey_config_path)
         # testing_file = open('./LSTM_diff{1}_model{2}_testing_results{0}.txt'. \
         #                     format(datetime.date.today().strftime("%Y%B%d"), '', str(model_number)), 'wb')
+    elif model_category == 'encoder':
+        rnn_type = ''
+        predicted_target = '_PlayerLocalId_predict_next_goal'
+        player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        icehockey_encoder_config_path = "../../environment_settings/" \
+                                        "icehockey_stats{1}_encoder{0}" \
+                                        "_config.yaml".format(predicted_target, rnn_type, player_info)
+        icehockey_model_config = EncoderConfig.load(icehockey_encoder_config_path)
     else:
         raise ValueError("uknown model catagoery {0}".format(model_category))
 
@@ -50,7 +63,7 @@ if __name__ == '__main__':
 
     print(model_category + '_' + str(model_number) + player_info)
 
-    with open('prediction_acc_' + model_category + '_' + str(model_number) + player_info, 'wb') as file_writer:
+    with open('./results/prediction_acc_' + model_category + '_' + str(model_number) + player_info, 'wb') as file_writer:
 
         if local_test_flag:
             data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"

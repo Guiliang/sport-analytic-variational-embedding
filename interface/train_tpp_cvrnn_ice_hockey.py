@@ -383,7 +383,7 @@ def train_cvrnn_model(model, sess, config, input_data, target_data, trace_length
         output_decoder.append(output_decoder_batch)
     output_decoder = np.asarray(output_decoder)
 
-    acc = compute_rnn_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
+    acc = compute_rnn_acc(output_prob=output_decoder, target_label=target_data,
                           selection_matrix=selection_matrix, config=config)
     # print acc
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
@@ -503,7 +503,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
             plot_players_games(match_q_values_players_dict, train_game_number)
 
     if validate_cvrnn_flag:
-        acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
+        acc = compute_rnn_acc(output_prob=output_decoder_all, target_label=target_data_all,
                               selection_matrix=selection_matrix_all, config=config, if_print=True)
         print ("testing acc is {0}".format(str(acc)))
     if validate_td_flag:

@@ -13,7 +13,7 @@ Learn:
   player_Id_style: 'PlayerId'
   position_max_length : 15
   apply_stochastic: True
-  apply_box_score: True
+  apply_box_score: False
   gamma : 1
   max_seq_length: 1
   integral_update_flag: True
@@ -22,7 +22,7 @@ Arch:
     n_hidden: 256
     latent_dim: 128
     x_dim : 150 # playerId dimension
-    y_dim : 83 # 12state+27action+31team (+13box-score)
+    y_dim : 70 # 12state+27action+31team
   Sarsa:
     layer_num: 2
     n_hidden: 256
