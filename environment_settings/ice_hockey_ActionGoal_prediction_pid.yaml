@@ -1,5 +1,5 @@
 Learn:
-  feature_number : 52  # 39 + 13
+  feature_number : 1042  # 39 +1003
   save_mother_dir : '/Local-Scratch'
   batch_size : 32
   keep_prob : 1
@@ -14,10 +14,10 @@ Learn:
   player_Id_style: 'PlayerId'
   sport : 'Ice-Hockey'
   gamma : 1
-  apply_box_score: True
+  apply_box_score: False
   apply_stochastic: True
   data_name: 'ice_hockey-2019'
-  apply_pid: False
+  apply_pid: True
 
 
 Arch:

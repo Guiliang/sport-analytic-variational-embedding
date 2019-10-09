@@ -10,7 +10,8 @@ import scipy.io as sio
 
 from ice_hockey_data_config import player_position_index_dict
 from sport_resource.player_name_matching_dir import nhl_stats_name_matching
-from sport_data_preprocessing.data_config import teamList, positions
+from sport_data_preprocessing.data_config import teamList, positions, \
+    action_all, interested_compute_features, interested_raw_features
 
 
 # from config.icehockey_feature_setting import select_feature_setting
@@ -627,10 +628,10 @@ def judge_feature_in_action(feature_input, actions):
     return False
 
 
-def construct_simulation_data(features_train, features_mean, features_scale,
+def construct_simulation_data(feature_names_all, features_mean, features_scale,
                               feature_type, is_home, action_type, actions, set_dict={}):
     state = []
-    for feature in features_train:
+    for feature in feature_names_all:
         if feature == 'xAdjCoord':
             xAdjCoord = set_dict.get('xAdjCoord')
             scale_xAdjCoord = float(xAdjCoord - features_mean['xAdjCoord']) / features_scale['xAdjCoord']
@@ -639,35 +640,20 @@ def construct_simulation_data(features_train, features_mean, features_scale,
             yAdjCoord = set_dict.get('yAdjCoord')
             scale_yAdjCoord = float(yAdjCoord - features_mean['yAdjCoord']) / features_scale['yAdjCoord']
             state.append(scale_yAdjCoord)
-        elif feature in set_dict:
+        elif feature in set_dict.keys():
             temp = set_dict[feature]
             scale_temp = float(temp - features_mean[feature]) / features_scale[feature]
             state.append(scale_temp)
-        elif feature_type < 5 and feature == 'event_id':
-            actions = {'block': 0,
-                       'carry': 1,
-                       'check': 2,
-                       'dumpin': 3,
-                       'dumpout': 4,
-                       'goal': 5,
-                       'lpr': 6,
-                       'offside': 7,
-                       'pass': 8,
-                       'puckprotection': 9,
-                       'reception': 10,
-                       'shot': 11,
-                       'shotagainst': 12}
-            scale_actions = float(actions[action_type] - features_mean['event_id']) / features_scale['event_id']
-            state.append(scale_actions)
-
-        elif feature_type >= 5 and action_type == feature:
-            scale_action = float(1 - features_mean[action_type]) / features_scale[action_type]
+        elif action_type == feature:
+            # scale_action = float(1 - features_mean[action_type]) / features_scale[action_type]
+            scale_action = 1
             state.append(scale_action)
-        elif feature_type >= 5 and judge_feature_in_action(feature, actions):
-            scale_action = float(0 - features_mean[feature]) / features_scale[feature]
+        elif judge_feature_in_action(feature, actions):
+            # scale_action = float(0 - features_mean[feature]) / features_scale[feature]
+            scale_action = 0
             state.append(scale_action)
-        elif feature == 'event_outcome':
-            scale_event_outcome = float(1 - features_mean['event_outcome']) / features_scale['event_outcome']
+        elif feature == 'outcome':
+            scale_event_outcome = float(1 - features_mean['outcome']) / features_scale['outcome']
             state.append(scale_event_outcome)
         elif feature == 'angel2gate':
             gate_x_coord = 89
@@ -712,25 +698,58 @@ def padding_hybrid_feature_input(hybrid_feature_input, max_trace_length, feature
 
 def start_lstm_generate_spatial_simulation(history_action_type, history_action_type_coord,
                                            action_type, data_simulation_dir, simulation_type,
-                                           feature_type, max_trace_length, features_num, is_home=True):
-    simulated_data_all = []
+                                           feature_type, max_trace_length, is_home=True):
+    simulated_data_dir_all = []
 
-    features_train, features_mean, features_scale, actions = select_feature_setting(feature_type=feature_type)
+    raw_feature_names_all = interested_raw_features + interested_compute_features
+    feature_names_all = []
+    for feature_name in raw_feature_names_all:
+        if feature_name == 'home_away':
+            feature_names_all.append('home')
+            feature_names_all.append('away')
+        else:
+            feature_names_all.append(feature_name)
+
+    features_mean_dir = '../../sport_data_preprocessing/feature_mean.txt'
+    with open(features_mean_dir, 'r') as f:
+        features_mean_read = f.readlines()
+    features_mean = {}
+    mean_count_number = 0
+    for item in features_mean_read:
+        item_values_all = item.replace('[', '').replace(']', '').replace('\n', '').split(' ')
+        item_values_all = filter(lambda a: a != '', item_values_all)
+        for item_value in item_values_all:
+            features_mean.update({feature_names_all[mean_count_number]: float(item_value)})
+            mean_count_number += 1
+
+    features_var_dir = '../../sport_data_preprocessing/feature_var.txt'
+    with open(features_var_dir, 'r') as f:
+        features_var_read = f.readlines()
+    features_var = {}
+    var_count_number = 0
+    for item in features_var_read:
+        item_values_all = item.replace('[', '').replace(']', '').replace('\n', '').split(' ')
+        item_values_all = filter(lambda a: a != '', item_values_all)
+        for item_value in item_values_all:
+            features_var.update({feature_names_all[var_count_number]: float(item_value)})
+            var_count_number += 1
 
     for history_index in range(0, len(history_action_type) + 1):
-        state_ycoord_list = []
+        input_list = []
+        trace_list = []
         for ycoord in np.linspace(-42.5, 42.5, 171):
             state_xcoord_list = []
+            trace_xcoord_list = []
             for xcoord in np.linspace(-100.0, 100.0, 401):
                 set_dict = {'xAdjCoord': xcoord, 'yAdjCoord': ycoord}
                 state_generated = construct_simulation_data(
-                    features_train=features_train,
+                    feature_names_all=feature_names_all+action_all,
                     features_mean=features_mean,
-                    features_scale=features_scale,
+                    features_scale=features_var,
                     feature_type=feature_type,
                     is_home=is_home,
                     action_type=action_type,
-                    actions=actions,
+                    actions=action_all,
                     set_dict=set_dict)
                 state_generated_list = [state_generated]
                 for inner_history in range(0, history_index):
@@ -742,22 +761,24 @@ def start_lstm_generate_spatial_simulation(history_action_type, history_action_t
                     else:
                         set_dict_history = {'xAdjCoord': xAdjCoord, 'yAdjCoord': yAdjCoord, action: 1}
                     state_generated_history = construct_simulation_data(
-                        features_train=features_train,
+                        feature_names_all=feature_names_all,
                         features_mean=features_mean,
-                        features_scale=features_scale,
+                        features_scale=features_var,
                         feature_type=feature_type,
                         is_home=is_home,
                         action_type=action_type,
-                        actions=actions,
+                        actions=action_all,
                         set_dict=set_dict_history, )
                     state_generated_list = [state_generated_history] + state_generated_list
 
                 state_generated_padding = padding_hybrid_feature_input(
                     hybrid_feature_input=state_generated_list,
                     max_trace_length=max_trace_length,
-                    features_num=features_num)
+                    features_num=len(feature_names_all) + len(action_all))
                 state_xcoord_list.append(state_generated_padding)
-            state_ycoord_list.append(np.asarray(state_xcoord_list))
+                trace_xcoord_list.append(history_index+1)
+            input_list.append(np.asarray(state_xcoord_list))
+            trace_list.append(trace_xcoord_list)
 
         store_data_dir = data_simulation_dir + '/' + simulation_type
 
@@ -769,17 +790,31 @@ def start_lstm_generate_spatial_simulation(history_action_type, history_action_t
             sio.savemat(
                 store_data_dir + "/LSTM_Home_" + simulation_type + "-" + action_type + '-' + str(
                     history_action_type[0:history_index]) + "-feature" + str(
-                    feature_type) + ".mat",
-                {'simulate_data': np.asarray(state_ycoord_list)})
+                    feature_type) + '_input' + ".mat",
+                {'simulate_data': np.asarray(input_list)})
+
+            sio.savemat(
+                store_data_dir + "/LSTM_Home_" + simulation_type + "-" + action_type + '-' + str(
+                    history_action_type[0:history_index]) + "-feature" + str(
+                    feature_type)+'_trace' + ".mat",
+                {'simulate_data': np.asarray(trace_list)})
         else:
+            sio.savemat(
+                store_data_dir + "/LSTM_Home_" + simulation_type + "-" + action_type + '-' + str(
+                    history_action_type[0:history_index]) + "-feature" + str(
+                    feature_type) + '_input' + ".mat",
+                {'simulate_data': np.asarray(input_list)})
+
             sio.savemat(
                 store_data_dir + "/LSTM_Away_" + simulation_type + "-" + action_type + '-' + str(
                     history_action_type[0:history_index]) + "-feature" + str(
-                    feature_type) + ".mat",
-                {'simulate_data': np.asarray(state_ycoord_list)})
-        simulated_data_all.append(np.asarray(state_ycoord_list))
+                    feature_type)+'_trace' + ".mat",
+                {'simulate_data': np.asarray(trace_list)})
+        # simulated_data_all.append(np.asarray(input_list))
+        simulated_data_dir_all.append(store_data_dir + "/LSTM_Home_" + simulation_type + "-" + action_type + '-' + str(
+                    history_action_type[0:history_index]) + "-feature" + str(feature_type))
 
-    return simulated_data_all
+    return simulated_data_dir_all
 
 
 def find_game_dir(dir_all, data_path, target_game_id, sports='IceHockey'):

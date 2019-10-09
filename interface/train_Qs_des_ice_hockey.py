@@ -304,7 +304,7 @@ def validate_model(testing_dir_games_all, data_store, config, sess, model,
             plot_players_games(match_q_values_players_dict, train_game_number)
 
     if validate_cvrnn_flag:
-        acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
+        acc = compute_rnn_acc(output_prob=output_decoder_all, target_label=target_data_all,
                               selection_matrix=selection_matrix_all, config=config, if_print=True)
         print ("testing acc is {0}".format(str(acc)))
     if validate_td_flag:

@@ -236,7 +236,7 @@ class CVAE_NN(object):
             with tf.name_scope('predict-output-layer'):
                 output = tf.matmul(dense_output, self.predict_output_weight) + self.predict_output_bias
 
-        return output
+        return tf.nn.softmax(output)
 
     # Gateway
     def autoencoder(self):

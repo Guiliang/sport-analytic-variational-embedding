@@ -2,6 +2,7 @@ import csv
 import datetime
 import sys
 import traceback
+
 # from random import shuffle
 
 print sys.path
@@ -11,7 +12,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
-from support.model_tools import ExperienceReplayBuffer, compute_acc
+from support.model_tools import ExperienceReplayBuffer, compute_acc, BalanceExperienceReplayBuffer
 from config.stats_encoder_config import EncoderConfig
 from nn_structure.stats_encoder_nn import Encoder_NN
 from support.data_processing_tools import handle_trace_length, compromise_state_trace_length, \
@@ -24,6 +25,7 @@ from support.model_tools import get_model_and_log_name, compute_rnn_acc
 # from support.plot_tools import plot_players_games
 
 MemoryBuffer = ExperienceReplayBuffer(capacity_number=30000)
+Prediction_MemoryBuffer = BalanceExperienceReplayBuffer(capacity_number=30000)
 
 
 def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_store, source_data_dir,
@@ -32,11 +34,15 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                               validate_td_flag=False,
                               validate_diff_flag=False,
                               validate_variance_flag=False,
+                              validate_predict_flag=False,
                               output_decoder_all=None,
                               target_data_all=None,
                               q_values_all=None,
                               output_label_all=None,
-                              real_label_all=None):
+                              real_label_all=None,
+                              pred_target_data_all=None,
+                              pred_output_prob_all=None
+                              ):
     if validate_variance_flag:
         match_q_values_players_dict = {}
         for i in range(config.Learn.player_cluster_number):
@@ -44,16 +50,17 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
     else:
         match_q_values_players_dict = None
 
-    state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
+    state_trace_length, state_input, reward, actions, team_id, player_index = get_icehockey_game_data(
         data_store=data_store, dir_game=dir_game, config=config, player_id_cluster_dir=player_id_cluster_dir)
 
     if config.Learn.apply_lstm:
+        raise ValueError('no! do not use LSTM!')
         encoder_trace = state_trace_length
         encoder_state_input = state_input
         player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
                                         max_length=config.Learn.max_seq_length)
         encoder_player_index = player_index_seq
-        action_seq = transfer2seq(data=action, trace_length=state_trace_length,
+        action_seq = transfer2seq(data=actions, trace_length=state_trace_length,
                                   max_length=config.Learn.max_seq_length)
         encoder_action = action_seq
         team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
@@ -74,9 +81,80 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         encoder_trace = state_zero_trace
         encoder_state_input = state_zero_input
         encoder_player_index = player_index
-        encoder_action = action
+        encoder_action = actions
         encoder_team_id = team_id
         axis_concat = 1
+
+    if config.Arch.Predict.predict_target == 'ActionGoal':
+        add_pred_flag = True
+        actions_all = read_feature_within_events(directory=dir_game,
+                                                 data_path=source_data_dir,
+                                                 feature_name='name')
+        next_goal_label = []
+        data_length = state_trace_length.shape[0]
+        new_reward = []
+        new_action = []
+        new_state_zero_input = []
+        new_state_zero_trace = []
+        new_team_id = []
+        new_player_index = []
+        for action_index in range(0, data_length):
+            action = actions_all[action_index]
+            if 'shot' in action:
+                if action_index + 1 == data_length:
+                    continue
+                new_reward.append(reward[action_index])
+                new_action.append(actions[action_index])
+                new_state_zero_input.append(state_zero_input[action_index])
+                new_state_zero_trace.append(state_zero_trace[action_index])
+                new_team_id.append(team_id[action_index])
+                new_player_index.append(player_index[action_index])
+                if actions_all[action_index + 1] == 'goal':
+                    # print(actions_all[action_index+1])
+                    next_goal_label.append([1, 0])
+                else:
+                    # print(actions_all[action_index + 1])
+                    next_goal_label.append([0, 1])
+        pred_target = next_goal_label
+    elif config.Arch.Predict.predict_target == 'Action':
+        add_pred_flag = True
+        pred_target = actions[1:, :]
+        new_reward = reward[:-1]
+        new_action = actions[:-1, :, :]
+        new_state_zero_input = state_zero_input[:-1, :, :]
+        new_state_zero_trace = state_zero_trace[:-1]
+        new_team_id = team_id[:-1, :, :]
+        new_player_index = player_index[:-1, :, :]
+    else:
+        # raise ValueError()
+        add_pred_flag = False
+
+    if add_pred_flag:
+        # if training_flag:
+        #     pred_train_mask = np.asarray([1] * len(new_state_zero_input))
+        # else:
+        #     pred_train_mask = np.asarray([1] * len(new_state_zero_input))  # we should apply encoder output
+        if config.Learn.predict_target == 'PlayerLocalId':
+            pred_input_data = np.concatenate([np.asarray(new_player_index),
+                                              np.asarray(new_team_id),
+                                              np.asarray(new_state_zero_input),
+                                              np.asarray(new_action), ], axis=1)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_zero_trace
+        else:
+            pred_input_data = np.concatenate([np.asarray(new_player_index),
+                                              np.asarray(new_state_zero_input),
+                                              np.asarray(new_action)], axis=1)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_zero_trace
+        if training_flag:
+            for i in range(len(new_state_zero_input)):
+                cache_label = np.argmax(pred_target_data[i], axis=0)
+                Prediction_MemoryBuffer.push([pred_input_data[i],
+                                              pred_target_data[i],
+                                              pred_trace_lengths[i],
+                                              # pred_train_mask[i]
+                                              ], cache_label)
 
     score_diff = compute_game_score_diff_vec(rewards=reward)
     score_difference_game = read_feature_within_events(dir_game,
@@ -228,6 +306,17 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                              r_t_batch, score_diff_base_t0, outcome_data,
                              train_mask, terminal, cut)
 
+            if add_pred_flag:
+                sampled_data = Prediction_MemoryBuffer.sample(batch_size=config.Learn.batch_size)
+                sample_pred_input_data = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
+                sample_pred_target_data = np.asarray([sampled_data[j][1] for j in range(len(sampled_data))])
+                sample_pred_trace_lengths = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
+                # sample_pred_train_mask = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
+
+                train_prediction(model, sess, config,
+                                 sample_pred_input_data,
+                                 sample_pred_target_data)
+
         else:
             # for i in range(0, len(r_t_batch)):
             #     if i == len(r_t_batch) - 1:
@@ -274,8 +363,21 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         if terminal:
             break
 
+    if validate_predict_flag and add_pred_flag:
+        pred_target_data, pred_output_prob = validate_prediction(model, sess, config,
+                                                                 pred_input_data,
+                                                                 pred_target_data)
+        if pred_target_data_all is None:
+            pred_target_data_all = pred_target_data
+        else:
+            pred_target_data_all = np.concatenate([pred_target_data_all, pred_target_data], axis=0)
+
+        if pred_output_prob_all is None:
+            pred_output_prob_all = pred_output_prob
+        else:
+            pred_output_prob_all = np.concatenate([pred_output_prob_all, pred_output_prob], axis=0)
     return [output_decoder_all, target_data_all,
-            q_values_all, real_label_all, output_label_all]
+            q_values_all, real_label_all, output_label_all, pred_target_data_all, pred_output_prob_all]
 
 
 def run_network(sess, model, config, log_dir, save_network_dir,
@@ -303,18 +405,19 @@ def run_network(sess, model, config, log_dir, save_network_dir,
             gathering_running_and_run(dir_game, config,
                                       player_id_cluster_dir, data_store, source_data_dir, model, sess,
                                       training_flag=True, game_number=game_number)
+            save_model(game_number, saver, sess, save_network_dir, config)
             if game_number % 100 == 1:
-                save_model(game_number, saver, sess, save_network_dir, config)
                 validate_model(testing_dir_games_all, data_store, source_data_dir, config,
                                sess, model, player_id_cluster_dir,
                                train_game_number=game_number,
                                validate_cvrnn_flag=True,
                                validate_td_flag=True,
-                               validate_diff_flag=True)
+                               validate_diff_flag=True,
+                               validate_predict_flag=True)
 
 
 def save_model(game_number, saver, sess, save_network_dir, config):
-    if (game_number - 1) % 300 == 0:
+    if (game_number - 1) % 30 == 0:
         # save progress after a game
         print 'saving game', game_number
         saver.save(sess, save_network_dir + '/' + config.Learn.data_name + '-game-',
@@ -344,6 +447,47 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 #             correct_num += 1
 #
 #     # print('accuracy of win prob is {0}'.format(str(float(correct_num)/len(input_data))))
+
+
+def train_prediction(model, sess, config, sample_pred_input_data,
+                     sample_pred_target_data):
+    if config.Learn.apply_lstm:
+        feed_dict = {}
+    else:
+        feed_dict = {model.input_ph: sample_pred_input_data[:, config.Arch.Encoder.output_dim:],
+                     model.predict_target_ph: sample_pred_target_data
+                     }
+
+    [
+        predict_output,
+        _
+    ] = sess.run([
+        model.prediction_prob,
+        model.train_prediction_op],
+        feed_dict=feed_dict
+    )
+
+    acc = compute_acc(predict_output, sample_pred_target_data, if_print=False)
+    pass
+
+
+def validate_prediction(model, sess, config, sample_pred_input_data,
+                        sample_pred_target_data):
+    if config.Learn.apply_lstm:
+        feed_dict = {}
+    else:
+        feed_dict = {model.input_ph: sample_pred_input_data[:, config.Arch.Encoder.output_dim:]
+                     }
+
+    [
+        predict_output,
+    ] = sess.run([
+        model.prediction_prob],
+        feed_dict=feed_dict
+    )
+
+    # acc = compute_acc(predict_output, sample_pred_target_data, if_print=False)
+    return sample_pred_target_data, predict_output
 
 
 def train_score_diff(model, sess, config,
@@ -522,7 +666,7 @@ def train_encoder_model(model, sess, config, input_data, target_data, sample_tra
         feed_dict=feed_dict
     )
 
-    acc = compute_acc(target_actions_prob=target_data, output_actions_prob=output_x)
+    acc = compute_acc(target_label=target_data, output_prob=output_x)
     # print acc
     # if cost_out > 0.0001: # TODO: we still need to consider how to define convergence
     #     converge_flag = False
@@ -573,7 +717,6 @@ def diff_validation(sess, model, input_data_t0, target_data_t0,
                     trace_length_t0, train_mask,
                     score_diff_base_t0,
                     config, outcome_data):
-
     if config.Learn.apply_lstm:
         feed_dict = {model.output_ph: target_data_t0,
                      model.input_ph: input_data_t0[:, :, config.Arch.Encoder.output_dim:],
@@ -597,7 +740,8 @@ def diff_validation(sess, model, input_data_t0, target_data_t0,
 
 
 def validate_model(testing_dir_games_all, data_store, source_data_dir, config, sess, model,
-                   player_id_cluster_dir, train_game_number, validate_cvrnn_flag, validate_td_flag, validate_diff_flag):
+                   player_id_cluster_dir, train_game_number, validate_cvrnn_flag, validate_td_flag,
+                   validate_diff_flag, validate_predict_flag):
     output_decoder_all = None
     target_data_all = None
     q_values_all = None
@@ -620,22 +764,24 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
 
         [output_decoder_all, target_data_all,
          q_values_all, real_label_all,
-         output_label_all] = gathering_running_and_run(dir_game, config,
-                                                       player_id_cluster_dir,
-                                                       data_store,
-                                                       source_data_dir,
-                                                       model, sess,
-                                                       training_flag=False,
-                                                       game_number=None,
-                                                       validate_cvrnn_flag=validate_cvrnn_flag,
-                                                       validate_td_flag=validate_td_flag,
-                                                       validate_diff_flag=validate_diff_flag,
-                                                       validate_variance_flag=validate_variance_flag,
-                                                       output_decoder_all=output_decoder_all,
-                                                       target_data_all=target_data_all,
-                                                       q_values_all=q_values_all,
-                                                       output_label_all=output_label_all,
-                                                       real_label_all=real_label_all)
+         output_label_all, pred_target_data_all,
+         pred_output_prob_all] = gathering_running_and_run(dir_game, config,
+                                                           player_id_cluster_dir,
+                                                           data_store,
+                                                           source_data_dir,
+                                                           model, sess,
+                                                           training_flag=False,
+                                                           game_number=None,
+                                                           validate_cvrnn_flag=validate_cvrnn_flag,
+                                                           validate_td_flag=validate_td_flag,
+                                                           validate_diff_flag=validate_diff_flag,
+                                                           validate_variance_flag=validate_variance_flag,
+                                                           validate_predict_flag=validate_predict_flag,
+                                                           output_decoder_all=output_decoder_all,
+                                                           target_data_all=target_data_all,
+                                                           q_values_all=q_values_all,
+                                                           output_label_all=output_label_all,
+                                                           real_label_all=real_label_all)
         # validate_variance_flag = False
         # if match_q_values_players_dict is not None:
         #     plot_players_games(match_q_values_players_dict, train_game_number)
@@ -670,12 +816,17 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
                 if i % 100 == 0 and total_number > 0:
                     print('diff of time {0} is {1}'.format(str(i), str(float(diff_sum) / total_number)))
 
+    if validate_predict_flag:
+        acc = compute_acc(pred_output_prob_all, pred_target_data_all, if_print=True)
+        print('prediction acc is {0}'.format(str(acc)))
+
 
 def run():
     training = True
     local_test_flag = False
     player_id_type = 'local_id'
-    rnn_type = '_lstm'
+    rnn_type = ''
+    player_info = '_predict_next_goal'
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = '_PlayerPositionClusterAP'  # playerId_
@@ -690,8 +841,11 @@ def run():
         predicted_target = ''
 
     icehockey_encoder_config_path = "../environment_settings/" \
-                                    "icehockey_stats{1}_encoder{0}_config.yaml".format(predicted_target, rnn_type)
+                                    "icehockey_stats{1}_encoder{0}{2}_config.yaml".format(predicted_target,
+                                                                                          rnn_type,
+                                                                                          player_info)
     icehockey_encoder_config = EncoderConfig.load(icehockey_encoder_config_path)
+    Prediction_MemoryBuffer.set_cache_memory(cache_number=icehockey_encoder_config.Arch.Predict.output_node)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_encoder_config, model_catagoery='encoder')
 
     if local_test_flag:
@@ -761,7 +915,8 @@ def run():
                        train_game_number=None,
                        validate_cvrnn_flag=True,
                        validate_td_flag=True,
-                       validate_diff_flag=True)
+                       validate_diff_flag=True,
+                       validate_predict_flag=True)
         sess.close()
 
 

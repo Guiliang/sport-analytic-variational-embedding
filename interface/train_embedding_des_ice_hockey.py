@@ -170,7 +170,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pre
                 # game_diff_record_dict.update({dir_game: v_diff_record_average})
                 break
     if predicted_target == 'action':
-        acc = compute_acc(output_actions_prob=model_output_all, target_actions_prob=target_data_all, if_print=True)
+        acc = compute_acc(output_prob=model_output_all, target_label=target_data_all, if_print=True)
         print ("testing acc is {0}".format(str(acc)))
     else:
         mae = compute_mae(output_actions_prob=model_output_all, target_actions_prob=target_data_all, if_print=True)

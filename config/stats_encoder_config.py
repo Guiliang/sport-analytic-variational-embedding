@@ -13,6 +13,7 @@ class EncoderConfig(object):
         number_of_total_game = None
         player_Id_style = None
         sport = None
+        integral_update_flag = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
@@ -20,6 +21,7 @@ class EncoderConfig(object):
             self.Encoder = EncoderConfig.Arch.Encoder(init["Encoder"])
             self.Sarsa = EncoderConfig.Arch.Sarsa(init["Sarsa"])
             self.ScoreDiff = EncoderConfig.Arch.ScoreDiff(init["ScoreDiff"])
+            self.Predict = EncoderConfig.Arch.Predict(init["Predict"])
 
         class Encoder(InitWithDict):
             n_hidden = None
@@ -36,6 +38,12 @@ class EncoderConfig(object):
             layer_num = None
             n_hidden = None
             output_node = None
+
+        class Predict(InitWithDict):
+            layer_num = None
+            n_hidden = None
+            output_node = None
+            predict_target = None
 
     @staticmethod
     def load(file_path):

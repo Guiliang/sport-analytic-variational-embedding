@@ -158,7 +158,7 @@ def train_model(model, sess, config, input_data, target_data, trace_lengths, sel
         output_decoder.append(output_decoder_batch)
     output_decoder = np.asarray(output_decoder)
 
-    acc = compute_rnn_acc(output_actions_prob=output_decoder, target_actions_prob=target_data,
+    acc = compute_rnn_acc(output_prob=output_decoder, target_label=target_data,
                           selection_matrix=selection_matrix, config=config)
 
     # perform gradient step
@@ -295,7 +295,7 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
             if terminal:
                 break
 
-    acc = compute_rnn_acc(output_actions_prob=output_decoder_all, target_actions_prob=target_data_all,
+    acc = compute_rnn_acc(output_prob=output_decoder_all, target_label=target_data_all,
                           selection_matrix=selection_matrix_all, config=config, if_print=True)
     print ("testing acc is {0}".format(str(acc)))
 
