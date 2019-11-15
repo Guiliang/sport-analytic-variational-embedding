@@ -162,8 +162,12 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
     if model_catagoery == 'cvrnn':  # TODO: add more parameters
         if config.Learn.integral_update_flag:
             player_info += '_integral'
+        if config.Learn.rnn_skip_player:
+            player_info += '_skip'
         if config.Arch.Predict.predict_target is not None:
             player_info += '_' + config.Arch.Predict.predict_target
+        if not config.Learn.apply_stochastic:
+            player_info += '_deter'
         log_dir = "{0}/oschulte/Galen/icehockey-models/cvrnn_log_NN" \
                   "/{1}cvrnn_log_feature{2}_latent{8}_x{9}_y{10}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}".format(config.Learn.save_mother_dir,
@@ -412,6 +416,11 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
 
     elif model_catagoery == 'cvae':  # TODO: add more parameters
 
+        if config.Learn.apply_lstm:
+            lstm_msg = '_lstm'
+        else:
+            lstm_msg = ''
+
         if config.Learn.integral_update_flag:
             player_info += '_integral'
         if config.Arch.Predict.predict_target is not None:
@@ -419,37 +428,39 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
 
         log_dir = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN" \
                   "/{1}cvae_log_feature{2}_latent{8}_x{9}_y{10}" \
-                  "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
-                                                              train_msg,
-                                                              str(config.Learn.feature_type),
-                                                              str(config.Learn.batch_size),
-                                                              str(config.Learn.iterate_num),
-                                                              str(config.Learn.learning_rate),
-                                                              str(config.Learn.model_type),
-                                                              None,
-                                                              str(config.Arch.CVAE.latent_dim),
-                                                              str(config.Arch.CVAE.x_dim),
-                                                              str(config.Arch.CVAE.y_dim),
-                                                              None,
-                                                              player_info
-                                                              )
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                                                                  train_msg,
+                                                                  str(config.Learn.feature_type),
+                                                                  str(config.Learn.batch_size),
+                                                                  str(config.Learn.iterate_num),
+                                                                  str(config.Learn.learning_rate),
+                                                                  str(config.Learn.model_type),
+                                                                  None,
+                                                                  str(config.Arch.CVAE.latent_dim),
+                                                                  str(config.Arch.CVAE.x_dim),
+                                                                  str(config.Arch.CVAE.y_dim),
+                                                                  None,
+                                                                  player_info,
+                                                                  lstm_msg
+                                                                  )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN/" \
                         "{1}cvae_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
-                        "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
-                                                                    train_msg,
-                                                                    str(config.Learn.feature_type),
-                                                                    str(config.Learn.batch_size),
-                                                                    str(config.Learn.iterate_num),
-                                                                    str(config.Learn.learning_rate),
-                                                                    str(config.Learn.model_type),
-                                                                    None,
-                                                                    str(config.Arch.CVAE.latent_dim),
-                                                                    str(config.Arch.CVAE.x_dim),
-                                                                    str(config.Arch.CVAE.y_dim),
-                                                                    None,
-                                                                    player_info
-                                                                    )
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                                                                        train_msg,
+                                                                        str(config.Learn.feature_type),
+                                                                        str(config.Learn.batch_size),
+                                                                        str(config.Learn.iterate_num),
+                                                                        str(config.Learn.learning_rate),
+                                                                        str(config.Learn.model_type),
+                                                                        None,
+                                                                        str(config.Arch.CVAE.latent_dim),
+                                                                        str(config.Arch.CVAE.x_dim),
+                                                                        str(config.Arch.CVAE.y_dim),
+                                                                        None,
+                                                                        player_info,
+                                                                        lstm_msg
+                                                                        )
 
     elif model_catagoery == 'encoder':
 
@@ -552,9 +563,11 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
     return saved_network, log_dir
 
 
-def compute_rnn_acc(target_label, output_prob, selection_matrix, config, if_print=False):
+def compute_rnn_acc(target_label, output_prob, selection_matrix, config, if_print=False,
+                    if_add_ll=False):
     total_number = 0
     correct_number = 0
+    ll_sum = 0
     correct_output_all = {}
     for batch_index in range(0, len(selection_matrix)):
         for trace_length_index in range(0, config.Learn.max_seq_length):
@@ -562,6 +575,11 @@ def compute_rnn_acc(target_label, output_prob, selection_matrix, config, if_prin
                 total_number += 1
                 output_prediction = np.argmax(output_prob[batch_index][trace_length_index])
                 target_prediction = np.argmax(target_label[batch_index][trace_length_index])
+                if if_add_ll:
+                    likelihood = output_prob[batch_index][trace_length_index] * \
+                                 target_label[batch_index][trace_length_index]
+                    ll = np.log(likelihood[target_prediction] + 1e-10)
+                    ll_sum += ll
                 if output_prediction == target_prediction:
                     correct_number += 1
                     if correct_output_all.get(output_prediction) is None:
@@ -572,8 +590,10 @@ def compute_rnn_acc(target_label, output_prob, selection_matrix, config, if_prin
 
     if if_print:
         print(correct_output_all)
-
-    return float(correct_number) / float(total_number)
+    if if_add_ll:
+        return float(correct_number) / total_number, float(ll_sum) / total_number
+    else:
+        return float(correct_number) / total_number
 
 
 def compute_mae(target_actions_prob, output_actions_prob, if_print=False):
@@ -590,9 +610,11 @@ def compute_mae(target_actions_prob, output_actions_prob, if_print=False):
 
 def compute_acc(target_label, output_prob,
                 if_print=False,
-                if_binary_result=False):
+                if_binary_result=False,
+                if_add_ll=False):
     total_number = 0
     correct_number = 0
+    ll_sum = 0
     correct_output_all = {}
 
     if if_binary_result:
@@ -617,6 +639,10 @@ def compute_acc(target_label, output_prob,
                 FP += 1
             else:
                 raise ValueError('It is not binary result')
+        if if_add_ll:
+            likelihood = output_prob[batch_index] * target_label[batch_index]
+            ll = np.log(likelihood[target_prediction] + 1e-10)
+            ll_sum += ll
 
         if output_prediction == target_prediction:
             correct_number += 1
@@ -630,9 +656,15 @@ def compute_acc(target_label, output_prob,
         print(correct_output_all)
 
     if if_binary_result:
-        return TP, TN, FP, FN, float(correct_number) / float(total_number)
+        if if_add_ll:
+            return TP, TN, FP, FN, float(correct_number) / total_number, float(ll_sum) / total_number
+        else:
+            return TP, TN, FP, FN, float(correct_number) / total_number
     else:
-        return float(correct_number) / float(total_number)
+        if if_add_ll:
+            return float(correct_number) / total_number, float(ll_sum) / total_number
+        else:
+            return float(correct_number) / total_number
 
 
 def calc_pdf(y, mu, var):
@@ -761,6 +793,23 @@ def compute_game_ids(sess_nn, model, data_store,
         output_model_prob = output_x
         target_model_label = player_index
         selection_matrix = None
+    elif model_category == "lstm_prediction":
+        input_data = np.concatenate([np.asarray(action_seq),
+                                     np.asarray(state_input)],
+                                    axis=2)
+        trace_lengths = state_trace_length
+
+        [
+            output_prob
+        ] = sess_nn.run([
+            model.read_out
+        ],
+            feed_dict={model.rnn_input_ph: input_data,
+                       model.trace_lengths_ph: trace_lengths}
+        )
+        output_model_prob = output_prob
+        target_model_label = player_index
+        selection_matrix = None
 
     else:
         raise ValueError('Unknown category {0}'.format(model_category))
@@ -794,7 +843,7 @@ def get_model_prediction_output(sess_nn, model, config, pred_input_data, pred_tr
                                             feed_dict={model.rnn_input_ph: pred_input_data,
                                                        model.trace_lengths_ph: pred_trace_lengths})
     elif model_category == 'encoder':
-        feed_dict = {model.input_ph: pred_input_data[:, config.Arch.Encoder.output_dim:] }
+        feed_dict = {model.input_ph: pred_input_data[:, config.Arch.Encoder.output_dim:]}
         [
             readout_pred_output,
         ] = sess_nn.run([
@@ -943,9 +992,9 @@ def compute_game_prediction(sess_nn, model,
                                                           pred_trace_lengths, model_category)
     elif model_category == 'encoder':
         pred_input_data = np.concatenate([np.asarray(new_player_index),
-                                     np.asarray(new_team_id),
-                                     np.asarray(new_state_zero_input),
-                                     np.asarray(new_action)], axis=1)
+                                          np.asarray(new_team_id),
+                                          np.asarray(new_state_zero_input),
+                                          np.asarray(new_action)], axis=1)
         pred_target_data = np.asarray(np.asarray(pred_target))
         pred_trace_lengths = new_state_zero_trace
 
@@ -1100,23 +1149,36 @@ def validate_games_prediction(config,
                 # try:
                 output_decoder_all = np.concatenate([output_decoder_all, output_prediction_prob], axis=0)
                 target_data_all = np.concatenate([target_data_all, target_prediction], axis=0)
-        TP, TN, FP, FN, acc = compute_acc(output_prob=output_decoder_all,
-                                          target_label=target_data_all,
-                                          if_print=True,
-                                          if_binary_result=True)
-        print ("prediction testing acc is {0} with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
-                                                                                          str(TP),
-                                                                                          str(TN),
-                                                                                          str(FP),
-                                                                                          str(FN)
-                                                                                          ))
+        TP, TN, FP, FN, acc, ll = compute_acc(output_prob=output_decoder_all,
+                                              target_label=target_data_all,
+                                              if_print=True,
+                                              if_binary_result=True,
+                                              if_add_ll=True)
+        precision = float(TP) / (TP + FP)
+        recall = float(TP) / (TP + FN)
+        f1 = 2 * precision * recall / precision + recall
+        print ("prediction testing precision is {6}, recall is {7}, f1{8}, acc is {0}, ll is {5} "
+               "with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
+                                                            str(TP),
+                                                            str(TN),
+                                                            str(FP),
+                                                            str(FN),
+                                                            str(ll),
+                                                            str(precision),
+                                                            str(recall),
+                                                            str(f1)
+                                                            ))
         if file_writer is not None:
-            file_writer.write("prediction testing acc is {0} "
+            file_writer.write("prediction testing precision is {6}, recall is {7}, acc is {0}, ll is {5} "
                               "with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
                                                                            str(TP),
                                                                            str(TN),
                                                                            str(FP),
-                                                                           str(FN)
+                                                                           str(FN),
+                                                                           str(ll),
+                                                                           str(precision),
+                                                                           str(recall),
+                                                                           str(f1)
                                                                            ))
 
     elif prediction_type == 'spatial_simulation':
@@ -1173,6 +1235,13 @@ def validate_games_player_id(config,
         model_nn = encoder
         sess_nn.run(tf.global_variables_initializer())
         model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'lstm_prediction':
+        model_nn = Td_Prediction_NN(config=config)
+        model_nn.initialize_ph()
+        model_nn.build()
+        model_nn.call()
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     if model_number is not None:
         saver = tf.train.Saver()
         saver.restore(sess_nn, model_path)
@@ -1212,14 +1281,15 @@ def validate_games_player_id(config,
             if selection_matrix is not None:
                 selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix], axis=0)
     if selection_matrix_all is not None:
-        acc = compute_rnn_acc(output_prob=output_decoder_all, target_label=target_data_all,
-                              selection_matrix=selection_matrix_all, config=config, if_print=True)
+        acc, ll = compute_rnn_acc(output_prob=output_decoder_all, target_label=target_data_all,
+                                  selection_matrix=selection_matrix_all, config=config,
+                                  if_print=True, if_add_ll=True)
     else:
-        acc = compute_acc(target_label=target_data_all, output_prob=output_decoder_all)
-    print ("testing acc is {0}".format(str(acc)))
+        acc, ll = compute_acc(target_label=target_data_all, output_prob=output_decoder_all, if_add_ll=True)
+    print ("testing acc is {0} with ll {1}".format(str(acc), str(ll)))
 
     if file_writer is not None:
-        file_writer.write("testing acc is {0}\n".format(str(acc)))
+        file_writer.write("testing acc is {0} with ll {1}\n".format(str(acc), str(ll)))
 
 
 def compute_games_Q_values(config, data_store_dir, dir_all,

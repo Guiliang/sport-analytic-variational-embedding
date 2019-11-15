@@ -51,17 +51,40 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
     state_trace_length, state_input, reward, actions, team_id, player_index = get_icehockey_game_data(
         data_store=data_store, dir_game=dir_game, config=config, player_id_cluster_dir=player_id_cluster_dir)
-    state_zero_trace = [1] * len(state_trace_length)
-    state_zero_input = []
-    for trace_index in range(0, len(state_trace_length)):
-        trace_length = state_trace_length[trace_index]
-        trace_length = trace_length - 1
-        if trace_length > 9:
-            trace_length = 9
-        state_zero_input.append(state_input[trace_index, trace_length, :])
-    state_zero_input = np.asarray(state_zero_input)
-    score_diff = compute_game_score_diff_vec(rewards=reward)
 
+    if config.Learn.apply_lstm:
+        # raise ValueError('no! do not use LSTM!')
+        encoder_trace = state_trace_length
+        encoder_state_input = state_input
+        player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                        max_length=config.Learn.max_seq_length)
+        encoder_player_index = player_index_seq
+        action_seq = transfer2seq(data=actions, trace_length=state_trace_length,
+                                  max_length=config.Learn.max_seq_length)
+        encoder_action = action_seq
+        team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
+                                   max_length=config.Learn.max_seq_length)
+        encoder_team_id = team_id_seq
+        axis_concat = 2
+
+    else:
+        state_zero_trace = [1] * len(state_trace_length)
+        state_zero_input = []
+        for trace_index in range(0, len(state_trace_length)):
+            trace_length = state_trace_length[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            state_zero_input.append(state_input[trace_index, trace_length, :])
+        state_zero_input = np.asarray(state_zero_input)
+        encoder_trace = state_zero_trace
+        encoder_state_input = state_zero_input
+        encoder_player_index = player_index
+        encoder_action = actions
+        encoder_team_id = team_id
+        axis_concat = 1
+
+    score_diff = compute_game_score_diff_vec(rewards=reward)
     score_difference_game = read_feature_within_events(dir_game,
                                                        source_data_dir,
                                                        'scoreDifferential',
@@ -77,8 +100,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         data_length = state_trace_length.shape[0]
         new_reward = []
         new_action = []
-        new_state_zero_input = []
-        new_state_zero_trace = []
+        new_state_input = []
+        new_state_trace = []
         new_team_id = []
         new_player_index = []
         for action_index in range(0, data_length):
@@ -86,12 +109,20 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             if 'shot' in action:
                 if action_index + 1 == data_length:
                     continue
-                new_reward.append(reward[action_index])
-                new_action.append(actions[action_index])
-                new_state_zero_input.append(state_zero_input[action_index])
-                new_state_zero_trace.append(state_zero_trace[action_index])
-                new_team_id.append(team_id[action_index])
-                new_player_index.append(player_index[action_index])
+                if config.Learn.apply_lstm:
+                    new_reward.append(reward[action_index])
+                    new_action.append(encoder_action[action_index])
+                    new_state_input.append(encoder_state_input[action_index])
+                    new_state_trace.append(encoder_trace[action_index])
+                    new_team_id.append(encoder_team_id[action_index])
+                    new_player_index.append(encoder_player_index[action_index])
+                else:
+                    new_reward.append(reward[action_index])
+                    new_action.append(encoder_action[action_index])
+                    new_state_input.append(encoder_state_input[action_index])
+                    new_state_trace.append(encoder_trace[action_index])
+                    new_team_id.append(encoder_team_id[action_index])
+                    new_player_index.append(encoder_player_index[action_index])
                 if actions_all[action_index + 1] == 'goal':
                     # print(actions_all[action_index+1])
                     next_goal_label.append([1, 0])
@@ -104,8 +135,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         pred_target = actions[1:, :]
         new_reward = reward[:-1]
         new_action = actions[:-1, :, :]
-        new_state_zero_input = state_zero_input[:-1, :, :]
-        new_state_zero_trace = state_zero_trace[:-1]
+        new_state_input = encoder_state_input[:-1, :, :]
+        new_state_trace = encoder_trace[:-1]
         new_team_id = team_id[:-1, :, :]
         new_player_index = player_index[:-1, :, :]
     else:
@@ -114,24 +145,24 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
     if add_pred_flag:
         if training_flag:
-            pred_train_mask = np.asarray([1] * len(new_state_zero_input))
+            pred_train_mask = np.asarray([1] * len(new_state_input))
         else:
-            pred_train_mask = np.asarray([1] * len(new_state_zero_input))  # we should apply encoder output
+            pred_train_mask = np.asarray([1] * len(new_state_input))  # we should apply encoder output
         if config.Learn.predict_target == 'PlayerLocalId':
             pred_input_data = np.concatenate([np.asarray(new_player_index),
                                               np.asarray(new_team_id),
-                                              np.asarray(new_state_zero_input),
+                                              np.asarray(new_state_input),
                                               np.asarray(new_action), ], axis=1)
             pred_target_data = np.asarray(np.asarray(pred_target))
-            pred_trace_lengths = new_state_zero_trace
+            pred_trace_lengths = new_state_input
         else:
             pred_input_data = np.concatenate([np.asarray(new_player_index),
-                                              np.asarray(new_state_zero_input),
+                                              np.asarray(new_state_input),
                                               np.asarray(new_action)], axis=1)
             pred_target_data = np.asarray(np.asarray(pred_target))
-            pred_trace_lengths = new_state_zero_trace
+            pred_trace_lengths = new_state_trace
         if training_flag:
-            for i in range(len(new_state_zero_input)):
+            for i in range(len(new_state_input)):
                 cache_label = np.argmax(pred_target_data[i], axis=0)
                 Prediction_MemoryBuffer.push([pred_input_data[i],
                                               pred_target_data[i],
@@ -154,14 +185,14 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         train_number, \
         s_tl, \
         print_flag = get_together_training_batch(s_t0=s_t0,
-                                                 state_input=state_zero_input,
+                                                 state_input=encoder_state_input,
                                                  reward=reward,
-                                                 player_index=player_index,
+                                                 player_index=encoder_player_index,
                                                  train_number=train_number,
                                                  train_len=train_len,
-                                                 state_trace_length=state_zero_trace,
-                                                 action=actions,
-                                                 team_id=team_id,
+                                                 state_trace_length=encoder_trace,
+                                                 action=encoder_action,
+                                                 team_id=encoder_team_id,
                                                  win_info=score_diff,
                                                  score_info=score_difference_game,
                                                  config=config)
@@ -201,33 +232,38 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch),
                                             np.asarray(team_id_t0_batch),
                                             np.asarray(s_t0_batch),
-                                            np.asarray(action_id_t0)], axis=1)
+                                            np.asarray(action_id_t0)], axis=axis_concat)
             target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
             input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch),
                                             np.asarray(team_id_t1_batch),
                                             np.asarray(s_t1_batch),
-                                            np.asarray(action_id_t1)], axis=1)
+                                            np.asarray(action_id_t1)], axis=axis_concat)
             target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+            trace_length_t0 = np.asarray(trace_t0_batch)
+            trace_length_t1 = np.asarray(trace_t1_batch)
         else:
             input_data_t0 = np.concatenate([np.asarray(player_id_t0_batch), np.asarray(s_t0_batch),
-                                            np.asarray(action_id_t0)], axis=1)
+                                            np.asarray(action_id_t0)], axis=axis_concat)
             target_data_t0 = np.asarray(np.asarray(player_id_t0_batch))
             input_data_t1 = np.concatenate([np.asarray(player_id_t1_batch), np.asarray(s_t1_batch),
-                                            np.asarray(action_id_t1)], axis=1)
+                                            np.asarray(action_id_t1)], axis=axis_concat)
             target_data_t1 = np.asarray(np.asarray(player_id_t1_batch))
+            trace_length_t0 = np.asarray(trace_t0_batch)
+            trace_length_t1 = np.asarray(trace_t1_batch)
 
         if training_flag:
 
             if config.Learn.apply_stochastic:
                 for i in range(len(input_data_t0)):
-                    MemoryBuffer.push([input_data_t0[i], target_data_t0[i],
-                                       input_data_t1[i], target_data_t1[i],
+                    MemoryBuffer.push([input_data_t0[i], target_data_t0[i], trace_length_t0[i],
+                                       input_data_t1[i], target_data_t1[i], trace_length_t1[i],
                                        r_t_batch[i], win_id_t_batch[i],
                                        terminal_batch[i], cut_batch[i]
                                        ])
                 sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
                 sample_input_data_t0 = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
                 sample_target_data_t0 = np.asarray([sampled_data[j][1] for j in range(len(sampled_data))])
+                sample_trace_length_t0 = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
                 if training_flag:
                     train_mask = np.asarray([1] * len(sample_input_data_t0))
                 else:
@@ -239,18 +275,20 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
             else:
                 sample_input_data_t0 = input_data_t0
                 sample_target_data_t0 = target_data_t0
+                sample_trace_length_t0 = trace_length_t0
                 sampled_outcome_t = win_id_t_batch
 
             likelihood_loss, kl_loss = train_cvae_model(model, sess, config, sample_input_data_t0,
-                                                        sample_target_data_t0, train_mask)
+                                                        sample_target_data_t0, sample_trace_length_t0, train_mask)
             if terminal or cut:
                 print('\n kl loss is {0} while ll lost is {1}'.format(str(kl_loss), str(likelihood_loss)))
 
             """we skip sampling for TD learning"""
-            train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch, train_mask, terminal, cut)
+            train_td_model(model, sess, config, input_data_t0, trace_length_t0,
+                           input_data_t1, trace_length_t1, r_t_batch, train_mask, terminal, cut)
 
-            train_score_diff(model, sess, config, input_data_t0,
-                             input_data_t1, r_t_batch, outcome_data,
+            train_score_diff(model, sess, config, input_data_t0, trace_length_t0,
+                             input_data_t1, trace_length_t1, r_t_batch, outcome_data,
                              score_diff_base_t0, train_mask, terminal, cut)
 
             if add_pred_flag:
@@ -263,6 +301,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                 train_prediction(model, sess, config,
                                  sample_pred_input_data,
                                  sample_pred_target_data,
+                                 sample_pred_trace_lengths,
                                  sample_pred_train_mask)
 
         else:
@@ -283,7 +322,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
 
             if validate_td_flag:
                 # validate_variance_flag = validate_variance_flag if train_number <= 500 else False
-                q_values = td_validation(sess, model, input_data_t0, train_mask, config)
+                q_values = td_validation(sess, model, input_data_t0, trace_length_t0, train_mask, config)
 
                 if q_values_all is None:
                     q_values_all = q_values
@@ -291,7 +330,8 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
                     q_values_all = np.concatenate([q_values_all, q_values], axis=0)
 
             if validate_diff_flag:
-                output_label, real_label = diff_validation(sess, model, input_data_t0, train_mask,
+                output_label, real_label = diff_validation(sess, model, input_data_t0, trace_length_t0,
+                                                           train_mask,
                                                            score_diff_base_t0,
                                                            config, outcome_data)
                 if real_label_all is None:
@@ -312,6 +352,7 @@ def gathering_running_and_run(dir_game, config, player_id_cluster_dir, data_stor
         pred_target_data, pred_output_prob = validate_prediction(model, sess, config,
                                                                  pred_input_data,
                                                                  pred_target_data,
+                                                                 pred_trace_lengths,
                                                                  pred_train_mask)
         if pred_target_data_all is None:
             pred_target_data_all = pred_target_data
@@ -397,14 +438,33 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 #     # print('accuracy of win prob is {0}'.format(str(float(correct_num)/len(input_data))))
 
 
-def train_score_diff(model, sess, config, input_data_t0,
-                     input_data_t1, reward_t, outcome_data,
+def train_score_diff(model, sess, config,
+                     input_data_t0, trace_length_t0,
+                     input_data_t1, trace_length_t1,
+                     reward_t, outcome_data,
                      score_diff_base_t0, train_mask, terminal, cut):
+    if config.Learn.apply_lstm:
+        x_ph_input_t1 = []
+        for trace_index in range(0, len(trace_length_t1)):
+            trace_length = trace_length_t1[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input_t1.append(input_data_t1[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input_t1 = np.asarray(x_ph_input_t1)
+        feed_dict_1 = {model.x_ph: x_ph_input_t1,
+                       model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       model.trace_lengths_ph: trace_length_t1
+                       }
+    else:
+        feed_dict_1 = {model.x_ph: input_data_t1[:, : config.Arch.CVAE.x_dim],
+                       model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       }
+
     [readout_t1_batch] = sess.run([model.q_values_diff],
-                                  feed_dict={model.x_ph: input_data_t1[:, : config.Arch.CVAE.x_dim],
-                                             model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
-                                             model.train_flag_ph: train_mask,
-                                             })
+                                  feed_dict=feed_dict_1)
     y_batch = []
     for i in range(0, len(readout_t1_batch)):
         if cut and i == len(readout_t1_batch) - 1:
@@ -431,14 +491,32 @@ def train_score_diff(model, sess, config, input_data_t0,
 
     train_list = [model.q_values_diff, model.td_score_diff_diff, model.train_diff_op]
 
+    if config.Learn.apply_lstm:
+        x_ph_input_t0 = []
+        for trace_index in range(0, len(trace_length_t0)):
+            trace_length = trace_length_t0[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input_t0.append(input_data_t0[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input_t0 = np.asarray(x_ph_input_t0)
+        feed_dict_0 = {model.x_ph: x_ph_input_t0,
+                       model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       model.trace_lengths_ph: trace_length_t0,
+                       model.sarsa_target_ph: y_batch,
+                       }
+    else:
+        feed_dict_0 = {model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
+                       model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       model.sarsa_target_ph: y_batch,
+                       }
+
     train_outputs = \
         sess.run(
             train_list,
-            feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
-                       model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
-                       model.train_flag_ph: train_mask,
-                       model.score_diff_target_ph: y_batch
-                       }
+            feed_dict=feed_dict_0
         )
     if terminal or cut:
         print('the avg diff Q values are home {0}, away {1} '
@@ -452,12 +530,32 @@ def train_score_diff(model, sess, config, input_data_t0,
     return output_label, real_label
 
 
-def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch, train_mask, terminal, cut):
+def train_td_model(model, sess, config,
+                   input_data_t0, trace_length_t0,
+                   input_data_t1, trace_length_t1,
+                   r_t_batch, train_mask, terminal, cut):
+    if config.Learn.apply_lstm:
+        x_ph_input_t1 = []
+        for trace_index in range(0, len(trace_length_t1)):
+            trace_length = trace_length_t1[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input_t1.append(input_data_t1[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input_t1 = np.asarray(x_ph_input_t1)
+        feed_dict_1 = {model.x_ph: x_ph_input_t1,
+                       model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       model.trace_lengths_ph: trace_length_t1
+                       }
+    else:
+        feed_dict_1 = {model.x_ph: input_data_t1[:, : config.Arch.CVAE.x_dim],
+                       model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       }
+
     [readout_t1_batch] = sess.run([model.q_values_sarsa],
-                                  feed_dict={model.x_ph: input_data_t1[:, : config.Arch.CVAE.x_dim],
-                                             model.y_ph: input_data_t1[:, config.Arch.CVAE.x_dim:],
-                                             model.train_flag_ph: train_mask,
-                                             })
+                                  feed_dict=feed_dict_1)
     # r_t_batch = safely_expand_reward(reward_batch=r_t_batch, max_trace_length=config.Learn.max_seq_length)
     y_batch = []
     # print(len(r_t_batch))
@@ -479,6 +577,28 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
                 ((readout_t1_batch[i]).tolist())[2]
         y_batch.append([y_home, y_away, y_end])
 
+    if config.Learn.apply_lstm:
+        x_ph_input_t0 = []
+        for trace_index in range(0, len(trace_length_t0)):
+            trace_length = trace_length_t0[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input_t0.append(input_data_t0[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input_t0 = np.asarray(x_ph_input_t0)
+        feed_dict_0 = {model.x_ph: x_ph_input_t0,
+                       model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       model.trace_lengths_ph: trace_length_t0,
+                       model.sarsa_target_ph: y_batch,
+                       }
+    else:
+        feed_dict_0 = {model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
+                       model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                       model.train_flag_ph: train_mask,
+                       model.sarsa_target_ph: y_batch,
+                       }
+
     # perform gradient step
     y_batch = np.asarray(y_batch)
     [
@@ -499,11 +619,7 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
             model.train_td_op,
             model.q_values_sarsa
         ],
-        feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
-                   model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
-                   model.sarsa_target_ph: y_batch,
-                   model.train_flag_ph: train_mask,
-                   }
+        feed_dict=feed_dict_0
     )
 
     if terminal or cut:
@@ -514,8 +630,29 @@ def train_td_model(model, sess, config, input_data_t0, input_data_t1, r_t_batch,
                                                  np.mean(avg_diff)))
 
 
-def train_cvae_model(model, sess, config, input_data, target_data, train_mask,
+def train_cvae_model(model, sess, config, input_data, target_data, trace_length, train_mask,
                      pretrain_flag=False):
+    if config.Learn.apply_lstm:
+        x_ph_input = []
+        for trace_index in range(0, len(trace_length)):
+            trace_length = trace_length[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input.append(input_data[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input = np.asarray(x_ph_input)
+
+        feed_dict = {model.x_ph: x_ph_input,
+                     model.y_ph: input_data[:, :, config.Arch.CVAE.x_dim:],
+                     model.trace_lengths_ph: trace_length,
+                     model.train_flag_ph: train_mask,
+                     }
+    else:
+        feed_dict = {model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
+                     model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
+                     model.train_flag_ph: train_mask,
+                     }
+
     [
         output_x,
         kl_loss,
@@ -527,10 +664,7 @@ def train_cvae_model(model, sess, config, input_data, target_data, train_mask,
         model.KL_divergence_loss,
         model.marginal_likelihood_loss,
         model.train_cvae_op],
-        feed_dict={model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
-                   model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
-                   model.train_flag_ph: train_mask,
-                   }
+        feed_dict=feed_dict
     )
 
     acc = compute_acc(target_label=target_data, output_prob=output_x)
@@ -541,20 +675,41 @@ def train_cvae_model(model, sess, config, input_data, target_data, train_mask,
     return likelihood_loss, kl_loss
 
 
-def validate_prediction(model, sess, config, pred_input_data,
+def validate_prediction(model, sess, config,
+                        pred_input_data,
                         pred_target_data,
+                        pred_trace_lengths,
                         pred_train_mask):
+    if config.Learn.apply_lstm:
+        x_ph_input = []
+        for trace_index in range(0, len(pred_trace_lengths)):
+            trace_length = pred_trace_lengths[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input.append(pred_input_data[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input = np.asarray(x_ph_input)
+
+        feed_dict = {model.x_ph: x_ph_input,
+                     model.y_ph: pred_input_data[:, :, config.Arch.CVAE.x_dim:],
+                     # model.predict_target_ph: pred_target_data,
+                     model.trace_lengths_ph: pred_trace_lengths,
+                     model.train_flag_ph: pred_train_mask,
+                     }
+    else:
+        feed_dict = {model.x_ph: pred_input_data[:, : config.Arch.CVAE.x_dim],
+                     # model.predict_target_ph: pred_target_data,
+                     model.train_flag_ph: pred_train_mask,
+                     model.y_ph: pred_input_data[:, config.Arch.CVAE.x_dim:]
+                     }
+
     [
         predict_output,
     ] = sess.run([
         model.predict_output,
     ]
         ,
-        feed_dict={model.x_ph: pred_input_data[:, : config.Arch.CVAE.x_dim],
-                   # model.predict_target_ph: pred_target_data,
-                   model.train_flag_ph: pred_train_mask,
-                   model.y_ph: pred_input_data[:, config.Arch.CVAE.x_dim:]
-                   }
+        feed_dict=feed_dict
     )
 
     # acc = compute_acc(predict_output, sample_pred_target_data, if_print=False)
@@ -563,18 +718,38 @@ def validate_prediction(model, sess, config, pred_input_data,
 
 def train_prediction(model, sess, config, sample_pred_input_data,
                      sample_pred_target_data,
+                     sample_pred_trace_lengths,
                      sample_pred_train_mask):
+    if config.Learn.apply_lstm:
+        x_ph_input = []
+        for trace_index in range(0, len(sample_pred_trace_lengths)):
+            trace_length = sample_pred_trace_lengths[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input.append(sample_pred_input_data[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input = np.asarray(x_ph_input)
+
+        feed_dict = {model.x_ph: x_ph_input,
+                     model.y_ph: sample_pred_input_data[:, :, config.Arch.CVAE.x_dim:],
+                     model.predict_target_ph: sample_pred_target_data,
+                     model.trace_lengths_ph: sample_pred_trace_lengths,
+                     model.train_flag_ph: sample_pred_train_mask,
+                     }
+    else:
+        feed_dict = {model.x_ph: sample_pred_input_data[:, : config.Arch.CVAE.x_dim],
+                     model.predict_target_ph: sample_pred_target_data,
+                     model.train_flag_ph: sample_pred_train_mask,
+                     model.y_ph: sample_pred_input_data[:, config.Arch.CVAE.x_dim:]
+                     }
+
     [
         predict_output,
         _
     ] = sess.run([
         model.predict_output,
         model.train_predict_op],
-        feed_dict={model.x_ph: sample_pred_input_data[:, : config.Arch.CVAE.x_dim],
-                   model.predict_target_ph: sample_pred_target_data,
-                   model.train_flag_ph: sample_pred_train_mask,
-                   model.y_ph: sample_pred_input_data[:, config.Arch.CVAE.x_dim:]
-                   }
+        feed_dict=feed_dict
     )
 
     acc = compute_acc(predict_output, sample_pred_target_data, if_print=False)
@@ -595,12 +770,29 @@ def cvae_validation(sess, model, input_data_t0, target_data_t0, train_mask, conf
     return output_x
 
 
-def td_validation(sess, model, input_data_t0, train_mask, config):
+def td_validation(sess, model, input_data_t0, trace_length_t0, train_mask, config):
+    if config.Learn.apply_lstm:
+        x_ph_input = []
+        for trace_index in range(0, len(trace_length_t0)):
+            trace_length = trace_length_t0[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input.append(input_data_t0[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input = np.asarray(x_ph_input)
+        feed_dict = {model.x_ph: x_ph_input,
+                     model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                     model.train_flag_ph: train_mask,
+                     model.trace_lengths_ph: trace_length_t0
+                     }
+    else:
+        feed_dict = {model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
+                     model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                     model.train_flag_ph: train_mask,
+                     }
+
     [readout] = sess.run([model.q_values_sarsa],
-                         feed_dict={model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
-                                    model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
-                                    model.train_flag_ph: train_mask,
-                                    })
+                         feed_dict=feed_dict)
     # readout_masked = q_values_output_mask(q_values=readout, trace_lengths=trace_lengths_t0,
     #                                       max_trace_length=config.Learn.max_seq_length)
     return readout
@@ -631,14 +823,34 @@ def td_validation(sess, model, input_data_t0, train_mask, config):
 #     return output_label, real_label
 
 
-def diff_validation(sess, model, input_data, train_mask,
+def diff_validation(sess, model,
+                    input_data_t0,
+                    trace_length_t0,
+                    train_mask,
                     score_diff_base_t0,
                     config, outcome_data):
+    if config.Learn.apply_lstm:
+        x_ph_input = []
+        for trace_index in range(0, len(trace_length_t0)):
+            trace_length = trace_length_t0[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input.append(input_data_t0[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input = np.asarray(x_ph_input)
+        feed_dict = {model.x_ph: x_ph_input,
+                     model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                     model.train_flag_ph: train_mask,
+                     model.trace_lengths_ph: trace_length_t0
+                     }
+    else:
+        feed_dict = {model.x_ph: input_data_t0[:, : config.Arch.CVAE.x_dim],
+                     model.y_ph: input_data_t0[:, config.Arch.CVAE.x_dim:],
+                     model.train_flag_ph: train_mask,
+                     }
+
     train_outputs = sess.run([model.q_values_diff],
-                             feed_dict={model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
-                                        model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
-                                        model.train_flag_ph: train_mask,
-                                        })
+                             feed_dict=feed_dict)
     if train_outputs[0].shape[0] > 1:
         output_label = train_outputs[0][:, 0] - train_outputs[0][:, 1] + np.asarray(score_diff_base_t0)
         real_label = outcome_data
@@ -743,6 +955,7 @@ def run():
     box_msg = ''
     player_id_type = 'local_id'
     predict_action = '_predict_next_goal'
+    rnn_type = '_lstm'
 
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -758,9 +971,10 @@ def run():
         predicted_target = ''
 
     icehockey_cvae_config_path = "../environment_settings/" \
-                                 "icehockey_cvae{0}{1}_config{2}.yaml".format(predicted_target,
-                                                                              predict_action,
-                                                                              box_msg)
+                                 "icehockey_cvae{3}{0}{1}_config{2}.yaml".format(predicted_target,
+                                                                                 predict_action,
+                                                                                 box_msg,
+                                                                                 rnn_type)
     icehockey_cvae_config = CVAECongfig.load(icehockey_cvae_config_path)
     Prediction_MemoryBuffer.set_cache_memory(cache_number=icehockey_cvae_config.Arch.Predict.output_node)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvae_config, model_catagoery='cvae')

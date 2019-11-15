@@ -47,7 +47,7 @@ class Encoder_NN(object):
         b_init = tf.constant_initializer(0.)
         with tf.variable_scope("encoder"):
             if self.config.Learn.apply_lstm:
-                encoder_input_size = self.config.Arch.Encoder.h_size
+                encoder_input_size = self.config.Arch.Encoder.input_dim
             else:
                 encoder_input_size = self.config.Arch.Encoder.input_dim
 
@@ -217,7 +217,7 @@ class Encoder_NN(object):
             with tf.name_scope('pred-output-layer'):
                 output = tf.matmul(dense_output, self.prediction_output_weight) + self.prediction_output_bias
 
-        return output
+        return tf.nn.softmax(output)
 
     # Gateway
     def encoder(self):
@@ -238,11 +238,13 @@ class Encoder_NN(object):
                              + (self.trace_lengths_ph - 1)
                 rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Arch.Encoder.h_size]), self.index)
                 input_ = rnn_last
+                encoder_input = tf.gather(tf.reshape(self.input_ph, [-1, self.config.Arch.Encoder.input_dim]), self.index)
             else:
                 input_ = self.input_ph
+                encoder_input = self.input_ph
 
         with tf.variable_scope("LSTM_encoder"):
-            encoder_dense1 = tf.matmul(input_, self.en_w0) + self.en_b0
+            encoder_dense1 = tf.matmul(encoder_input, self.en_w0) + self.en_b0
             encoder_dense2 = tf.matmul(encoder_dense1, self.en_w1) + self.en_b1
             embedding = tf.matmul(encoder_dense2, self.en_we) + self.en_be
             output = tf.matmul(embedding, self.en_wo) + self.en_bo
@@ -304,9 +306,9 @@ class Encoder_NN(object):
         self.train_prediction_op = self.optimizer.apply_gradients(zip(prediction_grads, tvars_prediction))
 
 
-if __name__ == '__main__':
-    """test the model builder"""
-    cvae_config_path = "../environment_settings/icehockey_cvae_config.yaml"
-    cvae_config = CVAECongfig.load(cvae_config_path)
-    cvae_nn = Encoder_NN(config=cvae_config)
-    cvae_nn()
+# if __name__ == '__main__':
+#     """test the model builder"""
+#     cvae_config_path = "../environment_settings/icehockey_cvae_config.yaml"
+#     cvae_config = CVAECongfig.load(cvae_config_path)
+#     cvae_nn = Encoder_NN(config=cvae_config)
+#     cvae_nn()

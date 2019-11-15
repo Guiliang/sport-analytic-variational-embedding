@@ -16,13 +16,16 @@ Learn:
   apply_box_score: True
   gamma : 1
   max_seq_length: 1
+  apply_lstm: False
   integral_update_flag: True
 Arch:
-  CVAE:
-    n_hidden: 512
-    latent_dim: 450 # 150*3
-    x_dim : 150 # playerId dimension
-    y_dim : 83 # 12state+27action+31team (+13box-score)
+  Encoder:
+    n_hidden: 256
+    embed_dim: 256
+    input_dim : 83 #12state+27action+31team+13box
+    output_dim : 150 # playerId dimension
+    lstm_layer_num: None
+    h_size: None
   Sarsa:
     layer_num: 2
     n_hidden: 256

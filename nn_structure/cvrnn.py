@@ -20,7 +20,12 @@ def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=
 class VariationalRNNCell(tf.contrib.rnn.RNNCell):
     """Variational RNN cell."""
 
-    def __init__(self, x_dim, y_dim, h_dim, z_dim=100, output_dim_list=[]):
+    def __init__(self, config, output_dim_list=[]):
+        self.config = config
+        x_dim = self.config.Arch.CVRNN.x_dim
+        y_dim = self.config.Arch.CVRNN.y_dim
+        h_dim = self.config.Arch.CVRNN.hidden_dim
+        z_dim = self.config.Arch.CVRNN.latent_dim
         self.n_h = h_dim
         self.n_x = x_dim
         self.n_y = y_dim
@@ -101,7 +106,10 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
             eps2 = tf.random_normal((tf.shape(x)[0], self.n_x), 0.0, 1.0, dtype=tf.float32)
             dec_x = tf.add(dec_mu, tf.multiply(dec_sigma, eps2))
 
-            output, state2 = self.lstm(tf.concat(axis=1, values=(xy_phi, zy_phi)), state)  # TODO: recheck it
+            if self.config.Learn.rnn_skip_player:
+                output, state2 = self.lstm(tf.concat(axis=1, values=(zy_phi)), state)  # TODO: recheck it
+            else:
+                output, state2 = self.lstm(tf.concat(axis=1, values=(xy_phi, zy_phi)), state)  # TODO: recheck it
         # return tf.nn.rnn_cell.LSTMStateTuple(h=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), c=state2)
         cell_output = tf.concat(values=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, z_encoder),
                                 axis=1)
@@ -162,7 +170,7 @@ class CVRNN():
         self.sarsa_output = None
         self.td_loss = None
         self.td_avg_diff = None
-        self.deterministic_decoder = True
+        self.deterministic_decoder = False
         self.cell_output_dim_list = [self.config.Arch.CVRNN.latent_dim, self.config.Arch.CVRNN.latent_dim,
                                      self.config.Arch.CVRNN.x_dim, self.config.Arch.CVRNN.x_dim,
                                      self.config.Arch.CVRNN.x_dim, self.config.Arch.CVRNN.latent_dim,
@@ -306,9 +314,7 @@ class CVRNN():
         batch_size = tf.shape(self.input_data_ph)[0]
         with tf.variable_scope('cvrnn'):
 
-            self.cell = VariationalRNNCell(x_dim=self.config.Arch.CVRNN.x_dim, y_dim=self.config.Arch.CVRNN.y_dim,
-                                           h_dim=self.config.Arch.CVRNN.hidden_dim,
-                                           z_dim=self.config.Arch.CVRNN.latent_dim,
+            self.cell = VariationalRNNCell(config=self.config,
                                            output_dim_list=self.cell_output_dim_list)
 
             self.initial_state_c, self.initial_state_h = self.cell.zero_state(

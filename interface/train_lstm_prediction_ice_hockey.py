@@ -13,9 +13,11 @@ from support.data_processing_tools import transfer2seq, get_icehockey_game_data,
     read_feature_within_events
 from nn_structure.lstm_prediction_nn import Td_Prediction_NN
 from config.lstm_prediction_config import LSTMPredictConfig
-from support.model_tools import compute_acc, get_model_and_log_name, BalanceExperienceReplayBuffer
+from support.model_tools import compute_acc, get_model_and_log_name, BalanceExperienceReplayBuffer, \
+    ExperienceReplayBuffer
 
-MemoryBuffer = BalanceExperienceReplayBuffer(capacity_number=30000)
+BalancedMemoryBuffer = BalanceExperienceReplayBuffer(capacity_number=30000)
+MemoryBuffer = ExperienceReplayBuffer(capacity_number=30000)
 
 
 def train_model(model, sess, config, input_data, target_data,
@@ -52,8 +54,11 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                                   max_length=config.Learn.max_seq_length)
         team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
                                    max_length=config.Learn.max_seq_length)
-        player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
-                                        max_length=config.Learn.max_seq_length)
+        if config.Learn.predict_target == 'ActionGoal' or config.Learn.predict_target == 'Action':
+            player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                            max_length=config.Learn.max_seq_length)
+        else:
+            player_index_seq = player_index
         if config.Learn.predict_target == 'ActionGoal':
             actions_all = read_feature_within_events(directory=dir_game,
                                                      data_path=source_data_store_dir,
@@ -142,6 +147,18 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
             player_id_t1_batch = [d[10] for d in batch_return]
             win_info_t0_batch = [d[11] for d in batch_return]
 
+            trace_lengths = trace_t0_batch
+
+            if config.Learn.predict_target == 'ActionGoal':
+                target_data = np.asarray(win_info_t0_batch)
+            elif config.Learn.predict_target == 'Action':
+                target_data = np.asarray(win_info_t0_batch)
+            elif config.Learn.predict_target == 'PlayerLocalId':
+                config.Learn.apply_pid = False
+                target_data = np.asarray(player_id_t0_batch)
+            else:
+                raise ValueError('unknown predict_target {0}'.format(config.Learn.predict_target))
+
             if config.Learn.apply_pid:
                 input_data = np.concatenate([np.asarray(action_id_t0),
                                              np.asarray(s_t0_batch),
@@ -151,13 +168,6 @@ def validation_model(testing_dir_games_all, data_store, config, sess, model, pla
                 input_data = np.concatenate([np.asarray(action_id_t0),
                                              np.asarray(s_t0_batch)],
                                             axis=2)
-            trace_lengths = trace_t0_batch
-            if config.Learn.predict_target == 'ActionGoal':
-                target_data = np.asarray(win_info_t0_batch)
-            elif config.Learn.predict_target == 'Action':
-                target_data = np.asarray(win_info_t0_batch)
-            else:
-                raise ValueError('unknown predict_target {0}'.format(config.Learn.predict_target))
 
             for i in range(0, len(batch_return)):
                 terminal = batch_return[i][-2]
@@ -220,8 +230,11 @@ def run_network(sess, model, config, training_dir_games_all,
                                       max_length=config.Learn.max_seq_length)
             team_id_seq = transfer2seq(data=team_id, trace_length=state_trace_length,
                                        max_length=config.Learn.max_seq_length)
-            player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
-                                            max_length=config.Learn.max_seq_length)
+            if config.Learn.predict_target == 'ActionGoal' or config.Learn.predict_target == 'Action':
+                player_index_seq = transfer2seq(data=player_index, trace_length=state_trace_length,
+                                                max_length=config.Learn.max_seq_length)
+            else:
+                player_index_seq = player_index
             if config.Learn.predict_target == 'ActionGoal':
                 actions_all = read_feature_within_events(directory=dir_game,
                                                          data_path=source_data_store_dir,
@@ -309,6 +322,20 @@ def run_network(sess, model, config, training_dir_games_all,
                 player_id_t0_batch = [d[9] for d in batch_return]
                 player_id_t1_batch = [d[10] for d in batch_return]
                 win_info_t0_batch = [d[11] for d in batch_return]
+
+                if config.Learn.predict_target == 'ActionGoal':
+                    target_data = np.asarray(win_info_t0_batch)
+                    m2balanced = True
+                elif config.Learn.predict_target == 'Action':
+                    target_data = np.asarray(win_info_t0_batch)
+                    m2balanced = True
+                elif config.Learn.predict_target == 'PlayerLocalId':
+                    config.Learn.apply_pid = False
+                    target_data = np.asarray(player_id_t0_batch)
+                    m2balanced = False
+                else:
+                    raise ValueError('unknown predict_target {0}'.format(config.Learn.predict_target))
+
                 if config.Learn.apply_pid:
                     input_data = np.concatenate([np.asarray(action_id_t0),
                                                  np.asarray(s_t0_batch),
@@ -320,28 +347,28 @@ def run_network(sess, model, config, training_dir_games_all,
                                                 axis=2)
                 trace_lengths = trace_t0_batch
 
-                if config.Learn.predict_target == 'ActionGoal':
-                    target_data = np.asarray(win_info_t0_batch)
-                elif config.Learn.predict_target == 'Action':
-                    target_data = np.asarray(win_info_t0_batch)
-                else:
-                    raise ValueError('unknown predict_target {0}'.format(config.Learn.predict_target))
-
                 for i in range(0, len(batch_return)):
                     terminal = batch_return[i][-2]
                     # cut = batch_return[i][8]
 
                 if config.Learn.apply_stochastic:
                     for i in range(len(input_data)):
-                        cache_label = 0 if target_data[i][0] == 0 else 1
-                        MemoryBuffer.push([input_data[i], target_data[i], trace_lengths[i]], cache_label=cache_label)
+                        if m2balanced:
+                            cache_label = 0 if target_data[i][0] == 0 else 1
+                            BalancedMemoryBuffer.push([input_data[i], target_data[i], trace_lengths[i]],
+                                                      cache_label=cache_label)
+                        else:
+                            MemoryBuffer.push([input_data[i], target_data[i], trace_lengths[i]])
                     if game_number <= 10:
                         s_t0 = s_tl
                         if terminal:
                             break
                         else:
                             continue
-                    sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
+                    if m2balanced:
+                        sampled_data = BalancedMemoryBuffer.sample(batch_size=config.Learn.batch_size)
+                    else:
+                        sampled_data = MemoryBuffer.sample(batch_size=config.Learn.batch_size)
                     sample_input_data = np.asarray([sampled_data[j][0] for j in range(len(sampled_data))])
                     sample_target_data = np.asarray([sampled_data[j][1] for j in range(len(sampled_data))])
                     sample_trace_lengths = np.asarray([sampled_data[j][2] for j in range(len(sampled_data))])
@@ -375,9 +402,10 @@ def save_model(game_number, saver, sess, save_network_dir, config):
         saver.save(sess, save_network_dir + '/' + config.Learn.data_name + '-game-',
                    global_step=game_number)
 
+
 def run():
-    play_info = '_pid'
-    type = 'action_goal'
+    play_info = ''
+    type = 'pids'
     if type == 'ap_playerId':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = 'PlayerPositionClusterAP'  # playerId_
@@ -387,6 +415,9 @@ def run():
     elif type == 'pos_playerId':
         player_id_cluster_dir = None
         predicted_target = 'playerposition'
+    elif type == 'pids':
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        predicted_target = 'PlayerLocalId'  # playerId_
     elif type == 'action_goal':
         player_id_cluster_dir = None
         predicted_target = 'ActionGoal'
@@ -396,9 +427,10 @@ def run():
     else:
         raise ValueError('unknown type')
 
-    MemoryBuffer.set_cache_memory(cache_number=2)
+    BalancedMemoryBuffer.set_cache_memory(cache_number=2)
 
-    tt_lstm_config_path = "../environment_settings/ice_hockey_{0}_prediction{1}.yaml".format(predicted_target, play_info)
+    tt_lstm_config_path = "../environment_settings/ice_hockey_{0}_prediction{1}.yaml".format(predicted_target,
+                                                                                             play_info)
     lstm_prediction_config = LSTMPredictConfig.load(tt_lstm_config_path)
 
     local_test_flag = False

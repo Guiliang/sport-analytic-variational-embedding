@@ -44,7 +44,7 @@ if __name__ == '__main__':
         icehockey_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm.yaml"
         icehockey_model_config = LSTMQsCongfig.load(icehockey_config_path)
         player_id_cluster_dir = None
-        model_number = 901
+        model_number = 2101
     else:
         raise ValueError('incorrect model type {0}'.format(model_type))
 

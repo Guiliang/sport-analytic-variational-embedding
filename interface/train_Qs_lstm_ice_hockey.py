@@ -211,6 +211,9 @@ def run():
         # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
         testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
         save_flag = True
+
+    data_store_dir = '/cs/oschulte/xiangyus/2019-icehockey-data-preprocessed/2018-2019'
+    saved_network_dir = '/Local-Scratch/oschulte/Galen/icehockey-models/lstm_Qs_model_saved_NN_shawn/lstm_saved_networks_featurev1_Qs_batch32_iterate10_lr1e-05_v1_MaxTL10_LSTM512_dense256'
     number_of_total_game = len(dir_games_all)
     icehockey_mdn_Qs_config.Learn.number_of_total_game = number_of_total_game
 
