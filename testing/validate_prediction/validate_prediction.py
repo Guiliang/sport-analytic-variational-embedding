@@ -15,9 +15,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 if __name__ == '__main__':
     local_test_flag = False
-    model_category = 'encoder'
-    model_number = 1
-    player_info = ''
+    model_category = 'lstm_prediction'
+    model_number = 2101
+    player_info = '_box'
 
     if model_category == 'cvrnn':
         predicted_target = '_PlayerLocalId_predict_nex_goal'  # playerId_
@@ -51,8 +51,8 @@ if __name__ == '__main__':
                                                         model_catagoery=model_category)
 
     testing_dir_games_all = []
-    # with open('../../sport_resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
-    with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
+    with open('../../sport_resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
+    # with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
         testing_dir_all = f.readlines()
     for testing_dir in testing_dir_all:
         testing_dir_games_all.append(str(int(testing_dir)))

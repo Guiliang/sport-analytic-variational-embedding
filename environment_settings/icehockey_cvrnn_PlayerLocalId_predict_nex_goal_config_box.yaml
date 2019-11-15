@@ -21,6 +21,7 @@ Learn:
   diff_apply_rl: True
   apply_pid: False
   integral_update_flag: True
+  rnn_skip_player: False
 
 Arch:
   CVRNN:

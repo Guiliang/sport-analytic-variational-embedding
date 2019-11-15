@@ -909,7 +909,7 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
 def run():
     training = True
     local_test_flag = False
-    box_msg = ''
+    box_msg = '_box_skipx'
     player_id_type = 'local_id'
     predict_action = '_predict_nex_goal'
     if len(predict_action) > 0:
@@ -955,7 +955,7 @@ def run():
     icehockey_cvrnn_config.Learn.number_of_total_game = number_of_total_game
 
     if training:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
         sess = tf.Session()
         cvrnn = CVRNN(config=icehockey_cvrnn_config, extra_prediction_flag=extra_prediction_flag)
         cvrnn()

@@ -1079,12 +1079,62 @@ def find_game_event_id(hockey_data_dir, game_id, event_names, event_values):
     pass
 
 
+def find_unseen_player_id(file_store_dir, data_path):
+
+    seen_player_id = set()
+
+    with open(file_store_dir + '/training_file_dirs_all.csv', 'rb') as f:
+        training_files = f.readlines()
+    for training_file in training_files:
+        # print(training_file)
+        training_file = str(int(training_file))
+        with open(data_path + '{0}-playsequence-wpoi.json'.format(str(training_file))) as f:
+            data = json.load(f)
+        events = data.get('events')
+        for event in events:
+            seen_player_id.add(int(event.get('playerId')))
+
+    unseen_player_id = set()
+    with open(file_store_dir + '/testing_file_dirs_all.csv', 'rb') as f:
+        testing_files = f.readlines()
+
+    for testing_file in testing_files:
+        testing_file = str(int(testing_file))
+        with open(data_path + '{0}-playsequence-wpoi.json'.format(str(testing_file))) as f:
+            data = json.load(f)
+        events = data.get('events')
+        for event in events:
+            if int(event.get('playerId')) not in seen_player_id:
+                unseen_player_id.add(int(event.get('playerId')))
+
+    print(unseen_player_id)
+    print(len(unseen_player_id))
+
+
+def count_event_number(data_path='/Local-Scratch/oschulte/Galen/2018-2019/'):
+    total_count = 0
+    data_files = os.listdir(data_path)
+    for data_file in data_files:
+        with open(data_path + data_file) as f:
+            data = json.load(f)
+        events = data.get('events')
+        total_count += len(events)
+    print(total_count)
+
+
+
 if __name__ == '__main__':
-    hockey_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
-    find_game_event_id(hockey_data_dir=hockey_data_dir,
-                       game_id='15697-playsequence-wpoi.json',
-                       event_names='manpowerSituation',
-                       event_values=['powerPlay', 'shortHanded'])
+    count_event_number()
+    # find_unseen_player_id(file_store_dir='/Local-Scratch/oschulte/Galen/icehockey-models/cvrnn_saved_NN/'
+    #                                      'cvrnn_saved_networks_featureV1_latent256_x83_y150_batch32_iterate30'
+    #                                      '_lr0.0001_normal_MaxTL10_LSTM512_box_integral_skip_ActionGoal/',
+    #                       data_path='/Local-Scratch/oschulte/Galen/2018-2019/')
+
+    # hockey_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
+    # find_game_event_id(hockey_data_dir=hockey_data_dir,
+    #                    game_id='15697-playsequence-wpoi.json',
+    #                    event_names='manpowerSituation',
+    #                    event_values=['powerPlay', 'shortHanded'])
 
     # normal_td(np.asarray([0.2561741, 0.25606957]),
     #           np.asarray([0.25351873, 0.25392953]),
