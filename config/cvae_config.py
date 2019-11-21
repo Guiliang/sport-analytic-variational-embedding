@@ -14,6 +14,7 @@ class CVAECongfig(object):
         player_Id_style = None
         sport = None
         integral_update_flag = None
+        apply_context_specific_prior = None
 
     class Arch(InitWithDict):
         def __init__(self, init):
