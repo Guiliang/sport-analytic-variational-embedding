@@ -124,17 +124,14 @@ class Preprocess:
             one_hot[1] = 1
         return one_hot
 
-    def get_reward(self, events, idx):
-        gameTime_now = events[idx].get('gameTime')
 
     def get_duration(self, events, idx):
-        duration = float(0)
         gameTime_now = events[idx].get('gameTime')
-        if idx == len(events) - 1:
-            duration = 3600. - gameTime_now
+        if idx == 0:
+            duration = 0
         else:
-            gameTime_next = events[idx + 1].get('gameTime')
-            duration = gameTime_next - gameTime_now
+            gameTime_pre = events[idx-1].get('gameTime')
+            duration = gameTime_now - gameTime_pre
         return duration
 
     def get_time_remain(self, events, idx):

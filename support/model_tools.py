@@ -829,21 +829,45 @@ def get_model_prediction_output(sess_nn, model, config, pred_input_data, pred_tr
                        })
     elif model_category == 'cvae':
         pred_train_mask = np.asarray([0] * len(pred_input_data))
+        if config.Learn.apply_lstm:
+            x_ph_input = []
+            for trace_index in range(0, len(pred_trace_lengths)):
+                trace_length = pred_trace_lengths[trace_index]
+                trace_length = trace_length - 1
+                if trace_length > 9:
+                    trace_length = 9
+                x_ph_input.append(pred_input_data[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+            x_ph_input = np.asarray(x_ph_input)
+
+            feed_dict = {model.x_ph: x_ph_input,
+                         model.y_ph: pred_input_data[:, :, config.Arch.CVAE.x_dim:],
+                         model.trace_lengths_ph: pred_trace_lengths,
+                         model.train_flag_ph: pred_train_mask,
+                         }
+        else:
+            feed_dict = {model.x_ph: pred_input_data[:, : config.Arch.CVAE.x_dim],
+                         model.train_flag_ph: pred_train_mask,
+                         model.y_ph: pred_input_data[:, config.Arch.CVAE.x_dim:]
+                         }
+
         [
             readout_pred_output,
         ] = sess_nn.run([
             model.predict_output],
-            feed_dict={model.x_ph: pred_input_data[:, : config.Arch.CVAE.x_dim],
-                       model.train_flag_ph: pred_train_mask,
-                       model.y_ph: pred_input_data[:, config.Arch.CVAE.x_dim:]
-                       }
+            feed_dict=feed_dict
         )
+
     elif model_category == 'lstm_prediction':
         [readout_pred_output] = sess_nn.run([model.read_out],
                                             feed_dict={model.rnn_input_ph: pred_input_data,
                                                        model.trace_lengths_ph: pred_trace_lengths})
     elif model_category == 'encoder':
-        feed_dict = {model.input_ph: pred_input_data[:, config.Arch.Encoder.output_dim:]}
+        if config.Learn.apply_lstm:
+            feed_dict = {model.input_ph: pred_input_data[:, :, config.Arch.Encoder.output_dim:],
+                         model.trace_lengths_ph: pred_trace_lengths
+                         }
+        else:
+            feed_dict = {model.input_ph: pred_input_data[:, config.Arch.Encoder.output_dim:]}
         [
             readout_pred_output,
         ] = sess_nn.run([
@@ -914,20 +938,17 @@ def compute_game_prediction(sess_nn, model,
             if 'shot' in action:
                 if action_index + 1 == data_length:
                     continue
-                if model_category == 'cvae' or model_category == 'encoder':
-                    new_reward.append(reward[action_index])
-                    new_action.append(actions[action_index])
-                    new_state_zero_input.append(state_zero_input[action_index])
-                    new_state_zero_trace.append(state_zero_trace[action_index])
-                    new_team_id.append(team_id[action_index])
-                    new_player_index.append(player_index[action_index])
-                else:
-                    new_reward.append(reward[action_index])
-                    new_action_seq.append(action_seq[action_index])
-                    new_state_input.append(state_input[action_index])
-                    new_state_trace_length.append(state_trace_length[action_index])
-                    new_team_id_seq.append(team_id_seq[action_index])
-                    new_player_index_seq.append(player_index_seq[action_index])
+                new_reward.append(reward[action_index])
+                new_action.append(actions[action_index])
+                new_state_zero_input.append(state_zero_input[action_index])
+                new_state_zero_trace.append(state_zero_trace[action_index])
+                new_team_id.append(team_id[action_index])
+                new_player_index.append(player_index[action_index])
+                new_action_seq.append(action_seq[action_index])
+                new_state_input.append(state_input[action_index])
+                new_state_trace_length.append(state_trace_length[action_index])
+                new_team_id_seq.append(team_id_seq[action_index])
+                new_player_index_seq.append(player_index_seq[action_index])
                 if actions_all[action_index + 1] == 'goal':
                     # print(actions_all[action_index+1])
                     next_goal_label.append([1, 0])
@@ -967,12 +988,22 @@ def compute_game_prediction(sess_nn, model,
                                                           pred_trace_lengths, model_category)
 
     elif model_category == 'cvae':
-        pred_input_data = np.concatenate([np.asarray(new_player_index),
-                                          np.asarray(new_team_id),
-                                          np.asarray(new_state_zero_input),
-                                          np.asarray(new_action), ], axis=1)
-        pred_target_data = np.asarray(np.asarray(pred_target))
-        pred_trace_lengths = new_state_zero_trace
+
+        if config.Learn.apply_lstm:
+            pred_input_data = np.concatenate([np.asarray(new_player_index_seq),
+                                              np.asarray(new_team_id_seq),
+                                              np.asarray(new_state_input),
+                                              np.asarray(new_action_seq)], axis=2)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_trace_length
+        else:
+
+            pred_input_data = np.concatenate([np.asarray(new_player_index),
+                                              np.asarray(new_team_id),
+                                              np.asarray(new_state_zero_input),
+                                              np.asarray(new_action), ], axis=1)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_zero_trace
         readout_pred_output = get_model_prediction_output(sess_nn, model, config, pred_input_data,
                                                           pred_trace_lengths, model_category)
     elif model_category == 'lstm_prediction':
@@ -991,12 +1022,20 @@ def compute_game_prediction(sess_nn, model,
         readout_pred_output = get_model_prediction_output(sess_nn, model, config, pred_input_data,
                                                           pred_trace_lengths, model_category)
     elif model_category == 'encoder':
-        pred_input_data = np.concatenate([np.asarray(new_player_index),
-                                          np.asarray(new_team_id),
-                                          np.asarray(new_state_zero_input),
-                                          np.asarray(new_action)], axis=1)
-        pred_target_data = np.asarray(np.asarray(pred_target))
-        pred_trace_lengths = new_state_zero_trace
+        if config.Learn.apply_lstm:
+            pred_input_data = np.concatenate([np.asarray(new_player_index_seq),
+                                              np.asarray(new_team_id_seq),
+                                              np.asarray(new_state_input),
+                                              np.asarray(new_action_seq)], axis=2)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_trace_length
+        else:
+            pred_input_data = np.concatenate([np.asarray(new_player_index),
+                                              np.asarray(new_team_id),
+                                              np.asarray(new_state_zero_input),
+                                              np.asarray(new_action)], axis=1)
+            pred_target_data = np.asarray(np.asarray(pred_target))
+            pred_trace_lengths = new_state_zero_trace
 
         readout_pred_output = get_model_prediction_output(sess_nn, model, config, pred_input_data,
                                                           pred_trace_lengths, model_category)
@@ -1156,7 +1195,7 @@ def validate_games_prediction(config,
                                               if_add_ll=True)
         precision = float(TP) / (TP + FP)
         recall = float(TP) / (TP + FN)
-        f1 = 2 * precision * recall / precision + recall
+        f1 = 2 * (precision * recall) / (precision + recall)
         print ("prediction testing precision is {6}, recall is {7}, f1{8}, acc is {0}, ll is {5} "
                "with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
                                                             str(TP),

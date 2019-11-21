@@ -164,8 +164,8 @@ class CVAE_NN(object):
                                                            initializer=b_init)
 
     # Gaussian MLP as conditional encoder
-    def gaussian_MLP_conditional_encoder(self, encoder_input):
-        with tf.variable_scope("gaussian_MLP_encoder"):
+    def gaussian_MLP_conditional_posterior(self, encoder_input):
+        with tf.variable_scope("gaussian_MLP_posterior"):
             # concatenate condition and image
             input = tf.concat(axis=1, values=[self.x_ph, encoder_input])
 
@@ -188,6 +188,37 @@ class CVAE_NN(object):
             # The standard deviation must be positive. Parametrize with a softplus and
             # add a small epsilon for numerical stability
             stddev = 1e-6 + tf.nn.softplus(gaussian_params[:, self.config.Arch.CVAE.latent_dim:])
+
+        return mean, stddev
+
+    def gaussian_MLP_conditional_prior(self, encoder_input):
+        with tf.variable_scope("gaussian_MLP_prior"):
+            if self.config.Learn.apply_context_specific_prior:
+                # concatenate condition and image
+                input = tf.concat(axis=1, values=[encoder_input])
+
+                # 1st hidden layer
+                h0 = tf.matmul(input, self.en_w0) + self.en_b0
+                h0 = tf.nn.elu(h0)
+                # h0 = tf.nn.dropout(h0, self.keep_prob)
+
+                # 2nd hidden layer
+                h1 = tf.matmul(h0, self.en_w1) + self.en_b1
+                h1 = tf.nn.tanh(h1)
+                # h1 = tf.nn.dropout(h1, self.keep_prob)
+
+                # output layer
+                # borrowed from https: // github.com / altosaar / vae / blob / master / vae.py
+                gaussian_params = tf.matmul(h1, self.en_wo) + self.en_bo
+
+                # The mean parameter is unconstrained
+                mean = gaussian_params[:, :self.config.Arch.CVAE.latent_dim]
+                # The standard deviation must be positive. Parametrize with a softplus and
+                # add a small epsilon for numerical stability
+                stddev = 1e-6 + tf.nn.softplus(gaussian_params[:, self.config.Arch.CVAE.latent_dim:])
+            else:
+                mean = tf.ones(shape=[tf.shape(encoder_input)[0], self.config.Arch.CVAE.latent_dim])
+                stddev = tf.zeros(shape=[tf.shape(encoder_input)[0], self.config.Arch.CVAE.latent_dim])
 
         return mean, stddev
 
@@ -286,11 +317,11 @@ class CVAE_NN(object):
 
         with tf.variable_scope("cvae"):
             # encoding
-            mu, sigma = self.gaussian_MLP_conditional_encoder(encoder_input)
+            mu_post, sigma_post = self.gaussian_MLP_conditional_posterior(encoder_input)
+            z_encoder = mu_post + sigma_post * tf.random_normal(tf.shape(mu_post), 0, 1, dtype=tf.float32)
 
-            # sampling by re-parameterization technique
-            z_encoder = mu + sigma * tf.random_normal(tf.shape(mu), 0, 1, dtype=tf.float32)
-            z_prior = tf.random_normal(tf.shape(mu), 0, 1, dtype=tf.float32)
+            mu_prior, sigma_prior = self.gaussian_MLP_conditional_prior(encoder_input)
+            z_prior = mu_prior + sigma_prior * tf.random_normal(tf.shape(mu_prior), 0, 1, dtype=tf.float32)
 
             z = tf.where(tf.cast(self.train_flag_ph, tf.bool), x=z_encoder, y=z_prior)
 
@@ -303,8 +334,18 @@ class CVAE_NN(object):
                 onehot_labels=self.x_ph,
                 logits=x_decoder,
                 reduction=tf.losses.Reduction.NONE))
-            KL_divergence = 0.5 * tf.reduce_sum(tf.square(mu) + tf.square(sigma)
-                                                - tf.log(1e-8 + tf.square(sigma)) - 1, 1)
+
+            sigma_1 = sigma_prior
+            mu_1 = mu_prior
+            sigma_2 = sigma_post
+            mu_2 = mu_post
+
+            KL_divergence = tf.reduce_sum(0.5 * (
+                    2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
+                    - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
+                    + (tf.square(sigma_1) + tf.square(mu_1 - mu_2)) / tf.maximum(1e-9, (tf.square(sigma_2))) - 1
+            ), 1)
+
             KL_divergence_loss = tf.reduce_mean(KL_divergence)
 
             # ELBO = marginal_likelihood - KL_divergence

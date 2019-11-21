@@ -284,7 +284,7 @@ class CVRNN():
                 likelihood_loss = tf_cvrnn_cross_entropy(dec_x=dec_mu, target_x=target_x, condition=condition)
             else:
                 likelihood_loss = tf_cvrnn_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
-            kl_loss = tf_cvrnn_kl_gaussian(enc_mu, enc_sigma, prior_mu, prior_sigma, condition)
+            kl_loss = tf_cvrnn_kl_gaussian(prior_mu, prior_sigma, enc_mu, enc_sigma, condition)
             # likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
 
             # kl_loss = tf.zeros(shape=[tf.shape(kl_loss)[0]])  # TODO: why if we only optimize likelihood_loss
