@@ -548,11 +548,11 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0, selecti
                 print([y_home, y_away, y_end])
                 break
         y_home = float((r_t_batch[i])[0]) + config.Learn.gamma * \
-                                            ((readout_t1_batch[i]).tolist())[0]
+                 ((readout_t1_batch[i]).tolist())[0]
         y_away = float((r_t_batch[i])[1]) + config.Learn.gamma * \
-                                            ((readout_t1_batch[i]).tolist())[1]
+                 ((readout_t1_batch[i]).tolist())[1]
         y_end = float((r_t_batch[i])[2]) + config.Learn.gamma * \
-                                           ((readout_t1_batch[i]).tolist())[2]
+                ((readout_t1_batch[i]).tolist())[2]
         y_batch.append([y_home, y_away, y_end])
 
     # perform gradient step
@@ -909,9 +909,11 @@ def validate_model(testing_dir_games_all, data_store, source_data_dir, config, s
 def run():
     training = True
     local_test_flag = False
-    box_msg = '_box_skipx'
+    box_msg = ''
     player_id_type = 'local_id'
     predict_action = '_predict_nex_goal'
+    embed_mode = '_embed_random'
+    running_number = 1
     if len(predict_action) > 0:
         extra_prediction_flag = True
     else:
@@ -930,32 +932,45 @@ def run():
         predicted_target = ''
 
     icehockey_cvrnn_config_path = "../environment_settings/" \
-                                  "icehockey_cvrnn{0}{2}_config{1}.yaml".format(predicted_target,
-                                                                                box_msg,
-                                                                                predict_action)
+                                  "icehockey_cvrnn{0}{2}_config{1}{3}.yaml".format(predicted_target,
+                                                                                   box_msg,
+                                                                                   predict_action,
+                                                                                   embed_mode)
     icehockey_cvrnn_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
     Prediction_MemoryBuffer.set_cache_memory(cache_number=icehockey_cvrnn_config.Arch.Predict.output_size)
-    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config, model_catagoery='cvrnn')
+    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvrnn_config,
+                                                        model_catagoery='cvrnn', running_number=running_number)
 
     if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
+        validate_dir_games_all = os.listdir(data_store_dir)
         source_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
     else:
         source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
         data_store_dir = icehockey_cvrnn_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
         # shuffle(dir_games_all)  # randomly shuffle the list
-        training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
-        # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
-        testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
+        if running_number == 0:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5]
+        else:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5] \
+                                     + dir_games_all[-running_number * len(dir_games_all) / 5:]
+
+        test_validate_dir_games_all = [item for item in dir_games_all if item not in training_dir_games_all]
+
+        testing_dir_games_all = test_validate_dir_games_all[:len(test_validate_dir_games_all)/2]
+        validate_dir_games_all = test_validate_dir_games_all[len(test_validate_dir_games_all) / 2:]
+        tmp_testing_dir_games_all = testing_dir_games_all[-10:] # TODO: it is a small running testing, not the real one
     number_of_total_game = len(dir_games_all)
     icehockey_cvrnn_config.Learn.number_of_total_game = number_of_total_game
 
     if training:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         sess = tf.Session()
         cvrnn = CVRNN(config=icehockey_cvrnn_config, extra_prediction_flag=extra_prediction_flag)
         cvrnn()
@@ -973,16 +988,23 @@ def run():
                 os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
                           saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
                           .format(datetime.date.today().strftime("%Y%B%d")))
+            if os.path.exists(saved_network_dir + '/validate_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/validate_file_dirs_all.csv',
+                          saved_network_dir + '/bak_validate_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
             with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
-                for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                for dir in training_dir_games_all:
+                    f.write(dir + '\n')
+            with open(saved_network_dir + '/validate_file_dirs_all.csv', 'wb') as f:
+                for dir in validate_dir_games_all:
                     f.write(dir + '\n')
             with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
-                for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                for dir in testing_dir_games_all:
                     f.write(dir + '\n')
         print('training the model.')
         run_network(sess=sess, model=cvrnn, config=icehockey_cvrnn_config, log_dir=log_dir,
                     save_network_dir=saved_network_dir, data_store=data_store_dir, source_data_dir=source_data_dir,
-                    training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
+                    training_dir_games_all=training_dir_games_all, testing_dir_games_all=tmp_testing_dir_games_all,
                     player_id_cluster_dir=player_id_cluster_dir)
         sess.close()
     else:

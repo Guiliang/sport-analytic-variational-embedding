@@ -12,7 +12,11 @@ class CVAE_NN(object):
         # self.sarsa_hidden_layer_num = config.Arch.Sarsa.layer_num
         # self.sarsa_hidden_node = config.Arch.Sarsa.n_hidden
         self.sarsa_output_node = config.Arch.Sarsa.output_node
-        self.lstm_encoder_cell_all = []
+        # self.lstm_encoder_cell_all = []
+        self.lstm_sarsa_cell_all = []
+        self.lstm_score_diff_cell_all = []
+        self.lstm_predict_cell_all = []
+        self.batch_size = tf.shape(self.x_ph)[0]
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.config.Learn.learning_rate)
         self.build()
@@ -40,26 +44,33 @@ class CVAE_NN(object):
 
     def build(self):
 
-        if self.config.Learn.apply_lstm:
-            with tf.variable_scope("LSTM_encoder"):
-                for i in range(self.config.Learn.lstm_layer_num):
-                    self.lstm_encoder_cell_all.append(
-                        tf.nn.rnn_cell.LSTMCell(num_units=self.config.Learn.h_size, state_is_tuple=True,
-                                                initializer=tf.random_uniform_initializer(-0.05, 0.05)))
-
         w_init = tf.random_normal_initializer(stddev=0.02)
         b_init = tf.constant_initializer(0.)
         with tf.variable_scope("cvae"):
             with tf.variable_scope("gaussian_MLP_encoder"):
-                self.en_w0 = tf.get_variable('w0', [self.config.Arch.CVAE.x_dim + self.config.Arch.CVAE.y_dim,
-                                                    self.config.Arch.CVAE.n_hidden], initializer=w_init)
-                self.en_b0 = tf.get_variable('b0', [self.config.Arch.CVAE.n_hidden], initializer=b_init)
-                self.en_w1 = tf.get_variable('w1', [self.config.Arch.CVAE.n_hidden, self.config.Arch.CVAE.n_hidden],
-                                             initializer=w_init)
-                self.en_b1 = tf.get_variable('b1', [self.config.Arch.CVAE.n_hidden], initializer=b_init)
-                self.en_wo = tf.get_variable('wo', [self.config.Arch.CVAE.n_hidden,
-                                                    self.config.Arch.CVAE.latent_dim * 2], initializer=w_init)
-                self.en_bo = tf.get_variable('bo', [self.config.Arch.CVAE.latent_dim * 2], initializer=b_init)
+                self.en_post_w0 = tf.get_variable('w0', [self.config.Arch.CVAE.x_dim + self.config.Arch.CVAE.y_dim,
+                                                         self.config.Arch.CVAE.n_hidden], initializer=w_init)
+                self.en_post_b0 = tf.get_variable('b0', [self.config.Arch.CVAE.n_hidden], initializer=b_init)
+                self.en_post_w1 = tf.get_variable('w1',
+                                                  [self.config.Arch.CVAE.n_hidden, self.config.Arch.CVAE.n_hidden],
+                                                  initializer=w_init)
+                self.en_post_b1 = tf.get_variable('b1', [self.config.Arch.CVAE.n_hidden], initializer=b_init)
+                self.en_post_wo = tf.get_variable('wo', [self.config.Arch.CVAE.n_hidden,
+                                                         self.config.Arch.CVAE.latent_dim * 2], initializer=w_init)
+                self.en_post_bo = tf.get_variable('bo', [self.config.Arch.CVAE.latent_dim * 2], initializer=b_init)
+
+            if self.config.Learn.apply_context_specific_prior:
+                with tf.variable_scope("gaussian_MLP_prior"):
+                    self.en_prior_w0 = tf.get_variable('w0', [self.config.Arch.CVAE.y_dim,
+                                                              self.config.Arch.CVAE.n_hidden], initializer=w_init)
+                    self.en_prior_b0 = tf.get_variable('b0', [self.config.Arch.CVAE.n_hidden], initializer=b_init)
+                    self.en_prior_w1 = tf.get_variable('w1',
+                                                       [self.config.Arch.CVAE.n_hidden, self.config.Arch.CVAE.n_hidden],
+                                                       initializer=w_init)
+                    self.en_prior_b1 = tf.get_variable('b1', [self.config.Arch.CVAE.n_hidden], initializer=b_init)
+                    self.en_prior_wo = tf.get_variable('wo', [self.config.Arch.CVAE.n_hidden,
+                                                              self.config.Arch.CVAE.latent_dim * 2], initializer=w_init)
+                    self.en_prior_bo = tf.get_variable('bo', [self.config.Arch.CVAE.latent_dim * 2], initializer=b_init)
 
             # TODO: figure out how to set term "reuse"
             with tf.variable_scope("bernoulli_MLP_decoder"):
@@ -82,6 +93,13 @@ class CVAE_NN(object):
         with tf.variable_scope("sarsa"):
             self.sarsa_weight = []
             self.sarsa_bias = []
+
+            if self.config.Learn.apply_lstm:
+                with tf.variable_scope("sarsa_LSTM"):
+                    for i in range(self.config.Learn.lstm_layer_num):
+                        self.lstm_sarsa_cell_all.append(
+                            tf.nn.rnn_cell.LSTMCell(num_units=self.config.Learn.h_size, state_is_tuple=True,
+                                                    initializer=tf.random_uniform_initializer(-0.05, 0.05)))
 
             for i in range(0, self.config.Arch.Sarsa.layer_num):
                 with tf.name_scope("Dense_Layer_{0}".format(str(i))):
@@ -111,6 +129,13 @@ class CVAE_NN(object):
             self.score_diff_weight = []
             self.score_diff_bias = []
 
+            if self.config.Learn.apply_lstm:
+                with tf.variable_scope("score_diff_LSTM"):
+                    for i in range(self.config.Learn.lstm_layer_num):
+                        self.lstm_score_diff_cell_all.append(
+                            tf.nn.rnn_cell.LSTMCell(num_units=self.config.Learn.h_size, state_is_tuple=True,
+                                                    initializer=tf.random_uniform_initializer(-0.05, 0.05)))
+
             for i in range(0, self.config.Arch.Sarsa.layer_num):
                 with tf.name_scope("Dense_Layer_{0}".format(str(i))):
                     if i == 0:
@@ -137,6 +162,13 @@ class CVAE_NN(object):
         with tf.variable_scope("predict"):
             self.predict_weight = []
             self.predict_bias = []
+
+            if self.config.Learn.apply_lstm:
+                with tf.variable_scope("predict_LSTM"):
+                    for i in range(self.config.Learn.lstm_layer_num):
+                        self.lstm_predict_cell_all.append(
+                            tf.nn.rnn_cell.LSTMCell(num_units=self.config.Learn.h_size, state_is_tuple=True,
+                                                    initializer=tf.random_uniform_initializer(-0.05, 0.05)))
 
             for i in range(0, self.config.Arch.Predict.layer_num):
                 with tf.name_scope("Dense_Layer_{0}".format(str(i))):
@@ -170,18 +202,18 @@ class CVAE_NN(object):
             input = tf.concat(axis=1, values=[self.x_ph, encoder_input])
 
             # 1st hidden layer
-            h0 = tf.matmul(input, self.en_w0) + self.en_b0
+            h0 = tf.matmul(input, self.en_post_w0) + self.en_post_b0
             h0 = tf.nn.elu(h0)
             # h0 = tf.nn.dropout(h0, self.keep_prob)
 
             # 2nd hidden layer
-            h1 = tf.matmul(h0, self.en_w1) + self.en_b1
+            h1 = tf.matmul(h0, self.en_post_w1) + self.en_post_b1
             h1 = tf.nn.tanh(h1)
             # h1 = tf.nn.dropout(h1, self.keep_prob)
 
             # output layer
             # borrowed from https: // github.com / altosaar / vae / blob / master / vae.py
-            gaussian_params = tf.matmul(h1, self.en_wo) + self.en_bo
+            gaussian_params = tf.matmul(h1, self.en_post_wo) + self.en_post_bo
 
             # The mean parameter is unconstrained
             mean = gaussian_params[:, :self.config.Arch.CVAE.latent_dim]
@@ -198,18 +230,18 @@ class CVAE_NN(object):
                 input = tf.concat(axis=1, values=[encoder_input])
 
                 # 1st hidden layer
-                h0 = tf.matmul(input, self.en_w0) + self.en_b0
+                h0 = tf.matmul(input, self.en_prior_w0) + self.en_prior_b0
                 h0 = tf.nn.elu(h0)
                 # h0 = tf.nn.dropout(h0, self.keep_prob)
 
                 # 2nd hidden layer
-                h1 = tf.matmul(h0, self.en_w1) + self.en_b1
+                h1 = tf.matmul(h0, self.en_prior_w1) + self.en_prior_b1
                 h1 = tf.nn.tanh(h1)
                 # h1 = tf.nn.dropout(h1, self.keep_prob)
 
                 # output layer
                 # borrowed from https: // github.com / altosaar / vae / blob / master / vae.py
-                gaussian_params = tf.matmul(h1, self.en_wo) + self.en_bo
+                gaussian_params = tf.matmul(h1, self.en_prior_wo) + self.en_prior_bo
 
                 # The mean parameter is unconstrained
                 mean = gaussian_params[:, :self.config.Arch.CVAE.latent_dim]
@@ -243,8 +275,28 @@ class CVAE_NN(object):
 
         return y
 
-    def sarsa_value_function(self, z, input_):
+    def sarsa_value_function(self, z):
         with tf.variable_scope("sarsa"):
+            if self.config.Learn.apply_lstm:
+                with tf.name_scope('sarsa-lstm-layer'):
+                    rnn_output = None
+                    for i in range(self.config.Learn.lstm_layer_num):
+                        rnn_input = self.y_ph if i == 0 else rnn_output
+                        rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
+                            inputs=rnn_input, cell=self.lstm_sarsa_cell_all[i],
+                            sequence_length=self.trace_lengths_ph, dtype=tf.float32,
+                            scope='sarsa_rnn_{0}'.format(str(i)))
+                    outputs = tf.stack(rnn_output)
+                    # Hack to build the indexing and retrieve the right output.
+                    # self.batch_size = tf.shape(outputs)[0]
+                    # Start indices for each sample
+                    index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
+                                 + (self.trace_lengths_ph - 1)
+                    rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), index)
+                    input_ = rnn_last
+            else:
+                input_ = self.y_ph
+
             with tf.name_scope('sarsa-dense-layer'):
                 dense_output = None
                 for i in range(self.config.Arch.Sarsa.layer_num):
@@ -259,8 +311,28 @@ class CVAE_NN(object):
 
         return output
 
-    def score_diff_value_function(self, z, input_):
+    def score_diff_value_function(self, z):
         with tf.variable_scope("score_diff"):
+            if self.config.Learn.apply_lstm:
+                with tf.name_scope('diff-lstm-layer'):
+                    rnn_output = None
+                    for i in range(self.config.Learn.lstm_layer_num):
+                        rnn_input = self.y_ph if i == 0 else rnn_output
+                        rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
+                            inputs=rnn_input, cell=self.lstm_score_diff_cell_all[i],
+                            sequence_length=self.trace_lengths_ph, dtype=tf.float32,
+                            scope='score_diff_rnn_{0}'.format(str(i)))
+                    outputs = tf.stack(rnn_output)
+                    # Hack to build the indexing and retrieve the right output.
+                    # self.batch_size = tf.shape(outputs)[0]
+                    # Start indices for each sample
+                    index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
+                                 + (self.trace_lengths_ph - 1)
+                    rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), index)
+                    input_ = rnn_last
+            else:
+                input_ = self.y_ph
+
             with tf.name_scope('diff-dense-layer'):
                 dense_output = None
                 for i in range(self.config.Arch.ScoreDiff.layer_num):
@@ -275,8 +347,29 @@ class CVAE_NN(object):
 
         return output
 
-    def predict_value_function(self, z, input_):
+    def predict_value_function(self, z):
         with tf.variable_scope("predict_"):
+
+            if self.config.Learn.apply_lstm:
+                with tf.name_scope('predict-lstm-layer'):
+                    rnn_output = None
+                    for i in range(self.config.Learn.lstm_layer_num):
+                        rnn_input = self.y_ph if i == 0 else rnn_output
+                        rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
+                            inputs=rnn_input, cell=self.lstm_predict_cell_all[i],
+                            sequence_length=self.trace_lengths_ph, dtype=tf.float32,
+                            scope='score_predict_rnn_{0}'.format(str(i)))
+                    outputs = tf.stack(rnn_output)
+                    # Hack to build the indexing and retrieve the right output.
+                    # self.batch_size = tf.shape(outputs)[0]
+                    # Start indices for each sample
+                    index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
+                                 + (self.trace_lengths_ph - 1)
+                    rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), index)
+                    input_ = rnn_last
+            else:
+                input_ = self.y_ph
+
             with tf.name_scope('predict-dense-layer'):
                 dense_output = None
                 for i in range(self.config.Arch.Predict.layer_num):
@@ -295,24 +388,23 @@ class CVAE_NN(object):
     def autoencoder(self):
 
         if self.config.Learn.apply_lstm:
-            rnn_output = None
-            for i in range(self.config.Learn.lstm_layer_num):
-                rnn_input = self.y_ph if i == 0 else rnn_output
-                rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
-                    inputs=rnn_input, cell=self.lstm_encoder_cell_all[i],
-                    sequence_length=self.trace_lengths_ph, dtype=tf.float32,
-                    scope='sarsa_rnn_{0}'.format(str(i)))
-            outputs = tf.stack(rnn_output)
-            # Hack to build the indexing and retrieve the right output.
-            self.batch_size = tf.shape(outputs)[0]
-            # Start indices for each sample
-            self.index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
+            #     rnn_output = None
+            #     for i in range(self.config.Learn.lstm_layer_num):
+            #         rnn_input = self.y_ph if i == 0 else rnn_output
+            #         rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
+            #             inputs=rnn_input, cell=self.lstm_encoder_cell_all[i],
+            #             sequence_length=self.trace_lengths_ph, dtype=tf.float32,
+            #             scope='sarsa_rnn_{0}'.format(str(i)))
+            #     outputs = tf.stack(rnn_output)
+            #     # Hack to build the indexing and retrieve the right output.
+            #     # Start indices for each sample
+            index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
                          + (self.trace_lengths_ph - 1)
-            rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), self.index)
-            input_ = rnn_last
-            encoder_input = tf.gather(tf.reshape(self.y_ph, [-1, self.config.Arch.CVAE.y_dim]), self.index)
+            #     rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), self.index)
+            #     input_ = rnn_last
+            encoder_input = tf.gather(tf.reshape(self.y_ph, [-1, self.config.Arch.CVAE.y_dim]), index)
         else:
-            input_ = self.y_ph
+            #     input_ = self.y_ph
             encoder_input = self.y_ph
 
         with tf.variable_scope("cvae"):
@@ -335,11 +427,12 @@ class CVAE_NN(object):
                 logits=x_decoder,
                 reduction=tf.losses.Reduction.NONE))
 
-            sigma_1 = sigma_prior
-            mu_1 = mu_prior
-            sigma_2 = sigma_post
-            mu_2 = mu_post
+            sigma_2 = sigma_prior
+            mu_2 = mu_prior
+            sigma_1 = sigma_post
+            mu_1 = mu_post
 
+            # https://stats.stackexchange.com/questions/7440/kl-divergence-between-two-univariate-gaussians
             KL_divergence = tf.reduce_sum(0.5 * (
                     2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
                     - 2 * tf.log(tf.maximum(1e-9, sigma_1), name='log_sigma_1')
@@ -352,12 +445,12 @@ class CVAE_NN(object):
             # minimize loss instead of maximizing ELBO
             # loss = -ELBO
 
-        return tf.nn.softmax(x_decoder), z_encoder, marginal_likelihood_loss, KL_divergence_loss, input_
+        return tf.nn.softmax(x_decoder), z_encoder, marginal_likelihood_loss, KL_divergence_loss
 
     def __call__(self):
 
         # TODO: check if we can use multi-GPU implementation when necessary
-        self.x_, self.z, self.marginal_likelihood_loss, self.KL_divergence_loss, input_ = self.autoencoder()
+        self.x_, self.z, self.marginal_likelihood_loss, self.KL_divergence_loss = self.autoencoder()
         cvae_loss = self.KL_divergence_loss + self.marginal_likelihood_loss
         tvars_cvae = tf.trainable_variables(scope='cvae')
         for t in tvars_cvae:
@@ -365,7 +458,7 @@ class CVAE_NN(object):
         cvae_grads = tf.gradients(tf.reduce_mean(cvae_loss), tvars_cvae)
         self.train_cvae_op = self.optimizer.apply_gradients(zip(cvae_grads, tvars_cvae))
 
-        self.q_values_sarsa = self.sarsa_value_function(self.z, input_)
+        self.q_values_sarsa = self.sarsa_value_function(self.z)
         self.td_loss = tf.reduce_mean(tf.square(self.q_values_sarsa - self.sarsa_target_ph), axis=-1)
         self.td_avg_diff = tf.reduce_mean(tf.abs(self.q_values_sarsa - self.sarsa_target_ph), axis=-1)
         if self.config.Learn.integral_update_flag:
@@ -377,7 +470,7 @@ class CVAE_NN(object):
         td_grads = tf.gradients(tf.reduce_mean(self.td_loss), tvars_sarsa)
         self.train_td_op = self.optimizer.apply_gradients(zip(td_grads, tvars_sarsa))
 
-        self.q_values_diff = self.score_diff_value_function(self.z, input_)
+        self.q_values_diff = self.score_diff_value_function(self.z)
         self.td_score_diff_loss = tf.reduce_mean(tf.square(self.q_values_diff - self.score_diff_target_ph), axis=-1)
         self.td_score_diff_diff = tf.reduce_mean(tf.abs(self.q_values_diff - self.score_diff_target_ph), axis=-1)
         if self.config.Learn.integral_update_flag:
@@ -389,7 +482,7 @@ class CVAE_NN(object):
         td_diff_grads = tf.gradients(tf.reduce_mean(self.td_score_diff_loss), tvars_score_diff)
         self.train_diff_op = self.optimizer.apply_gradients(zip(td_diff_grads, tvars_score_diff))
 
-        self.predict_output = self.predict_value_function(self.z, input_)
+        self.predict_output = self.predict_value_function(self.z)
         self.predict_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels=self.predict_target_ph,
                                                                            logits=self.predict_output,
                                                                            reduction=tf.losses.Reduction.NONE))

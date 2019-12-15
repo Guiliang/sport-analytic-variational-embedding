@@ -4,8 +4,6 @@ import sys
 print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import os
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
 import os
@@ -404,8 +402,8 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 
 
 def run():
-    play_info = ''
-    type = 'pids'
+    play_info = '_pid_box'
+    type = 'action_goal'
     if type == 'ap_playerId':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = 'PlayerPositionClusterAP'  # playerId_
@@ -426,6 +424,8 @@ def run():
         predicted_target = 'Action'
     else:
         raise ValueError('unknown type')
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     BalancedMemoryBuffer.set_cache_memory(cache_number=2)
 

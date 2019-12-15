@@ -20,7 +20,7 @@ def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=
 class VariationalRNNCell(tf.contrib.rnn.RNNCell):
     """Variational RNN cell."""
 
-    def __init__(self, config, output_dim_list=[]):
+    def __init__(self, config):
         self.config = config
         x_dim = self.config.Arch.CVRNN.x_dim
         y_dim = self.config.Arch.CVRNN.y_dim
@@ -53,6 +53,12 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
     def __call__(self, input, state, scope=None):
         with tf.variable_scope(scope or type(self).__name__):
             c, m = state  # TODO: why shall we apply c instead of m
+            # if self.config.Learn.rnn_skip_player:
+            #     c, m = state
+            # else:
+            #     c, m = state
+            #     prediction_tm1, c = tf.split(value=c, num_or_size_splits=[self.n_x, self.n_h], axis=1)
+
             x, y, train_flag_ph = tf.split(value=input, num_or_size_splits=[self.n_x, self.n_y, 1], axis=1)
             train_flag = tf.cast(tf.squeeze(train_flag_ph), tf.bool)
 
@@ -110,10 +116,10 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
                 output, state2 = self.lstm(tf.concat(axis=1, values=(zy_phi)), state)  # TODO: recheck it
             else:
                 output, state2 = self.lstm(tf.concat(axis=1, values=(xy_phi, zy_phi)), state)  # TODO: recheck it
-        # return tf.nn.rnn_cell.LSTMStateTuple(h=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), c=state2)
+                # prediction_t = tf.nn.softmax(dec_x)
+
         cell_output = tf.concat(values=(enc_mu, enc_sigma, dec_mu, dec_sigma, dec_x, prior_mu, prior_sigma, z_encoder),
                                 axis=1)
-        # return (enc_mu, enc_sigma, dec_mu, dec_sigma, dec_rho, prior_mu, prior_sigma), state2
         return cell_output, state2
 
 
@@ -241,7 +247,7 @@ class CVRNN():
         def tf_cross_entropy(ce_output, ce_target, condition, if_last_output):
             with tf.variable_scope('win_cross_entropy'):
                 ce_loss_all = tf.losses.softmax_cross_entropy(onehot_labels=ce_target,
-                                                               logits=ce_output, reduction=tf.losses.Reduction.NONE)
+                                                              logits=ce_output, reduction=tf.losses.Reduction.NONE)
                 zero_loss_all = tf.zeros(shape=[tf.shape(ce_loss_all)[0]])
                 if if_last_output:
                     return ce_loss_all
@@ -268,6 +274,7 @@ class CVRNN():
                 return tf.where(condition=condition, x=ce_loss_all, y=zero_loss_all)
 
         def tf_cvrnn_kl_gaussian(mu_1, sigma_1, mu_2, sigma_2, condition):
+            # https://stats.stackexchange.com/questions/7440/kl-divergence-between-two-univariate-gaussians
             with tf.variable_scope("kl_gaussian"):
                 kl_loss_all = tf.reduce_sum(0.5 * (
                         2 * tf.log(tf.maximum(1e-9, sigma_2), name='log_sigma_2')
@@ -284,7 +291,7 @@ class CVRNN():
                 likelihood_loss = tf_cvrnn_cross_entropy(dec_x=dec_mu, target_x=target_x, condition=condition)
             else:
                 likelihood_loss = tf_cvrnn_cross_entropy(dec_x=dec_x, target_x=target_x, condition=condition)
-            kl_loss = tf_cvrnn_kl_gaussian(prior_mu, prior_sigma, enc_mu, enc_sigma, condition)
+            kl_loss = tf_cvrnn_kl_gaussian(enc_mu, enc_sigma, prior_mu, prior_sigma, condition)
             # likelihood_loss = tf_normal(target_x, dec_mu, dec_sigma, dec_rho)
 
             # kl_loss = tf.zeros(shape=[tf.shape(kl_loss)[0]])  # TODO: why if we only optimize likelihood_loss
@@ -314,12 +321,16 @@ class CVRNN():
         batch_size = tf.shape(self.input_data_ph)[0]
         with tf.variable_scope('cvrnn'):
 
-            self.cell = VariationalRNNCell(config=self.config,
-                                           output_dim_list=self.cell_output_dim_list)
+            self.cell = VariationalRNNCell(config=self.config)
 
             self.initial_state_c, self.initial_state_h = self.cell.zero_state(
                 batch_size=tf.shape(self.input_data_ph)[0],
                 dtype=tf.float32)
+
+            # if not self.config.Learn.rnn_skip_player:
+            #     self.initial_state_c = tf.concat([tf.ones([tf.shape(self.initial_state_c)[0],
+            #                                                self.config.Arch.CVRNN.x_dim]),
+            #                                       self.initial_state_c], axis=1)
 
             flat_target_data = tf.reshape(self.target_data_ph, [-1, self.config.Arch.CVRNN.x_dim])
             cvrnn_outputs, last_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=self.input_data_ph,
@@ -347,7 +358,25 @@ class CVRNN():
 
         [self.enc_mu, self.enc_sigma, self.dec_mu, self.dec_sigma,
          self.dec_x, self.prior_mu, self.prior_sigma, z_encoder] = outputs_reshape
-        self.z_encoder = z_encoder
+
+        # self.player_embedding = self.enc_mu
+
+        if self.config.Learn.embed_mode == 'random':
+            self.player_embedding = z_encoder
+            print('embeding mode is random')
+        elif self.config.Learn.embed_mode == 'mean':
+            self.player_embedding = self.enc_mu
+            print('embeding mode is mean')
+        elif self.config.Learn.embed_mode == 'mean_var':
+            self.player_embedding = tf.concat([self.enc_mu, self.enc_sigma], axis=1)
+            print('embeding mode is mean_var')
+
+        self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (self.trace_length_ph - 1)
+        self.z_encoder_output = tf.gather(self.enc_sigma, self.select_index)
+        # self.z_encoder_output = tf.reshape(
+        #     tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
+        #                                       self.config.Arch.CVRNN.latent_dim]), shape=[batch_size, -1])
+
         self.final_state_c, self.final_state_h = last_state
 
         condition = tf.cast(tf.reshape(self.selection_matrix_ph,
@@ -360,6 +389,7 @@ class CVRNN():
             decoder_output = self.dec_mu
         else:
             decoder_output = self.dec_x
+
         self.output = tf.reshape(tf.nn.softmax(decoder_output),
                                  shape=[batch_size, tf.shape(self.input_data_ph)[1], -1])
 
@@ -390,10 +420,14 @@ class CVRNN():
             data_input_sarsa = self.input_data_ph[
                                :, :,
                                self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
+            if self.config.Learn.embed_mode == 'mean_var':
+                shape = [batch_size, self.config.Learn.max_seq_length,
+                         self.config.Arch.CVRNN.latent_dim*2]
+            else:
+                shape = [batch_size, self.config.Learn.max_seq_length,
+                         self.config.Arch.CVRNN.latent_dim]
 
-            self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (self.trace_length_ph - 1)
-            z_encoder_sarsa = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
-                                                                self.config.Arch.CVRNN.latent_dim])
+            z_encoder_sarsa = tf.reshape(self.player_embedding, shape=shape)
 
             # z_encoder_last = tf.gather(z_encoder, self.select_index)
             # self.z_encoder_last = z_encoder_last
@@ -439,17 +473,21 @@ class CVRNN():
         if self.win_score_diff:
             with tf.variable_scope('score_diff'):
                 data_input_action_pred = self.input_data_ph[
-                                  :, :,
-                                  self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
+                                         :, :,
+                                         self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
 
-                self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (
-                        self.trace_length_ph - 1)
-                z_encoder_action_pred = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
-                                                                          self.config.Arch.CVRNN.latent_dim])
+                if self.config.Learn.embed_mode == 'mean_var':
+                    shape = [batch_size, self.config.Learn.max_seq_length,
+                             self.config.Arch.CVRNN.latent_dim * 2]
+                else:
+                    shape = [batch_size, self.config.Learn.max_seq_length,
+                             self.config.Arch.CVRNN.latent_dim]
+
+                z_encoder_score_diff = tf.reshape(self.player_embedding, shape=shape)
                 for i in range(self.config.Arch.WIN.lstm_layer_num):
                     rnn_output = None
                     for i in range(self.config.Arch.WIN.lstm_layer_num):
-                        rnn_input = tf.concat([data_input_action_pred, z_encoder_action_pred],
+                        rnn_input = tf.concat([data_input_action_pred, z_encoder_score_diff],
                                               axis=2) if i == 0 else rnn_output
                         rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
                             inputs=rnn_input, cell=self.win_lstm_cell[i],
@@ -491,13 +529,18 @@ class CVRNN():
         if self.extra_prediction_flag:
             with tf.variable_scope('prediction'):
                 data_input_action_pred = self.input_data_ph[
-                                  :, :,
-                                  self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
+                                         :, :,
+                                         self.config.Arch.CVRNN.x_dim:self.config.Arch.CVRNN.y_dim + self.config.Arch.CVRNN.x_dim]
 
-                self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (
-                        self.trace_length_ph - 1)
-                z_encoder_action_pred = tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
-                                                                          self.config.Arch.CVRNN.latent_dim])
+
+                if self.config.Learn.embed_mode == 'mean_var':
+                    shape = [batch_size, self.config.Learn.max_seq_length,
+                             self.config.Arch.CVRNN.latent_dim * 2]
+                else:
+                    shape = [batch_size, self.config.Learn.max_seq_length,
+                             self.config.Arch.CVRNN.latent_dim]
+
+                z_encoder_action_pred = tf.reshape(self.player_embedding, shape=shape)
                 for i in range(self.config.Arch.Predict.lstm_layer_num):
                     rnn_output = None
                     for i in range(self.config.Arch.Predict.lstm_layer_num):
@@ -533,7 +576,7 @@ class CVRNN():
                     # self.win_acc, win_acc_op = tf.metrics.accuracy(labels=tf.argmax(self.win_target_ph, 1),
                     #                                                predictions=tf.argmax(self.win_output, 1))
             if self.config.Learn.integral_update_flag:
-                tvars_action_pred= tf.trainable_variables()
+                tvars_action_pred = tf.trainable_variables()
             else:
                 tvars_action_pred = tf.trainable_variables(scope='action')
             for t in tvars_action_pred:

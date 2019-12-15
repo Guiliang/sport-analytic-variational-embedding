@@ -29,6 +29,7 @@ class CVRNNCongfig(object):
         apply_box_score = None
         diff_apply_rl = None
         integral_update_flag = None
+        embed_mode = ''
 
     class Arch(InitWithDict):
         def __init__(self, init):

@@ -93,20 +93,72 @@ def get_data_name(config, model_catagoery, model_number):
         if config.Learn.integral_update_flag:
             player_info += '_integral'
         data_name = "model_{1}_three_cut_cvrnn_Qs_feature{2}_latent{8}_x{9}_y{10}" \
-                    "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}".format(config.Learn.save_mother_dir,
-                                                                                  model_number,
-                                                                                  str(config.Learn.feature_type),
-                                                                                  str(config.Learn.batch_size),
-                                                                                  str(config.Learn.iterate_num),
-                                                                                  str(config.Learn.learning_rate),
-                                                                                  str(config.Learn.model_type),
-                                                                                  str(config.Learn.max_seq_length),
-                                                                                  str(config.Arch.CVRNN.latent_dim),
-                                                                                  str(config.Arch.CVRNN.y_dim),
-                                                                                  str(config.Arch.CVRNN.x_dim),
-                                                                                  str(config.Arch.CVRNN.hidden_dim),
-                                                                                  player_info
-                                                                                  )
+                    "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}_{13}".format(config.Learn.save_mother_dir,
+                                                                                       model_number,
+                                                                                       str(config.Learn.feature_type),
+                                                                                       str(config.Learn.batch_size),
+                                                                                       str(config.Learn.iterate_num),
+                                                                                       str(config.Learn.learning_rate),
+                                                                                       str(config.Learn.model_type),
+                                                                                       str(config.Learn.max_seq_length),
+                                                                                       str(
+                                                                                           config.Arch.CVRNN.latent_dim),
+                                                                                       str(config.Arch.CVRNN.y_dim),
+                                                                                       str(config.Arch.CVRNN.x_dim),
+                                                                                       str(
+                                                                                           config.Arch.CVRNN.hidden_dim),
+                                                                                       player_info,
+                                                                                       config.Learn.embed_mode
+                                                                                       )
+    elif model_catagoery == 'cvae':
+        data_name = "model_{1}_three_cut_cvae_Qs_feature{2}_latent{8}_x{9}_y{10}" \
+                    "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
+                                                                model_number,
+                                                                str(config.Learn.feature_type),
+                                                                str(config.Learn.batch_size),
+                                                                str(config.Learn.iterate_num),
+                                                                str(config.Learn.learning_rate),
+                                                                str(config.Learn.model_type),
+                                                                None,
+                                                                str(config.Arch.CVAE.latent_dim),
+                                                                str(config.Arch.CVAE.x_dim),
+                                                                str(config.Arch.CVAE.y_dim),
+                                                                None,
+                                                                player_info
+                                                                )
+    elif model_catagoery == 'vhe':
+        data_name = "model_{1}_three_cut_vhe_Qs_feature{2}_latent{8}_x{9}_y{10}" \
+                    "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
+                                                                model_number,
+                                                                str(config.Learn.feature_type),
+                                                                str(config.Learn.batch_size),
+                                                                str(config.Learn.iterate_num),
+                                                                str(config.Learn.learning_rate),
+                                                                str(config.Learn.model_type),
+                                                                None,
+                                                                str(config.Arch.CVAE.latent_dim),
+                                                                str(config.Arch.CVAE.x_dim),
+                                                                str(config.Arch.CVAE.y_dim),
+                                                                None,
+                                                                player_info
+                                                                )
+    elif model_catagoery == 'encoder':
+        data_name = "model_{1}_three_cut_encoder_Qs_feature{2}_embed{8}_in{9}_out{10}" \
+                    "_batch{3}_iterate{4}_lr{5}_{6}{12}".format(config.Learn.save_mother_dir,
+                                                                model_number,
+                                                                str(config.Learn.feature_type),
+                                                                str(config.Learn.batch_size),
+                                                                str(config.Learn.iterate_num),
+                                                                str(config.Learn.learning_rate),
+                                                                str(config.Learn.model_type),
+                                                                None,
+                                                                str(config.Arch.Encoder.embed_dim),
+                                                                str(config.Arch.Encoder.input_dim),
+                                                                str(config.Arch.Encoder.output_dim),
+                                                                None,
+                                                                player_info,
+                                                                # lstm_msg
+                                                                )
     elif model_catagoery == 'lstm_Qs':
         data_name = "model_{1}_three_cut_lstm_Qs_feature{2}_{8}" \
                     "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
@@ -149,7 +201,8 @@ def get_data_name(config, model_catagoery, model_number):
     return data_name
 
 
-def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_tag=None):
+def get_model_and_log_name(config, model_catagoery, train_flag=False,
+                           embedding_tag=None, running_number=None):
     if train_flag:
         train_msg = 'Train_'
     else:
@@ -170,39 +223,46 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             player_info += '_deter'
         log_dir = "{0}/oschulte/Galen/icehockey-models/cvrnn_log_NN" \
                   "/{1}cvrnn_log_feature{2}_latent{8}_x{9}_y{10}" \
-                  "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}".format(config.Learn.save_mother_dir,
-                                                                                train_msg,
-                                                                                str(config.Learn.feature_type),
-                                                                                str(config.Learn.batch_size),
-                                                                                str(config.Learn.iterate_num),
-                                                                                str(config.Learn.learning_rate),
-                                                                                str(config.Learn.model_type),
-                                                                                str(config.Learn.max_seq_length),
-                                                                                str(config.Arch.CVRNN.latent_dim),
-                                                                                str(config.Arch.CVRNN.y_dim),
-                                                                                # TODO: reorder x_dim and y_dim
-                                                                                str(config.Arch.CVRNN.x_dim),
-                                                                                str(config.Arch.CVRNN.hidden_dim),
-                                                                                player_info
-                                                                                )
+                  "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}" \
+                  "{12}_{13}_r{14}".format(config.Learn.save_mother_dir,
+                                           train_msg,
+                                           str(config.Learn.feature_type),
+                                           str(config.Learn.batch_size),
+                                           str(config.Learn.iterate_num),
+                                           str(config.Learn.learning_rate),
+                                           str(config.Learn.model_type),
+                                           str(config.Learn.max_seq_length),
+                                           str(config.Arch.CVRNN.latent_dim),
+                                           str(config.Arch.CVRNN.y_dim),
+                                           # TODO: reorder x_dim and y_dim
+                                           str(config.Arch.CVRNN.x_dim),
+                                           str(config.Arch.CVRNN.hidden_dim),
+                                           player_info,
+                                           config.Learn.embed_mode,
+                                           str(running_number)
+                                           )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/cvrnn_saved_NN/" \
                         "{1}cvrnn_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
-                        "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}{12}".format(config.Learn.save_mother_dir,
-                                                                                      train_msg,
-                                                                                      str(config.Learn.feature_type),
-                                                                                      str(config.Learn.batch_size),
-                                                                                      str(config.Learn.iterate_num),
-                                                                                      str(config.Learn.learning_rate),
-                                                                                      str(config.Learn.model_type),
-                                                                                      str(config.Learn.max_seq_length),
-                                                                                      str(config.Arch.CVRNN.latent_dim),
-                                                                                      str(config.Arch.CVRNN.y_dim),
-                                                                                      # TODO: reorder x_dim and y_dim
-                                                                                      str(config.Arch.CVRNN.x_dim),
-                                                                                      str(config.Arch.CVRNN.hidden_dim),
-                                                                                      player_info
-                                                                                      )
+                        "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}" \
+                        "{12}_{13}_r{14}".format(
+                                                config.Learn.save_mother_dir,
+                                                train_msg,
+                                                str(config.Learn.feature_type),
+                                                str(config.Learn.batch_size),
+                                                str(config.Learn.iterate_num),
+                                                str(config.Learn.learning_rate),
+                                                str(config.Learn.model_type),
+                                                str(config.Learn.max_seq_length),
+                                                str(config.Arch.CVRNN.latent_dim),
+                                                str(config.Arch.CVRNN.y_dim),
+                                                # TODO: reorder x_dim and y_dim
+                                                str(config.Arch.CVRNN.x_dim),
+                                                str(config.Arch.CVRNN.hidden_dim),
+                                                player_info,
+                                                config.Learn.embed_mode,
+                                                str(running_number)
+                                            )
     elif model_catagoery == 'de_embed':
         if embedding_tag is not None:
             train_msg += 'validate{0}_'.format(str(embedding_tag))
@@ -413,6 +473,53 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False, embedding_
             player_info,
             player_id_info
         )
+    elif model_catagoery == 'vhe':  # TODO: add more parameters
+
+        if config.Learn.apply_lstm:
+            lstm_msg = '_lstm'
+        else:
+            lstm_msg = ''
+
+        if config.Learn.integral_update_flag:
+            player_info += '_integral'
+        if config.Arch.Predict.predict_target is not None:
+            player_info += '_' + config.Arch.Predict.predict_target
+
+        log_dir = "{0}/oschulte/Galen/icehockey-models/vhe_saved_NN" \
+                  "/{1}cvae_log_feature{2}_latent{8}_x{9}_y{10}" \
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                                                                  train_msg,
+                                                                  str(config.Learn.feature_type),
+                                                                  str(config.Learn.batch_size),
+                                                                  str(config.Learn.iterate_num),
+                                                                  str(config.Learn.learning_rate),
+                                                                  str(config.Learn.model_type),
+                                                                  None,
+                                                                  str(config.Arch.CVAE.latent_dim),
+                                                                  str(config.Arch.CVAE.x_dim),
+                                                                  str(config.Arch.CVAE.y_dim),
+                                                                  None,
+                                                                  player_info,
+                                                                  lstm_msg
+                                                                  )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/vhe_saved_NN/" \
+                        "{1}cvae_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                                                                        train_msg,
+                                                                        str(config.Learn.feature_type),
+                                                                        str(config.Learn.batch_size),
+                                                                        str(config.Learn.iterate_num),
+                                                                        str(config.Learn.learning_rate),
+                                                                        str(config.Learn.model_type),
+                                                                        None,
+                                                                        str(config.Arch.CVAE.latent_dim),
+                                                                        str(config.Arch.CVAE.x_dim),
+                                                                        str(config.Arch.CVAE.y_dim),
+                                                                        None,
+                                                                        player_info,
+                                                                        lstm_msg
+                                                                        )
 
     elif model_catagoery == 'cvae':  # TODO: add more parameters
 
@@ -686,14 +793,24 @@ def normal_td(mu1, mu2, var1, var2, y):
     return com1 * com2 * com3
 
 
-def compute_game_ids(sess_nn, model, data_store,
-                     dir_game, config,
-                     player_id_cluster_dir,
-                     model_category,
-                     player_basic_info_dir=None,
-                     game_date_dir=None,
-                     player_box_score_dir=None
-                     ):
+def get_embedding_model_output(sess_nn, output_list, feed_dict):
+    output = sess_nn.run(output_list,
+                         feed_dict=feed_dict)
+
+    return output
+
+
+def prepare_embedding_game_data(data_store,
+                                dir_game, config,
+                                player_id_cluster_dir,
+                                model_category,
+                                player_basic_info_dir,
+                                game_date_dir,
+                                player_box_score_dir):
+    trace_lengths = None
+    train_mask = None
+    selection_matrix = None
+
     state_trace_length, state_input, reward, action, team_id, player_index = get_icehockey_game_data(
         data_store=data_store, dir_game=dir_game, config=config,
         player_id_cluster_dir=player_id_cluster_dir,
@@ -737,12 +854,132 @@ def compute_game_ids(sess_nn, model, data_store,
             trace_lengths = state_trace_length
             selection_matrix = generate_selection_matrix(trace_lengths,
                                                          max_trace_length=config.Learn.max_seq_length)
+        target_model_label = player_index_seq
 
-        [output_x] = sess_nn.run([model.output],
-                                 feed_dict={model.input_data_ph: input_data,
-                                            model.trace_length_ph: trace_lengths,
-                                            model.selection_matrix_ph: selection_matrix
-                                            })
+    elif model_category == "cvae" or model_category == "vhe" or model_category == "encoder":
+        if config.Learn.apply_lstm:
+            input_data = np.concatenate([player_index_seq,
+                                         team_id_seq,
+                                         state_input,
+                                         action_seq, ],
+                                        axis=2)
+            trace_lengths = state_trace_length
+        else:
+            input_data = np.concatenate([np.asarray(player_index),
+                                         np.asarray(team_id),
+                                         np.asarray(state_zero_input),
+                                         np.asarray(action), ],
+                                        axis=1)
+        train_mask = np.asarray([0] * len(input_data))
+        target_model_label = player_index
+
+    # elif model_category == "encoder":
+    #     if config.Learn.apply_lstm:
+    #         input_data = np.concatenate([player_index_seq,
+    #                                      team_id_seq,
+    #                                      state_input,
+    #                                      action_seq, ],
+    #                                     axis=2)
+    #         trace_lengths = state_trace_length
+    #     else:
+    #         input_data = np.concatenate([np.asarray(player_index),
+    #                                      np.asarray(team_id),
+    #                                      np.asarray(state_zero_input),
+    #                                      np.asarray(action), ],
+    #                                     axis=1)
+    #     target_model_label = player_index
+
+    elif model_category == "lstm_prediction":
+        input_data = np.concatenate([np.asarray(action_seq),
+                                     np.asarray(state_input)],
+                                    axis=2)
+        trace_lengths = state_trace_length
+        target_model_label = player_index
+
+    else:
+        raise ValueError('Unknown category {0}'.format(model_category))
+
+    return input_data, target_model_label, trace_lengths, train_mask, selection_matrix
+
+
+def compute_game_embedding(sess_nn, model, data_store,
+                           dir_game, config,
+                           player_id_cluster_dir,
+                           model_category,
+                           player_basic_info_dir=None,
+                           game_date_dir=None,
+                           player_box_score_dir=None
+                           ):
+    input_data, target_model_label, \
+    trace_lengths, train_mask, \
+    selection_matrix = prepare_embedding_game_data(data_store,
+                                                   dir_game, config,
+                                                   player_id_cluster_dir,
+                                                   model_category,
+                                                   player_basic_info_dir,
+                                                   game_date_dir,
+                                                   player_box_score_dir)
+
+    player_index = np.argmax(sio.loadmat(data_store + "/" + dir_game + "/"
+                                         + 'player_index_game_{0}-playsequence-wpoi.mat'.
+                                         format(str(dir_game)))['player_index'], axis=1)
+
+    if model_category == "cvrnn":
+        feed_dict = {model.input_data_ph: input_data,
+                     model.trace_length_ph: trace_lengths,
+                     model.selection_matrix_ph: selection_matrix
+                     }
+        [output_encoder] = get_embedding_model_output(sess_nn, [model.z_encoder_output], feed_dict)
+        output_player_encoding = output_encoder
+
+    elif model_category == "cvae":
+        feed_dict = {model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
+                     model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
+                     model.train_flag_ph: train_mask,
+                     }
+        [output_encoder] = get_embedding_model_output(sess_nn, [model.z], feed_dict)
+        output_player_encoding = output_encoder
+
+    elif model_category == "encoder":
+        feed_dict = {model.input_ph: input_data[:, config.Arch.Encoder.output_dim:], }
+        [output_encoder] = get_embedding_model_output(sess_nn, [model.embedding], feed_dict)
+        output_player_encoding = output_encoder
+
+    # elif model_category == "lstm_prediction":
+    #     feed_dict = {model.rnn_input_ph: input_data,
+    #                  model.trace_lengths_ph: trace_lengths}
+    #     [output_encoder] = get_embedding_model_output(sess_nn, [model.read_out], feed_dict)
+    #     output_player_encoding = output_encoder
+    else:
+        raise ValueError('Unknown category {0}'.format(model_category))
+
+    return output_player_encoding, player_index
+
+
+def compute_game_ids(sess_nn, model, data_store,
+                     dir_game, config,
+                     player_id_cluster_dir,
+                     model_category,
+                     player_basic_info_dir=None,
+                     game_date_dir=None,
+                     player_box_score_dir=None
+                     ):
+    input_data, target_model_label, \
+    trace_lengths, train_mask, \
+    selection_matrix = prepare_embedding_game_data(data_store,
+                                                   dir_game, config,
+                                                   player_id_cluster_dir,
+                                                   model_category,
+                                                   player_basic_info_dir,
+                                                   game_date_dir,
+                                                   player_box_score_dir)
+
+    if model_category == "cvrnn":
+        feed_dict = {model.input_data_ph: input_data,
+                     model.trace_length_ph: trace_lengths,
+                     model.selection_matrix_ph: selection_matrix
+                     }
+        [output_x] = get_embedding_model_output(sess_nn, [model.output], feed_dict)
 
         output_model_prob = []
         for batch_index in range(0, len(output_x)):
@@ -754,63 +991,44 @@ def compute_game_ids(sess_nn, model, data_store,
                     output_decoder_batch.append(np.asarray([0] * config.Arch.CVRNN.x_dim))
             output_model_prob.append(output_decoder_batch)
         output_model_prob = np.asarray(output_model_prob)
-        target_model_label = player_index_seq
 
-    elif model_category == "cvae":
-        input_data = np.concatenate([np.asarray(player_index),
-                                     np.asarray(team_id),
-                                     np.asarray(state_zero_input),
-                                     np.asarray(action), ], axis=1)
-        train_mask = np.asarray([1] * len(input_data))
+    elif model_category == "cvae" or model_category == "vhe":
+        if config.Learn.apply_lstm:
+            x_ph_input = []
+            for trace_index in range(0, len(trace_lengths)):
+                trace_length = trace_lengths[trace_index]
+                trace_length = trace_length - 1
+                if trace_length > 9:
+                    trace_length = 9
+                x_ph_input.append(input_data[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+            x_ph_input = np.asarray(x_ph_input)
 
-        [
-            output_x,
-        ] = sess_nn.run([
-            model.x_],
-            feed_dict={model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
-                       model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
-                       model.train_flag_ph: train_mask,
-                       }
-        )
+            feed_dict = {model.x_ph: x_ph_input,
+                         model.y_ph: input_data[:, :, config.Arch.CVAE.x_dim:],
+                         model.trace_lengths_ph: trace_lengths,
+                         model.train_flag_ph: train_mask, }
+        else:
+            feed_dict = {model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
+                         model.train_flag_ph: train_mask,
+                         model.y_ph: input_data[:, config.Arch.CVAE.x_dim:]}
+
+        [output_x] = get_embedding_model_output(sess_nn, [model.x_], feed_dict)
         output_model_prob = output_x
-        target_model_label = player_index
-        selection_matrix = None
 
     elif model_category == "encoder":
-        input_data = np.concatenate([np.asarray(player_index),
-                                     np.asarray(team_id),
-                                     np.asarray(state_zero_input),
-                                     np.asarray(action)], axis=1)
-
-        feed_dict = {model.input_ph: input_data[:, config.Arch.Encoder.output_dim:], }
-
-        [
-            output_x
-        ] = sess_nn.run([
-            model.player_prediction],
-            feed_dict=feed_dict
-        )
+        if config.Learn.apply_lstm:
+            feed_dict = {model.input_ph: input_data[:, :, config.Arch.Encoder.output_dim:],
+                         model.trace_lengths_ph: trace_lengths}
+        else:
+            feed_dict = {model.input_ph: input_data[:, config.Arch.Encoder.output_dim:], }
+        [output_x] = get_embedding_model_output(sess_nn, [model.player_prediction], feed_dict)
         output_model_prob = output_x
-        target_model_label = player_index
-        selection_matrix = None
+
     elif model_category == "lstm_prediction":
-        input_data = np.concatenate([np.asarray(action_seq),
-                                     np.asarray(state_input)],
-                                    axis=2)
-        trace_lengths = state_trace_length
-
-        [
-            output_prob
-        ] = sess_nn.run([
-            model.read_out
-        ],
-            feed_dict={model.rnn_input_ph: input_data,
-                       model.trace_lengths_ph: trace_lengths}
-        )
-        output_model_prob = output_prob
-        target_model_label = player_index
-        selection_matrix = None
-
+        feed_dict = {model.rnn_input_ph: input_data,
+                     model.trace_lengths_ph: trace_lengths}
+        [output_x] = get_embedding_model_output(sess_nn, [model.read_out], feed_dict)
+        output_model_prob = output_x
     else:
         raise ValueError('Unknown category {0}'.format(model_category))
 
@@ -827,7 +1045,7 @@ def get_model_prediction_output(sess_nn, model, config, pred_input_data, pred_tr
                        model.trace_length_ph: pred_trace_lengths,
                        model.selection_matrix_ph: pred_selection_matrix
                        })
-    elif model_category == 'cvae':
+    elif model_category == 'cvae' or model_category == 'vhe':
         pred_train_mask = np.asarray([0] * len(pred_input_data))
         if config.Learn.apply_lstm:
             x_ph_input = []
@@ -878,7 +1096,7 @@ def get_model_prediction_output(sess_nn, model, config, pred_input_data, pred_tr
     return readout_pred_output
 
 
-def compute_game_prediction(sess_nn, model,
+def compute_prediction_game(sess_nn, model,
                             data_store,
                             source_data_dir,
                             dir_game, config,
@@ -987,7 +1205,7 @@ def compute_game_prediction(sess_nn, model,
         readout_pred_output = get_model_prediction_output(sess_nn, model, config, pred_input_data,
                                                           pred_trace_lengths, model_category)
 
-    elif model_category == 'cvae':
+    elif model_category == 'cvae' or model_category == 'vhe':
 
         if config.Learn.apply_lstm:
             pred_input_data = np.concatenate([np.asarray(new_player_index_seq),
@@ -1084,8 +1302,75 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config,
                                                                     model.trace_length_ph: trace_lengths,
                                                                     model.selection_matrix_ph: selection_matrix_t0
                                                                     })
+    elif model_category == 'cvae' or model_category == 'vhe':
+        pred_train_mask = np.asarray([0] * len(player_index_seq))
+        # if config.Learn.apply_lstm:
+        input_data = np.concatenate([np.asarray(player_index_seq),
+                                     np.asarray(team_id_seq),
+                                     np.asarray(state_input),
+                                     np.asarray(action_seq)], axis=2)
+        trace_lengths = state_trace_length
+
+        x_ph_input = []
+        for trace_index in range(0, len(state_trace_length)):
+            trace_length = state_trace_length[trace_index]
+            trace_length = trace_length - 1
+            if trace_length > 9:
+                trace_length = 9
+            x_ph_input.append(input_data[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+        x_ph_input = np.asarray(x_ph_input)
+
+        feed_dict = {model.x_ph: x_ph_input,
+                     model.y_ph: input_data[:, :, config.Arch.CVAE.x_dim:],
+                     model.trace_lengths_ph: trace_lengths,
+                     model.train_flag_ph: pred_train_mask,
+                     }
+        # else:
+        #     input_data = np.concatenate([np.asarray(player_index_seq),
+        #                                  np.asarray(team_id_seq),
+        #                                  np.asarray(state_input),
+        #                                  np.asarray(action_seq), ], axis=1)
+        #
+        #     feed_dict = {model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
+        #                  model.train_flag_ph: pred_train_mask,
+        #                  model.y_ph: input_data[:, config.Arch.CVAE.x_dim:]
+        #                  }
+
+        [readout_next_Q, readout_accumu_Q] = sess_nn.run([model.q_values_sarsa,
+                                                          model.q_values_diff],
+                                                         feed_dict=feed_dict)
+
+    elif model_category == 'encoder':
+        # if config.Learn.apply_lstm:
+        pred_input_data = np.concatenate([np.asarray(player_index_seq),
+                                          np.asarray(team_id_seq),
+                                          np.asarray(state_input),
+                                          np.asarray(action_seq)], axis=2)
+        pred_trace_lengths = state_trace_length
+
+        feed_dict = {model.input_ph: pred_input_data[:, :, config.Arch.Encoder.output_dim:],
+                     model.trace_lengths_ph: pred_trace_lengths
+                     }
+        [readout_next_Q, readout_accumu_Q] = sess_nn.run([model.q_values_sarsa,
+                                                          model.q_values_diff],
+                                                         feed_dict=feed_dict)
+        # else:
+        #     pred_input_data = np.concatenate([np.asarray(player_index),
+        #                                       np.asarray(team_id),
+        #                                       np.asarray(state_zero_input),
+        #                                       np.asarray(action)], axis=1)
+        #     pred_target_data = np.asarray(np.asarray(pred_target))
+        #     pred_trace_lengths = state_zero_trace
+
     elif model_category == 'lstm_Qs':
-        input_data = np.concatenate([np.asarray(state_input), np.asarray(action_seq)], axis=2)
+
+        if config.Learn.apply_pid:
+            input_data = np.concatenate([np.asarray(player_index_seq),
+                                         np.asarray(state_input),
+                                         np.asarray(action_seq)], axis=2)
+        else:
+            input_data = np.concatenate([np.asarray(state_input),
+                                         np.asarray(action_seq)], axis=2)
         trace_lengths = state_trace_length
         [readout_next_Q] = sess_nn.run([model.read_out],
                                        feed_dict={model.rnn_input_ph: input_data,
@@ -1132,7 +1417,7 @@ def validate_games_prediction(config,
         model_nn = cvrnn
         sess_nn.run(tf.global_variables_initializer())
         model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    if model_category == 'cvae':
+    if model_category == 'cvae' or model_category == 'vhe':
         prediction_target = config.Arch.Predict.predict_target
         cvae = CVAE_NN(config=config)
         cvae()
@@ -1169,7 +1454,7 @@ def validate_games_prediction(config,
             game_name = game_name_dir.split('.')[0]
             # game_time_all = get_game_time(data_path, game_name_dir)
             output_prediction_prob, \
-            target_prediction, = compute_game_prediction(sess_nn=sess_nn,
+            target_prediction, = compute_prediction_game(sess_nn=sess_nn,
                                                          model=model_nn,
                                                          data_store=data_store_dir,
                                                          source_data_dir=source_data_dir,
@@ -1196,7 +1481,7 @@ def validate_games_prediction(config,
         precision = float(TP) / (TP + FP)
         recall = float(TP) / (TP + FN)
         f1 = 2 * (precision * recall) / (precision + recall)
-        print ("prediction testing precision is {6}, recall is {7}, f1{8}, acc is {0}, ll is {5} "
+        print ("prediction testing precision is {6}, recall is {7}, f1 is {8}, acc is {0}, ll is {5} "
                "with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
                                                             str(TP),
                                                             str(TN),
@@ -1208,7 +1493,7 @@ def validate_games_prediction(config,
                                                             str(f1)
                                                             ))
         if file_writer is not None:
-            file_writer.write("prediction testing precision is {6}, recall is {7}, acc is {0}, ll is {5} "
+            file_writer.write("prediction testing precision is {6}, recall is {7}, f1 is {8}, acc is {0}, ll is {5} "
                               "with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
                                                                            str(TP),
                                                                            str(TN),
@@ -1241,6 +1526,74 @@ def validate_games_prediction(config,
         return np.asarray(all_prediction_output)
 
 
+def validate_games_embedding(config,
+                             data_store_dir,
+                             dir_all,
+                             player_basic_info_dir,
+                             game_date_dir,
+                             player_box_score_dir,
+                             model_number=None,
+                             player_id_cluster_dir=None,
+                             saved_network_dir=None,
+                             model_category=None,
+                             ):
+    sess_nn = tf.InteractiveSession()
+    if model_category == 'cvrnn':
+        cvrnn = CVRNN(config=config)
+        cvrnn()
+        model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'cvae':
+        cvae = CVAE_NN(config=config)
+        cvae()
+        model_nn = cvae
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'encoder':
+        encoder = Encoder_NN(config=config)
+        encoder()
+        model_nn = encoder
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'lstm_prediction':
+        model_nn = Td_Prediction_NN(config=config)
+        model_nn.initialize_ph()
+        model_nn.build()
+        model_nn.call()
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    if model_number is not None:
+        saver = tf.train.Saver()
+        saver.restore(sess_nn, model_path)
+        print 'successfully load data from' + model_path
+    else:
+        raise ValueError('please provide a model number or no model will be loaded')
+
+    all_embedding = []
+    all_player_index = []
+
+    for game_name_dir in dir_all:
+        print('working for game {0}'.format(game_name_dir))
+        game_name = game_name_dir.split('.')[0]
+        # game_time_all = get_game_time(data_path, game_name_dir)
+        embedding, player_index = compute_game_embedding(sess_nn=sess_nn,
+                                                         model=model_nn,
+                                                         data_store=data_store_dir,
+                                                         dir_game=game_name,
+                                                         config=config,
+                                                         player_id_cluster_dir=player_id_cluster_dir,
+                                                         model_category=model_category,
+                                                         player_basic_info_dir=player_basic_info_dir,
+                                                         game_date_dir=game_date_dir,
+                                                         player_box_score_dir=player_box_score_dir
+                                                         )
+        all_player_index.append(player_index)
+        all_embedding.append(embedding)
+
+    return all_embedding, all_player_index
+
+
 def validate_games_player_id(config,
                              data_store_dir,
                              dir_all,
@@ -1260,6 +1613,13 @@ def validate_games_player_id(config,
         cvrnn = CVRNN(config=config)
         cvrnn()
         model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+
+    elif model_category == 'vhe':
+        vhe = CVAE_NN(config=config)
+        vhe()
+        model_nn = vhe
         sess_nn.run(tf.global_variables_initializer())
         model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     elif model_category == 'cvae':
@@ -1349,6 +1709,24 @@ def compute_games_Q_values(config, data_store_dir, dir_all,
         cvrnn = CVRNN(config=config)
         cvrnn()
         model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'vhe':
+        vhe = CVAE_NN(config=config)
+        vhe()
+        model_nn = vhe
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'cvae':
+        cvae = CVAE_NN(config=config)
+        cvae()
+        model_nn = cvae
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'encoder':
+        encoder = Encoder_NN(config=config)
+        encoder()
+        model_nn = encoder
         sess_nn.run(tf.global_variables_initializer())
         model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     elif model_category == 'lstm_Qs':
