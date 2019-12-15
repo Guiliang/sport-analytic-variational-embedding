@@ -13,7 +13,7 @@ class Calibration:
                  config, model_data_store_dir,
                  apply_old, apply_difference, model_type,
                  model_number, player_info, calibration_type,
-                 testing_dir_all,
+                 testing_dir_all,embed_mode,
                  focus_actions_list=[]):
         self.calibration_type = calibration_type
         self.bins = bins
@@ -30,13 +30,13 @@ class Calibration:
         self.config = config
         self.focus_actions_list = focus_actions_list
         if self.apply_difference:
-            self.save_calibration_dir = './calibration_results/difference-calibration_{2}_{0}_{1}{3}_model{4}.txt'. \
+            self.save_calibration_dir = './calibration_results/difference-calibration_{2}_{0}_{1}{3}_model{4}_{5}.txt'. \
                 format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type,
-                       player_info, model_number)
+                       player_info, model_number, embed_mode)
         else:
-            self.save_calibration_dir = './calibration_results/calibration_{2}_{0}_{1}{3}_model{4}.txt'. \
+            self.save_calibration_dir = './calibration_results/calibration_{2}_{0}_{1}{3}_model{4}_{5}.txt'. \
                 format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type,
-                       player_info, model_number)
+                       player_info, model_number, embed_mode)
         self.save_calibration_file = open(self.save_calibration_dir, 'w')
         if apply_difference:
             self.teams = ['home-away']
@@ -165,7 +165,6 @@ class Calibration:
             actions_all = read_features_within_events(feature_name_list=['name'],
                                                       data_path=self.data_path, directory=json_dir)
             if self.calibration_type == 'next_goal':
-
                 calibration_values = self.compute_next_goal_calibration_values(actions_all, home_away)
             elif self.calibration_type == 'score_diff':
                 reward = sio.loadmat(

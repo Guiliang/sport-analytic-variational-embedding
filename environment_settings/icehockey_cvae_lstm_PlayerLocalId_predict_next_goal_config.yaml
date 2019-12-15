@@ -21,6 +21,7 @@ Learn:
   h_size: 256
   apply_lstm: True
   lstm_layer_num: 2
+  apply_pid: False
   apply_context_specific_prior : False
 Arch:
   CVAE:

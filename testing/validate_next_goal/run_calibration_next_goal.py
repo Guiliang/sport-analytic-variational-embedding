@@ -1,5 +1,7 @@
 import sys
 
+from config.cvae_config import CVAECongfig
+from config.stats_encoder_config import EncoderConfig
 from support.model_tools import get_model_and_log_name
 from testing.calibration import Calibration
 from config.LSTM_Qs_config import LSTMQsCongfig
@@ -161,20 +163,46 @@ def generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir):
 
 
 def run_calibration():
-    model_type = 'cvrnn'
-    player_info = '_box'
+    model_type = 'encoder'
+    player_info = ''
     apply_old = False
     apply_difference = False
     if model_type == 'cvrnn':
         model_number = 1801
-        predicted_target = '_PlayerLocalId'
-        icehockey_config_path = "../../environment_settings/icehockey_cvrnn{0}_config{1}.yaml".format(predicted_target,
-                                                                                                      player_info)
+        embed_mode = '_embed_random'
+        predicted_target = '_PlayerLocalId_predict_nex_goal'
+        icehockey_config_path = "../../environment_settings/" \
+                                "icehockey_cvrnn{0}_config{1}{2}.yaml"\
+            .format(predicted_target, player_info, embed_mode)
         config = CVRNNCongfig.load(icehockey_config_path)
-
+    elif model_type == 'cvae':
+        model_number = 1801
+        embed_mode = ''
+        predicted_target = '_PlayerLocalId_predict_next_goal'  # playerId_
+        icehockey_config_path = "../../environment_settings/icehockey_cvae_lstm{0}_config{1}.yaml".format(
+            predicted_target, player_info)
+        config = CVAECongfig.load(icehockey_config_path)
+    elif model_type == 'vhe':
+        model_number = 1201
+        embed_mode = ''
+        predicted_target = '_PlayerLocalId_predict_next_goal'  # playerId_
+        icehockey_config_path = "../../environment_settings/icehockey_vhe_lstm{0}_config{1}.yaml".format(
+            predicted_target, player_info)
+        config = CVAECongfig.load(icehockey_config_path)
+    elif model_type == 'encoder':
+        model_number = 1501
+        embed_mode = ''
+        predicted_target = '_PlayerLocalId_predict_next_goal'
+        # player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        icehockey_encoder_config_path = "../../environment_settings/" \
+                                        "icehockey_stats_lstm_encoder{0}" \
+                                        "_config{1}.yaml".format(predicted_target, player_info)
+        config = EncoderConfig.load(icehockey_encoder_config_path)
     elif model_type == 'lstm_Qs':
-        model_number = 901
-        icehockey_config_path = "../../environment_settings/ice_hockey_predict_score_diff_lstm{0}.yaml".format(
+        embed_mode = ''
+        # 'model_2101_three_cut_lstm_next_Qs_featurev1_next_Qs_batch32_iterate10_lr1e-05_v1_MaxTL10_LSTM512_dense256'
+        model_number = 2101
+        icehockey_config_path = "../../environment_settings/ice_hockey_predict_Qs_lstm{0}.yaml".format(
             player_info)
         config = LSTMQsCongfig.load(icehockey_config_path)
     else:
@@ -208,6 +236,7 @@ def run_calibration():
                        model_type=model_type, model_number=model_number,
                        player_info=player_info, calibration_type='next_goal',
                        testing_dir_all=testing_dir_games_all,
+                       embed_mode=embed_mode,
                        focus_actions_list=[])
     Cali.construct_bin_dicts()
     Cali.aggregate_calibration_values()
@@ -216,14 +245,13 @@ def run_calibration():
 
 
 if __name__ == '__main__':
-    # run_calibration()
+    run_calibration()
 
     # save_calibration_dir = './calibration_results/calibration_lstm_Qs_[]_2019October02_model901.txt'
-    save_calibration_dir = './calibration_results/calibration_cvrnn_[]_2019October02_box_model1801.txt'
+    # save_calibration_dir = './calibration_results/calibration_cvrnn_[]_2019October02_box_model1801.txt'
 
     #
-    generate_cali_latex_table(save_calibration_dir)
+    # generate_cali_latex_table(save_calibration_dir)
     # tt_result_file_dir = "./calibration_results/bak_calibration-['shot', 'pass']-2019June05.txt"
     # markov_result_file_dir = "../sport_resource/bak_calibration-markov-['shot', 'pass']-2019May30.txt"
     # generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir)
-

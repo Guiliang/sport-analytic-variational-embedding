@@ -1,0 +1,30 @@
+Learn:
+  feature_number : 1055  # 39 + 13 + 1003
+  save_mother_dir : '/Local-Scratch'
+  batch_size : 32
+  keep_prob : 1
+  learning_rate : 0.0001
+  number_of_total_game : 1202
+  max_seq_length : 10
+  feature_type : 'v1'
+  iterate_num : 2
+  model_type : 'v1'
+  apply_softmax : 1
+  predict_target: 'ActionGoal'
+  player_Id_style: 'PlayerId'
+  sport : 'Ice-Hockey'
+  gamma : 1
+  apply_box_score: True
+  apply_stochastic: True
+  data_name: 'ice_hockey-2019'
+  apply_pid: True
+
+
+Arch:
+  LSTM:
+    h_size : 512
+    lstm_layer_num : 1
+  Dense:
+    dense_layer_number : 2
+    dense_layer_size : 256
+    output_layer_size : 2

@@ -17,6 +17,7 @@ Learn:
   gamma : 1
   max_seq_length: 1
   integral_update_flag: False
+  apply_pid: False
 Arch:
   CVAE:
     n_hidden: 256

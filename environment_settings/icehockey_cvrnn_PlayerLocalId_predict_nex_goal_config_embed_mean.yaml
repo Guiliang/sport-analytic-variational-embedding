@@ -17,18 +17,19 @@ Learn:
   player_Id_style: 'PlayerId'
   position_max_length : 15
   apply_stochastic: True
-  apply_box_score: True
+  apply_box_score: False
   diff_apply_rl: True
   apply_pid: False
   integral_update_flag: True
   rnn_skip_player: False
+  embed_mode : 'mean'
 
 Arch:
   CVRNN:
     hidden_dim : 512
     latent_dim : 256
     x_dim : 150 # playerId dimension
-    y_dim : 83 # 12state+27action+31team+13box-score
+    y_dim : 70 # 12state+27action+31team
   SARSA:
     lstm_layer_num : 2
     h_size : 256

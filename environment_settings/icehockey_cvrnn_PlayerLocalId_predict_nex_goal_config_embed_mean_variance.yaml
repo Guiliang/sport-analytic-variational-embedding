@@ -22,6 +22,7 @@ Learn:
   apply_pid: False
   integral_update_flag: True
   rnn_skip_player: False
+  embed_mode : 'mean_var'
 
 Arch:
   CVRNN:

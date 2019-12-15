@@ -3,38 +3,53 @@ from random import shuffle
 
 from config.LSTM_Qs_config import LSTMQsCongfig
 from config.LSTM_diff_config import LSTMDiffCongfig
+from config.cvae_config import CVAECongfig
 from config.cvrnn_config import CVRNNCongfig
+from config.stats_encoder_config import EncoderConfig
 from support.model_tools import compute_games_Q_values
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 if __name__ == '__main__':
 
-    model_type = 'lstm_Qs'
-    player_info = ''
-    model_number = 901
+    model_type = 'encoder'
+    player_info = '_box'
+    model_number = 1801
     local_test_flag = False
     if model_type == 'cvrnn':
-        player_id_type = 'local_id'
-        if player_id_type == 'ap_cluster':
-            player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
-            predicted_target = '_PlayerPositionClusterAP'  # playerId_
-        elif player_id_type == 'km_cluster':
-            player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_km_cluster.json'
-            predicted_target = '_PlayerPositionClusterKM'  # playerId_
-        elif player_id_type == 'local_id':
-            player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
-            predicted_target = '_PlayerLocalId'  # playerId_
-        else:
-            player_id_cluster_dir = None
-            predicted_target = ''
-        icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config{1}.yaml".format(
-            predicted_target, player_info)
+        embed_mode = '_embed_random'
+        predicted_target = '_PlayerLocalId_predict_nex_goal'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        icehockey_cvrnn_config_path = "../environment_settings/icehockey_cvrnn{0}_config{1}{2}.yaml".format(
+            predicted_target, player_info, embed_mode)
         icehockey_model_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
 
+    elif model_type == 'cvae':
+        predicted_target = '_PlayerLocalId_predict_next_goal'  # playerId_
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        icehockey_config_path = "../environment_settings/icehockey_cvae_lstm{0}_config{1}.yaml".format(
+            predicted_target, player_info)
+        icehockey_model_config = CVAECongfig.load(icehockey_config_path)
+
+    elif model_type == 'vhe':
+        predicted_target = '_PlayerLocalId_predict_next_goal'  # playerId_
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        icehockey_config_path = "../environment_settings/icehockey_vhe_lstm{0}_config{1}.yaml".format(
+            predicted_target, player_info)
+        icehockey_model_config = CVAECongfig.load(icehockey_config_path)
+
     elif model_type == 'lstm_Qs':
-        icehockey_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm.yaml"
+        icehockey_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm{0}.yaml".format(player_info)
         icehockey_model_config = LSTMQsCongfig.load(icehockey_config_path)
         player_id_cluster_dir = None
+
+    elif model_type == 'encoder':
+        predicted_target = '_PlayerLocalId_predict_next_goal'
+        player_id_cluster_dir = '../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
+        icehockey_encoder_config_path = "../environment_settings/" \
+                                        "icehockey_stats_lstm_encoder{0}" \
+                                        "_config{1}.yaml".format(predicted_target, player_info)
+        icehockey_model_config = EncoderConfig.load(icehockey_encoder_config_path)
 
     elif model_type == 'lstm_diff':
         icehockey_config_path = "../environment_settings/ice_hockey_predict_score_diff_lstm{0}.yaml".format(player_info)

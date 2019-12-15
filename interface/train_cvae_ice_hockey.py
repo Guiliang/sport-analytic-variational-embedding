@@ -9,7 +9,7 @@ print sys.path
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 import numpy as np
 from support.model_tools import ExperienceReplayBuffer, compute_acc, BalanceExperienceReplayBuffer
@@ -784,12 +784,14 @@ def cvae_validation(sess, model, input_data_t0, target_data_t0, trace_length_t0,
                      }
 
     [
+        batch_size,
         output_x,
     ] = sess.run([
+        model.batch_size,
         model.x_],
         feed_dict=feed_dict
     )
-
+    # print(batch_size)
     return output_x
 
 
@@ -979,6 +981,7 @@ def run():
     player_id_type = 'local_id'
     predict_action = '_predict_next_goal'
     rnn_type = '_lstm'
+    model_type = 'vhe'
 
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -994,13 +997,14 @@ def run():
         predicted_target = ''
 
     icehockey_cvae_config_path = "../environment_settings/" \
-                                 "icehockey_cvae{3}{0}{1}_config{2}.yaml".format(predicted_target,
+                                 "icehockey_{4}{3}{0}{1}_config{2}.yaml".format(predicted_target,
                                                                                  predict_action,
                                                                                  box_msg,
-                                                                                 rnn_type)
+                                                                                 rnn_type,
+                                                                               model_type)
     icehockey_cvae_config = CVAECongfig.load(icehockey_cvae_config_path)
     Prediction_MemoryBuffer.set_cache_memory(cache_number=icehockey_cvae_config.Arch.Predict.output_node)
-    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvae_config, model_catagoery='cvae')
+    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvae_config, model_catagoery=model_type)
 
     if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"

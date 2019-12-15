@@ -22,6 +22,7 @@ Learn:
   apply_lstm: True
   lstm_layer_num: 2
   apply_context_specific_prior : True
+  apply_pid: False
 Arch:
   CVAE:
     n_hidden: 256

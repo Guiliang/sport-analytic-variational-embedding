@@ -10,21 +10,26 @@ Learn:
   model_type: 'normal'
   number_of_total_game: 1202
   action_number : 33
-  predict_target: 'PlayerPositionCluster'
   gamma : 1
-  player_cluster_number: 26
-  data_name: ice_hockey-2019
+  data_name: 'ice_hockey-2019'
   sport : 'Ice-Hockey'
+  predict_target : 'PlayerLocalId'
+  player_Id_style: 'PlayerId'
+  position_max_length : 15
+  apply_stochastic: True
   apply_box_score: True
   diff_apply_rl: True
   apply_pid: False
+  integral_update_flag: True
+  rnn_skip_player: False
+  embed_mode : 'mean_var'
 
 Arch:
   CVRNN:
     hidden_dim : 512
-    latent_dim : 128
-    x_dim : 26
-    y_dim : 83 # 27(action)+12state+31team+13box-score
+    latent_dim : 256
+    x_dim : 150 # playerId dimension
+    y_dim : 83 # 12state+27action+31team+13box-score
   SARSA:
     lstm_layer_num : 2
     h_size : 256
@@ -35,3 +40,10 @@ Arch:
     h_size : 256
     dense_layer_number : 2
     dense_layer_size : 256
+  Predict:
+    lstm_layer_num : 2
+    h_size : 256
+    dense_layer_number : 2
+    dense_layer_size : 256
+    output_size : 2
+    predict_target: 'ActionGoal'
