@@ -913,7 +913,7 @@ def run():
     player_id_type = 'local_id'
     predict_action = '_predict_nex_goal'
     embed_mode = '_embed_random'
-    running_number = 1
+    running_number = 4
     if len(predict_action) > 0:
         extra_prediction_flag = True
     else:

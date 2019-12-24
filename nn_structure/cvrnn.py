@@ -495,18 +495,18 @@ class CVRNN():
                             scope='score_diff_rnn_{0}'.format(str(i)))
                     action_pred_rnn_outputs = tf.stack(rnn_output)
                     # Indexing
-                    action_pred_rnn_last = tf.gather(tf.reshape(action_pred_rnn_outputs,
+                    score_diff_rnn_last = tf.gather(tf.reshape(action_pred_rnn_outputs,
                                                                 [-1, self.config.Arch.SARSA.h_size]), self.select_index)
 
                 for j in range(self.config.Arch.WIN.dense_layer_number - 1):
-                    action_pred_input = action_pred_rnn_last if j == 0 else action_pred_output
-                    action_pred_output = tf.nn.relu(
-                        linear(action_pred_input, output_size=self.config.Arch.WIN.dense_layer_size,
+                    score_diff_input = score_diff_rnn_last if j == 0 else score_diff_output
+                    score_diff_output = tf.nn.relu(
+                        linear(score_diff_input, output_size=self.config.Arch.WIN.dense_layer_size,
                                scope='win_dense_Linear'))
-                action_pred_input = action_pred_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else action_pred_output
-                action_pred_output = linear(action_pred_input, output_size=3, scope='score_diff')
+                score_diff_input = score_diff_rnn_last if self.config.Arch.WIN.dense_layer_number == 1 else score_diff_output
+                score_diff_output = linear(score_diff_input, output_size=3, scope='score_diff')
                 # self.diff_output = tf.nn.softmax(diff_output)
-                self.diff_output = action_pred_output
+                self.diff_output = score_diff_output
 
                 with tf.variable_scope('score_diff_cost'):
                     square_diff_loss, abs_diff_loss = get_diff_lossfunc(self.diff_output, self.score_diff_target_ph,

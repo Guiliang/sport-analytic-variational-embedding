@@ -402,8 +402,9 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 
 
 def run():
-    play_info = '_pid_box'
-    type = 'action_goal'
+    play_info = ''
+    running_number = 1
+    type = 'pids'
     if type == 'ap_playerId':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = 'PlayerPositionClusterAP'  # playerId_
@@ -435,20 +436,30 @@ def run():
 
     local_test_flag = False
     saved_network_dir, log_dir = get_model_and_log_name(config=lstm_prediction_config,
-                                                        model_catagoery='lstm_prediction')
+                                                        model_catagoery='lstm_prediction',
+                                                        running_number=running_number)
     if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         source_data_store_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
+        validate_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
     else:
         data_store_dir = lstm_prediction_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         source_data_store_dir = lstm_prediction_config.Learn.save_mother_dir + '/oschulte/Galen/2018-2019/'
         dir_games_all = os.listdir(data_store_dir)
-        training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
-        # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
-        testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
+        if running_number == 0:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5]
+        else:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5] \
+                                     + dir_games_all[-running_number * len(dir_games_all) / 5:]
+        test_validate_dir_games_all = [item for item in dir_games_all if item not in training_dir_games_all]
+        testing_dir_games_all = test_validate_dir_games_all[:len(test_validate_dir_games_all)/2]
+        validate_dir_games_all = test_validate_dir_games_all[len(test_validate_dir_games_all) / 2:]
+        tmp_testing_dir_games_all = testing_dir_games_all[-10:]  # TODO: it is a small running testing, not the real one
     number_of_total_game = len(dir_games_all)
     lstm_prediction_config.Learn.number_of_total_game = number_of_total_game
 
@@ -461,27 +472,34 @@ def run():
     sess.run(tf.global_variables_initializer())
 
     if not local_test_flag:
-        if not os.path.exists(saved_network_dir):
-            os.mkdir(saved_network_dir)
-        # save the training and testing dir list
-        if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
-            os.rename(saved_network_dir + '/training_file_dirs_all.csv',
-                      saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
-                      .format(datetime.date.today().strftime("%Y%B%d")))
-        if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
-            os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
-                      saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
-                      .format(datetime.date.today().strftime("%Y%B%d")))
-        # save the training and testing dir list
-        with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
-            for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
-                f.write(dir + '\n')
-        with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
-            for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
-                f.write(dir + '\n')
+        if not local_test_flag:
+            if not os.path.exists(saved_network_dir):
+                os.mkdir(saved_network_dir)
+            # save the training and testing dir list
+            if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/training_file_dirs_all.csv',
+                          saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
+            if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
+                          saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
+            if os.path.exists(saved_network_dir + '/validate_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/validate_file_dirs_all.csv',
+                          saved_network_dir + '/bak_validate_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
+            with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
+                for dir in training_dir_games_all:
+                    f.write(dir + '\n')
+            with open(saved_network_dir + '/validate_file_dirs_all.csv', 'wb') as f:
+                for dir in validate_dir_games_all:
+                    f.write(dir + '\n')
+            with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
+                for dir in testing_dir_games_all:
+                    f.write(dir + '\n')
 
     run_network(sess=sess, model=model, config=lstm_prediction_config,
-                training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
+                training_dir_games_all=training_dir_games_all, testing_dir_games_all=tmp_testing_dir_games_all,
                 model_data_store_dir=data_store_dir, player_id_cluster_dir=player_id_cluster_dir,
                 source_data_store_dir=source_data_store_dir, save_network_dir=saved_network_dir)
     sess.close()
