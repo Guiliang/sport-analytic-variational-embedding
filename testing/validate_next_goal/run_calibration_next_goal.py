@@ -167,12 +167,13 @@ def run_calibration():
     player_info = ''
     apply_old = False
     apply_difference = False
+    running_numbers = [0, 1, 2, 3, 4]
     if model_type == 'cvrnn':
         model_number = 1801
         embed_mode = '_embed_random'
         predicted_target = '_PlayerLocalId_predict_nex_goal'
         icehockey_config_path = "../../environment_settings/" \
-                                "icehockey_cvrnn{0}_config{1}{2}.yaml"\
+                                "icehockey_cvrnn{0}_config{1}{2}.yaml" \
             .format(predicted_target, player_info, embed_mode)
         config = CVRNNCongfig.load(icehockey_config_path)
     elif model_type == 'cvae':
@@ -237,7 +238,9 @@ def run_calibration():
                        player_info=player_info, calibration_type='next_goal',
                        testing_dir_all=testing_dir_games_all,
                        embed_mode=embed_mode,
-                       focus_actions_list=[])
+                       focus_actions_list=[],
+                       if_apply_cv=True,
+                       running_numbers=running_numbers)
     Cali.construct_bin_dicts()
     Cali.aggregate_calibration_values()
     Cali.compute_distance()

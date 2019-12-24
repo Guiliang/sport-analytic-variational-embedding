@@ -13,23 +13,42 @@ class Calibration:
                  config, model_data_store_dir,
                  apply_old, apply_difference, model_type,
                  model_number, player_info, calibration_type,
-                 testing_dir_all,embed_mode,
-                 focus_actions_list=[]):
+                 testing_dir_all, embed_mode,
+                 focus_actions_list=[], if_apply_cv=False,
+                 running_numbers=[None]):
         self.calibration_type = calibration_type
         self.bins = bins
         # self.bins_names = bins.keys()
         self.apply_old = apply_old
-        self.apply_difference = apply_difference
+        self.if_apply_difference = apply_difference
         self.data_path = source_data_dir
         self.calibration_features = calibration_features
-        if self.apply_difference:
-            self.calibration_values_all_dict = {'all': {'cali_sum': [0], 'model_sum': [0], 'number': 0}}
+        self.if_apply_cv = if_apply_cv
+        self.running_numbers = running_numbers
+        if self.if_apply_difference:
+            if self.if_apply_cv:
+                self.cv_calibration_values_all_list = []
+                for running_number in self.running_numbers:
+                    self.cv_calibration_values_all_list.append(
+                        {'all'.format(str(running_number)): {'cali_sum': [0],
+                                                             'model_sum': [0],
+                                                             'number': 0}})
+            else:
+                self.calibration_values_all_dict = {'all': {'cali_sum': [0], 'model_sum': [0], 'number': 0}}
         else:
-            self.calibration_values_all_dict = {'all': {'cali_sum': [0, 0, 0], 'model_sum': [0, 0, 0], 'number': 0}}
+            if self.if_apply_cv:
+                self.cv_calibration_values_all_list = []
+                for running_number in self.running_numbers:
+                    self.cv_calibration_values_all_list.append(
+                        {'cv_{0}'.format(str(running_number)): {'cali_sum': [0, 0, 0],
+                                                                'model_sum': [0, 0, 0],
+                                                                'number': 0}})
+            else:
+                self.calibration_values_all_dict = {'all': {'cali_sum': [0, 0, 0], 'model_sum': [0, 0, 0], 'number': 0}}
         self.data_store_dir = model_data_store_dir
         self.config = config
         self.focus_actions_list = focus_actions_list
-        if self.apply_difference:
+        if self.if_apply_difference:
             self.save_calibration_dir = './calibration_results/difference-calibration_{2}_{0}_{1}{3}_model{4}_{5}.txt'. \
                 format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type,
                        player_info, model_number, embed_mode)
@@ -37,6 +56,8 @@ class Calibration:
             self.save_calibration_dir = './calibration_results/calibration_{2}_{0}_{1}{3}_model{4}_{5}.txt'. \
                 format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type,
                        player_info, model_number, embed_mode)
+        if self.if_apply_cv:
+            self.save_calibration_dir.replace('.txt', '_cv.txt')
         self.save_calibration_file = open(self.save_calibration_dir, 'w')
         if apply_difference:
             self.teams = ['home-away']
@@ -55,6 +76,8 @@ class Calibration:
             self.data_name = data_name.replace('Qs', 'accumu_Qs')
         else:
             raise ValueError('unknown calibration type {0}'.format(self.calibration_type))
+        if if_apply_cv:
+            self.data_name = self.data_name + "_cv"
         print(self.data_name)
         self.calibration_type = calibration_type
         self.testing_dir_all = testing_dir_all
@@ -66,14 +89,28 @@ class Calibration:
     def recursive2construct(self, store_dict_str, depth):
         feature_number = len(self.calibration_features)
         if depth >= feature_number:
-            if self.apply_difference:
-                self.calibration_values_all_dict.update({store_dict_str: {'cali_sum': [0],
-                                                                          'model_sum': [0],
-                                                                          'number': 0}})
+            if self.if_apply_difference:
+                if self.if_apply_cv:
+                    for running_number in self.running_numbers:
+                        self.cv_calibration_values_all_list[running_number].update(
+                            {store_dict_str: {'cali_sum': [0],
+                                              'model_sum': [0],
+                                              'number': 0}})
+                else:
+                    self.calibration_values_all_dict.update({store_dict_str: {'cali_sum': [0],
+                                                                              'model_sum': [0],
+                                                                              'number': 0}})
             else:
-                self.calibration_values_all_dict.update({store_dict_str: {'cali_sum': [0, 0, 0],
-                                                                          'model_sum': [0, 0, 0],
-                                                                          'number': 0}})
+                if self.if_apply_cv:
+                    for running_number in self.running_numbers:
+                        self.cv_calibration_values_all_list[running_number].update(
+                            {store_dict_str: {'cali_sum': [0, 0, 0],
+                                              'model_sum': [0, 0, 0],
+                                              'number': 0}})
+                else:
+                    self.calibration_values_all_dict.update({store_dict_str: {'cali_sum': [0, 0, 0],
+                                                                              'model_sum': [0, 0, 0],
+                                                                              'number': 0}})
             return
         calibration_feature = self.calibration_features[depth]
         feature_range = self.bins.get(calibration_feature).get('range')
@@ -126,9 +163,10 @@ class Calibration:
         # print (base_away_goal)
         return [base_home_goal, base_away_goal]
 
-    def obtain_model_prediction(self, directory):
+    def obtain_model_prediction(self, directory, if_apply_cv=False):
         """model predicted value for each game"""
         # directory = '16198'
+
         print(self.data_store_dir + "/" + directory + "/" + self.data_name)
 
         with open(self.data_store_dir + "/" + directory + "/" + self.data_name) as outfile:
@@ -136,7 +174,7 @@ class Calibration:
         "model_three_cut_featureV1_latent128_x76_y150_batch32_iterate30_lr0.0001_normal_MaxTL10_LSTM512"
         return model_output
 
-    def aggregate_calibration_values(self):
+    def aggregate_calibration_values(self, running_number=None):
         """update bak_calibration dict by each game"""
         dir_all = os.listdir(self.data_path)
         # dir_all = ['919069.json']  # TODO: test
@@ -152,7 +190,10 @@ class Calibration:
                     for feature in features:
                         features_all.append(feature)
 
-            model_values = self.obtain_model_prediction(directory=json_dir.split('-')[0])
+            model_values = self.obtain_model_prediction(directory=json_dir.split('-')[0],
+                                                        if_apply_cv=self.if_apply_cv)
+            if running_number is not None:
+                model_values = model_values[running_number]
             game_files = os.listdir(self.data_store_dir + "/" + json_dir.split('-')[0])
             for filename in game_files:
                 if 'home_away' in filename:
@@ -238,7 +279,7 @@ class Calibration:
                 model_sum = cali_bin_info.get('model_sum')
                 number = cali_bin_info.get('number')
                 number += 1
-                if self.apply_difference:
+                if self.if_apply_difference:
                     if self.calibration_type == 'next_goal':
                         cali_sum[0] = cali_sum[0] + (calibration_value[0] - calibration_value[1])
                         model_sum[0] = model_sum[0] + (model_value['home'] - model_value['away'])
@@ -254,55 +295,78 @@ class Calibration:
                             model_sum[i] = model_sum[i] + model_value[self.teams[i]]
                         elif self.calibration_type == 'score_diff':
                             model_sum[i] = model_sum[i] + model_value[self.teams[i]] + base_goals[i][index]
-                self.calibration_values_all_dict.update({cali_dict_str: {'cali_sum': cali_sum,
-                                                                         'model_sum': model_sum,
-                                                                         'number': number}})
-
-                cali_bin_info = self.calibration_values_all_dict.get('all')
+                if running_number is not None:
+                    self.cv_calibration_values_all_list[running_number].update({cali_dict_str: {'cali_sum': cali_sum,
+                                                                                                'model_sum': model_sum,
+                                                                                                'number': number}})
+                else:
+                    self.calibration_values_all_dict.update({cali_dict_str: {'cali_sum': cali_sum,
+                                                                             'model_sum': model_sum,
+                                                                             'number': number}})
+                if running_number is not None:
+                    cali_bin_info = self.cv_calibration_values_all_list[running_number].get(
+                        'all'.format(running_number))
+                else:
+                    cali_bin_info = self.calibration_values_all_dict.get('all')
                 cali_sum = cali_bin_info.get('cali_sum')
                 model_sum = cali_bin_info.get('model_sum')
                 number = cali_bin_info.get('number')
                 number += 1
-                if self.apply_difference:
+                if self.if_apply_difference:
                     cali_sum[0] = cali_sum[0] + (calibration_value[0] - calibration_value[1])
                     model_sum[0] = model_sum[0] + (model_value['home'] - model_value['away'])
                 else:
                     for i in range(len(self.teams)):  # [home, away (, +end)]
                         cali_sum[i] = cali_sum[i] + calibration_value[i]
                         model_sum[i] = model_sum[i] + model_value[self.teams[i]]
-
-                self.calibration_values_all_dict.update({'all': {'cali_sum': cali_sum,
-                                                                 'model_sum': model_sum,
-                                                                 'number': number}})
+                if running_number is not None:
+                    self.cv_calibration_values_all_list[running_number].update({'all'.format(running_number):
+                                                                                    {'cali_sum': cali_sum,
+                                                                                     'model_sum': model_sum,
+                                                                                     'number': number}})
+                else:
+                    self.calibration_values_all_dict.update({'all': {'cali_sum': cali_sum,
+                                                                     'model_sum': model_sum,
+                                                                     'number': number}})
 
                 # break
 
     def compute_distance(self):
-        cali_dict_strs = self.calibration_values_all_dict.keys()
+        if self.if_apply_cv:
+            cali_dict_strs = self.cv_calibration_values_all_list[0].keys()
+        else:
+            cali_dict_strs = self.calibration_values_all_dict.keys()
+
         for cali_dict_str in cali_dict_strs:
-            cali_bin_info = self.calibration_values_all_dict.get(cali_dict_str)
-            kld_sum = 0
-            mae_sum = 0
-            if cali_bin_info['number'] == 0:
-                print "number of bin {0} is 0".format(cali_dict_str)
-                continue
-            cali_record_dict = 'Bin:' + cali_dict_str
-            for i in range(len(self.teams)):  # [home, away,end]
-                cali_prob = float(cali_bin_info['cali_sum'][i]) / cali_bin_info['number']
-                model_prob = float(cali_bin_info['model_sum'][i]) / cali_bin_info['number']
-                cali_record_dict += '\t{0}_number'.format(self.teams[i]) + ":" + str(cali_bin_info['number'])
-                cali_record_dict += '\t{0}_cali'.format(self.teams[i]) + ":" + str(cali_prob)
-                cali_record_dict += '\t{0}_model'.format(self.teams[i]) + ":" + str(model_prob)
-                model_prob = model_prob + 1e-10
-                cali_prob = cali_prob + 1e-10
-                try:
-                    kld = cali_prob * math.log(cali_prob / model_prob)
-                except:
-                    print 'kld is ' + str(cali_prob / model_prob)
-                    kld = 0
-                kld_sum += kld
-                ae = abs(cali_prob - model_prob)
-                mae_sum = mae_sum + ae
-            cali_record_dict += '\tkld:' + str(kld_sum)
-            cali_record_dict += '\tmae:' + str(float(mae_sum) / len(self.teams))
-            self.save_calibration_file.write(str(cali_record_dict) + '\n')
+            for running_number in self.running_numbers:
+                if self.if_apply_cv:
+                    cali_record_dict = 'CV{0}-Bin:'.format(str(running_number)) + cali_dict_str
+                    cali_bin_info = self.cv_calibration_values_all_list[running_number].get(cali_dict_str)
+                else:
+                    cali_record_dict = 'Bin:' + cali_dict_str
+                    cali_bin_info = self.calibration_values_all_dict.get(cali_dict_str)
+                kld_sum = 0
+                mae_sum = 0
+                if cali_bin_info['number'] == 0:
+                    print "number of bin {0} is 0".format(cali_dict_str)
+                    continue
+                # cali_record_dict = 'Bin:' + cali_dict_str
+                for i in range(len(self.teams)):  # [home, away,end]
+                    cali_prob = float(cali_bin_info['cali_sum'][i]) / cali_bin_info['number']
+                    model_prob = float(cali_bin_info['model_sum'][i]) / cali_bin_info['number']
+                    cali_record_dict += '\t{0}_number'.format(self.teams[i]) + ":" + str(cali_bin_info['number'])
+                    cali_record_dict += '\t{0}_cali'.format(self.teams[i]) + ":" + str(cali_prob)
+                    cali_record_dict += '\t{0}_model'.format(self.teams[i]) + ":" + str(model_prob)
+                    model_prob = model_prob + 1e-10
+                    cali_prob = cali_prob + 1e-10
+                    try:
+                        kld = cali_prob * math.log(cali_prob / model_prob)
+                    except:
+                        print 'kld is ' + str(cali_prob / model_prob)
+                        kld = 0
+                    kld_sum += kld
+                    ae = abs(cali_prob - model_prob)
+                    mae_sum = mae_sum + ae
+                cali_record_dict += '\tkld:' + str(kld_sum)
+                cali_record_dict += '\tmae:' + str(float(mae_sum) / len(self.teams))
+                self.save_calibration_file.write(str(cali_record_dict) + '\n')

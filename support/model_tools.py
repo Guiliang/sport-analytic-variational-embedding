@@ -6,6 +6,7 @@ import tensorflow as tf
 import numpy as np
 import json
 import scipy.io as sio
+from sklearn.metrics import roc_auc_score
 
 from nn_structure.cvae_nn import CVAE_NN
 from nn_structure.cvrnn import CVRNN
@@ -246,23 +247,23 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
                         "{1}cvrnn_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
                         "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{11}" \
                         "{12}_{13}_r{14}".format(
-                                                config.Learn.save_mother_dir,
-                                                train_msg,
-                                                str(config.Learn.feature_type),
-                                                str(config.Learn.batch_size),
-                                                str(config.Learn.iterate_num),
-                                                str(config.Learn.learning_rate),
-                                                str(config.Learn.model_type),
-                                                str(config.Learn.max_seq_length),
-                                                str(config.Arch.CVRNN.latent_dim),
-                                                str(config.Arch.CVRNN.y_dim),
-                                                # TODO: reorder x_dim and y_dim
-                                                str(config.Arch.CVRNN.x_dim),
-                                                str(config.Arch.CVRNN.hidden_dim),
-                                                player_info,
-                                                config.Learn.embed_mode,
-                                                str(running_number)
-                                            )
+            config.Learn.save_mother_dir,
+            train_msg,
+            str(config.Learn.feature_type),
+            str(config.Learn.batch_size),
+            str(config.Learn.iterate_num),
+            str(config.Learn.learning_rate),
+            str(config.Learn.model_type),
+            str(config.Learn.max_seq_length),
+            str(config.Arch.CVRNN.latent_dim),
+            str(config.Arch.CVRNN.y_dim),
+            # TODO: reorder x_dim and y_dim
+            str(config.Arch.CVRNN.x_dim),
+            str(config.Arch.CVRNN.hidden_dim),
+            player_info,
+            config.Learn.embed_mode,
+            str(running_number)
+        )
     elif model_catagoery == 'de_embed':
         if embedding_tag is not None:
             train_msg += 'validate{0}_'.format(str(embedding_tag))
@@ -270,25 +271,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
         log_dir = "{0}/oschulte/Galen/icehockey-models/de_log_NN" \
                   "/{1}de_embed_log_feature{2}_{8}_embed{9}_y{10}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                  "_dense{11}{12}".format(config.Learn.save_mother_dir,
-                                          train_msg,
-                                          str(config.Learn.feature_type),
-                                          str(config.Learn.batch_size),
-                                          str(config.Learn.iterate_num),
-                                          str(config.Learn.learning_rate),
-                                          str(config.Learn.model_type),
-                                          str(config.Learn.max_seq_length),
-                                          config.Learn.predict_target,
-                                          str(config.Arch.Encode.latent_size),
-                                          str(config.Arch.LSTM.h_size),
-                                          str(config.Arch.Dense.hidden_node_size),
-                                          player_info
-                                          )
-
-        saved_network = "{0}/oschulte/Galen/icehockey-models/de_model_saved_NN/" \
-                        "{1}de_embed_saved_networks_feature{2}_{8}_embed{9}_y{10}" \
-                        "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                        "_dense{11}{12}".format(config.Learn.save_mother_dir,
+                  "_dense{11}{12}_r{13}".format(config.Learn.save_mother_dir,
                                                 train_msg,
                                                 str(config.Learn.feature_type),
                                                 str(config.Learn.batch_size),
@@ -300,31 +283,52 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
                                                 str(config.Arch.Encode.latent_size),
                                                 str(config.Arch.LSTM.h_size),
                                                 str(config.Arch.Dense.hidden_node_size),
-                                                player_info
+                                                player_info,
+                                                str(running_number)
                                                 )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/de_model_saved_NN/" \
+                        "{1}de_embed_saved_networks_feature{2}_{8}_embed{9}_y{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
+                        "_dense{11}{12}_r{13}".format(config.Learn.save_mother_dir,
+                                                      train_msg,
+                                                      str(config.Learn.feature_type),
+                                                      str(config.Learn.batch_size),
+                                                      str(config.Learn.iterate_num),
+                                                      str(config.Learn.learning_rate),
+                                                      str(config.Learn.model_type),
+                                                      str(config.Learn.max_seq_length),
+                                                      config.Learn.predict_target,
+                                                      str(config.Arch.Encode.latent_size),
+                                                      str(config.Arch.LSTM.h_size),
+                                                      str(config.Arch.Dense.hidden_node_size),
+                                                      player_info,
+                                                      str(running_number)
+                                                      )
     elif model_catagoery == 'mdn_Qs':
         log_dir = "{0}/oschulte/Galen/icehockey-models/mdn_Qs_log_NN" \
                   "/{1}mdn_log_feature{2}_{8}_y{10}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                  "_dense{11}{12}".format(config.Learn.save_mother_dir,
-                                          train_msg,
-                                          str(config.Learn.feature_type),
-                                          str(config.Learn.batch_size),
-                                          str(config.Learn.iterate_num),
-                                          str(config.Learn.learning_rate),
-                                          str(config.Learn.model_type),
-                                          str(config.Learn.max_seq_length),
-                                          config.Learn.predict_target,
-                                          None,
-                                          str(config.Arch.LSTM.h_size),
-                                          str(config.Arch.Dense.hidden_size),
-                                          player_info
-                                          )
+                  "_dense{11}{12}_r{13}".format(config.Learn.save_mother_dir,
+                                                train_msg,
+                                                str(config.Learn.feature_type),
+                                                str(config.Learn.batch_size),
+                                                str(config.Learn.iterate_num),
+                                                str(config.Learn.learning_rate),
+                                                str(config.Learn.model_type),
+                                                str(config.Learn.max_seq_length),
+                                                config.Learn.predict_target,
+                                                None,
+                                                str(config.Arch.LSTM.h_size),
+                                                str(config.Arch.Dense.hidden_size),
+                                                player_info,
+                                                str(running_number)
+                                                )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/mdn_Qs_model_saved_NN/" \
                         "{1}mdn_embed_saved_networks_feature{2}_{8}_y{10}" \
                         "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                        "_dense{11}{12}".format(
+                        "_dense{11}{12}_r{13}".format(
             config.Learn.save_mother_dir,
             train_msg,
             str(config.Learn.feature_type),
@@ -337,7 +341,8 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
             None,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
-            player_info
+            player_info,
+            str(running_number)
         )
 
     elif model_catagoery == 'lstm_Qs':
@@ -348,26 +353,27 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
         log_dir = "{0}/oschulte/Galen/icehockey-models/lstm_Qs_log_NN" \
                   "/{1}lstm_log_feature{2}_{8}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                  "_dense{11}{12}{13}".format(config.Learn.save_mother_dir,
-                                              train_msg,
-                                              str(config.Learn.feature_type),
-                                              str(config.Learn.batch_size),
-                                              str(config.Learn.iterate_num),
-                                              str(config.Learn.learning_rate),
-                                              str(config.Learn.model_type),
-                                              str(config.Learn.max_seq_length),
-                                              config.Learn.predict_target,
-                                              None,
-                                              str(config.Arch.LSTM.h_size),
-                                              str(config.Arch.Dense.hidden_size),
-                                              player_info,
-                                              player_id_info
-                                              )
+                  "_dense{11}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
+                                                    train_msg,
+                                                    str(config.Learn.feature_type),
+                                                    str(config.Learn.batch_size),
+                                                    str(config.Learn.iterate_num),
+                                                    str(config.Learn.learning_rate),
+                                                    str(config.Learn.model_type),
+                                                    str(config.Learn.max_seq_length),
+                                                    config.Learn.predict_target,
+                                                    None,
+                                                    str(config.Arch.LSTM.h_size),
+                                                    str(config.Arch.Dense.hidden_size),
+                                                    player_info,
+                                                    player_id_info,
+                                                    str(running_number)
+                                                    )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/lstm_Qs_model_saved_NN/" \
                         "{1}lstm_saved_networks_feature{2}_{8}" \
                         "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                        "_dense{11}{12}{13}".format(
+                        "_dense{11}{12}{13}_r{14}".format(
             config.Learn.save_mother_dir,
             train_msg,
             str(config.Learn.feature_type),
@@ -381,7 +387,8 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
             player_info,
-            player_id_info
+            player_id_info,
+            str(running_number)
         )
 
     elif model_catagoery == 'lstm_win':
@@ -392,26 +399,27 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
         log_dir = "{0}/oschulte/Galen/icehockey-models/lstm_win_log_NN" \
                   "/{1}lstm_log_feature{2}_{8}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                  "_dense{11}{12}{13}".format(config.Learn.save_mother_dir,
-                                              train_msg,
-                                              str(config.Learn.feature_type),
-                                              str(config.Learn.batch_size),
-                                              str(config.Learn.iterate_num),
-                                              str(config.Learn.learning_rate),
-                                              str(config.Learn.model_type),
-                                              str(config.Learn.max_seq_length),
-                                              config.Learn.predict_target,
-                                              None,
-                                              str(config.Arch.LSTM.h_size),
-                                              str(config.Arch.Dense.hidden_size),
-                                              player_info,
-                                              player_id_info
-                                              )
+                  "_dense{11}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
+                                                    train_msg,
+                                                    str(config.Learn.feature_type),
+                                                    str(config.Learn.batch_size),
+                                                    str(config.Learn.iterate_num),
+                                                    str(config.Learn.learning_rate),
+                                                    str(config.Learn.model_type),
+                                                    str(config.Learn.max_seq_length),
+                                                    config.Learn.predict_target,
+                                                    None,
+                                                    str(config.Arch.LSTM.h_size),
+                                                    str(config.Arch.Dense.hidden_size),
+                                                    player_info,
+                                                    player_id_info,
+                                                    str(running_number)
+                                                    )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/lstm_win_model_saved_NN/" \
                         "{1}lstm_saved_networks_feature{2}_{8}" \
                         "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                        "_dense{11}{12}{13}".format(
+                        "_dense{11}{12}{13}_r{14}".format(
             config.Learn.save_mother_dir,
             train_msg,
             str(config.Learn.feature_type),
@@ -425,7 +433,8 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
             player_info,
-            player_id_info
+            player_id_info,
+            str(running_number)
         )
 
     elif model_catagoery == 'lstm_diff':
@@ -438,26 +447,27 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
         log_dir = "{0}/oschulte/Galen/icehockey-models/lstm_diff_log_NN" \
                   "/{1}lstm_log_feature{2}_{8}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                  "_dense{11}{12}{13}".format(config.Learn.save_mother_dir,
-                                              train_msg,
-                                              str(config.Learn.feature_type),
-                                              str(config.Learn.batch_size),
-                                              str(config.Learn.iterate_num),
-                                              str(config.Learn.learning_rate),
-                                              str(config.Learn.model_type),
-                                              str(config.Learn.max_seq_length),
-                                              config.Learn.predict_target,
-                                              None,
-                                              str(config.Arch.LSTM.h_size),
-                                              str(config.Arch.Dense.hidden_size),
-                                              player_info,
-                                              player_id_info
-                                              )
+                  "_dense{11}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
+                                                    train_msg,
+                                                    str(config.Learn.feature_type),
+                                                    str(config.Learn.batch_size),
+                                                    str(config.Learn.iterate_num),
+                                                    str(config.Learn.learning_rate),
+                                                    str(config.Learn.model_type),
+                                                    str(config.Learn.max_seq_length),
+                                                    config.Learn.predict_target,
+                                                    None,
+                                                    str(config.Arch.LSTM.h_size),
+                                                    str(config.Arch.Dense.hidden_size),
+                                                    player_info,
+                                                    player_id_info,
+                                                    str(running_number)
+                                                    )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/lstm_diff_model_saved_NN/" \
                         "{1}lstm_saved_networks_feature{2}_{8}" \
                         "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                        "_dense{11}{12}{13}".format(
+                        "_dense{11}{12}{13}_r{14}".format(
             config.Learn.save_mother_dir,
             train_msg,
             str(config.Learn.feature_type),
@@ -471,7 +481,8 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
             str(config.Arch.LSTM.h_size),
             str(config.Arch.Dense.hidden_size),
             player_info,
-            player_id_info
+            player_id_info,
+            str(running_number)
         )
     elif model_catagoery == 'vhe':  # TODO: add more parameters
 
@@ -486,26 +497,8 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
             player_info += '_' + config.Arch.Predict.predict_target
 
         log_dir = "{0}/oschulte/Galen/icehockey-models/vhe_saved_NN" \
-                  "/{1}cvae_log_feature{2}_latent{8}_x{9}_y{10}" \
-                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
-                                                                  train_msg,
-                                                                  str(config.Learn.feature_type),
-                                                                  str(config.Learn.batch_size),
-                                                                  str(config.Learn.iterate_num),
-                                                                  str(config.Learn.learning_rate),
-                                                                  str(config.Learn.model_type),
-                                                                  None,
-                                                                  str(config.Arch.CVAE.latent_dim),
-                                                                  str(config.Arch.CVAE.x_dim),
-                                                                  str(config.Arch.CVAE.y_dim),
-                                                                  None,
-                                                                  player_info,
-                                                                  lstm_msg
-                                                                  )
-
-        saved_network = "{0}/oschulte/Galen/icehockey-models/vhe_saved_NN/" \
-                        "{1}cvae_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
-                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                  "/{1}vhe_log_feature{2}_latent{8}_x{9}_y{10}" \
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
                                                                         train_msg,
                                                                         str(config.Learn.feature_type),
                                                                         str(config.Learn.batch_size),
@@ -518,8 +511,28 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
                                                                         str(config.Arch.CVAE.y_dim),
                                                                         None,
                                                                         player_info,
-                                                                        lstm_msg
+                                                                        lstm_msg,
+                                                                        str(running_number)
                                                                         )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/vhe_saved_NN/" \
+                        "{1}vhe_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
+                                                                              train_msg,
+                                                                              str(config.Learn.feature_type),
+                                                                              str(config.Learn.batch_size),
+                                                                              str(config.Learn.iterate_num),
+                                                                              str(config.Learn.learning_rate),
+                                                                              str(config.Learn.model_type),
+                                                                              None,
+                                                                              str(config.Arch.CVAE.latent_dim),
+                                                                              str(config.Arch.CVAE.x_dim),
+                                                                              str(config.Arch.CVAE.y_dim),
+                                                                              None,
+                                                                              player_info,
+                                                                              lstm_msg,
+                                                                              str(running_number)
+                                                                              )
 
     elif model_catagoery == 'cvae':  # TODO: add more parameters
 
@@ -535,25 +548,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
 
         log_dir = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN" \
                   "/{1}cvae_log_feature{2}_latent{8}_x{9}_y{10}" \
-                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
-                                                                  train_msg,
-                                                                  str(config.Learn.feature_type),
-                                                                  str(config.Learn.batch_size),
-                                                                  str(config.Learn.iterate_num),
-                                                                  str(config.Learn.learning_rate),
-                                                                  str(config.Learn.model_type),
-                                                                  None,
-                                                                  str(config.Arch.CVAE.latent_dim),
-                                                                  str(config.Arch.CVAE.x_dim),
-                                                                  str(config.Arch.CVAE.y_dim),
-                                                                  None,
-                                                                  player_info,
-                                                                  lstm_msg
-                                                                  )
-
-        saved_network = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN/" \
-                        "{1}cvae_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
-                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
                                                                         train_msg,
                                                                         str(config.Learn.feature_type),
                                                                         str(config.Learn.batch_size),
@@ -566,8 +561,28 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
                                                                         str(config.Arch.CVAE.y_dim),
                                                                         None,
                                                                         player_info,
-                                                                        lstm_msg
+                                                                        lstm_msg,
+                                                                        str(running_number)
                                                                         )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/cvae_saved_NN/" \
+                        "{1}cvae_saved_networks_feature{2}_latent{8}_x{9}_y{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
+                                                                              train_msg,
+                                                                              str(config.Learn.feature_type),
+                                                                              str(config.Learn.batch_size),
+                                                                              str(config.Learn.iterate_num),
+                                                                              str(config.Learn.learning_rate),
+                                                                              str(config.Learn.model_type),
+                                                                              None,
+                                                                              str(config.Arch.CVAE.latent_dim),
+                                                                              str(config.Arch.CVAE.x_dim),
+                                                                              str(config.Arch.CVAE.y_dim),
+                                                                              None,
+                                                                              player_info,
+                                                                              lstm_msg,
+                                                                              str(running_number)
+                                                                              )
 
     elif model_catagoery == 'encoder':
 
@@ -583,25 +598,7 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
 
         log_dir = "{0}/oschulte/Galen/icehockey-models/stats_encoder_saved_NN" \
                   "/{1}encoder_log_feature{2}_embed{8}_in{9}_out{10}" \
-                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
-                                                                  train_msg,
-                                                                  str(config.Learn.feature_type),
-                                                                  str(config.Learn.batch_size),
-                                                                  str(config.Learn.iterate_num),
-                                                                  str(config.Learn.learning_rate),
-                                                                  str(config.Learn.model_type),
-                                                                  None,
-                                                                  str(config.Arch.Encoder.embed_dim),
-                                                                  str(config.Arch.Encoder.input_dim),
-                                                                  str(config.Arch.Encoder.output_dim),
-                                                                  None,
-                                                                  player_info,
-                                                                  lstm_msg
-                                                                  )
-
-        saved_network = "{0}/oschulte/Galen/icehockey-models/stats_encoder_saved_NN/" \
-                        "{1}encoder_saved_networks_feature{2}_embed{8}_in{9}_out{10}" \
-                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}".format(config.Learn.save_mother_dir,
+                  "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
                                                                         train_msg,
                                                                         str(config.Learn.feature_type),
                                                                         str(config.Learn.batch_size),
@@ -614,8 +611,28 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
                                                                         str(config.Arch.Encoder.output_dim),
                                                                         None,
                                                                         player_info,
-                                                                        lstm_msg
+                                                                        lstm_msg,
+                                                                        str(running_number)
                                                                         )
+
+        saved_network = "{0}/oschulte/Galen/icehockey-models/stats_encoder_saved_NN/" \
+                        "{1}encoder_saved_networks_feature{2}_embed{8}_in{9}_out{10}" \
+                        "_batch{3}_iterate{4}_lr{5}_{6}{12}{13}_r{14}".format(config.Learn.save_mother_dir,
+                                                                              train_msg,
+                                                                              str(config.Learn.feature_type),
+                                                                              str(config.Learn.batch_size),
+                                                                              str(config.Learn.iterate_num),
+                                                                              str(config.Learn.learning_rate),
+                                                                              str(config.Learn.model_type),
+                                                                              None,
+                                                                              str(config.Arch.Encoder.embed_dim),
+                                                                              str(config.Arch.Encoder.input_dim),
+                                                                              str(config.Arch.Encoder.output_dim),
+                                                                              None,
+                                                                              player_info,
+                                                                              lstm_msg,
+                                                                              str(running_number)
+                                                                              )
 
     elif model_catagoery == 'lstm_prediction':
 
@@ -628,28 +645,29 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
         log_dir = "{0}/oschulte/Galen/icehockey-models/lstm_predict_log_NN" \
                   "/{1}lstm_predict_{13}_log_feature{2}_{8}" \
                   "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                  "_dense{11}{12}{13}{14}".format(config.Learn.save_mother_dir,
-                                                  train_msg,
-                                                  str(config.Learn.feature_type),
-                                                  str(config.Learn.batch_size),
-                                                  str(config.Learn.iterate_num),
-                                                  str(config.Learn.learning_rate),
-                                                  str(config.Learn.model_type),
-                                                  str(config.Learn.max_seq_length),
-                                                  config.Learn.predict_target,
-                                                  None,
-                                                  str(config.Arch.LSTM.h_size),
-                                                  str(config.Arch.Dense.dense_layer_size),
-                                                  player_info,
-                                                  predict_target,
-                                                  player_id_info,
+                  "_dense{11}{12}{13}{14}_r{15}".format(config.Learn.save_mother_dir,
+                                                        train_msg,
+                                                        str(config.Learn.feature_type),
+                                                        str(config.Learn.batch_size),
+                                                        str(config.Learn.iterate_num),
+                                                        str(config.Learn.learning_rate),
+                                                        str(config.Learn.model_type),
+                                                        str(config.Learn.max_seq_length),
+                                                        config.Learn.predict_target,
+                                                        None,
+                                                        str(config.Arch.LSTM.h_size),
+                                                        str(config.Arch.Dense.dense_layer_size),
+                                                        player_info,
+                                                        predict_target,
+                                                        player_id_info,
+                                                        str(running_number)
 
-                                                  )
+                                                        )
 
         saved_network = "{0}/oschulte/Galen/icehockey-models/lstm_predict_model_saved_NN/" \
                         "{1}lstm_predict_{13}_saved_networks_feature{2}_{8}" \
                         "_batch{3}_iterate{4}_lr{5}_{6}_MaxTL{7}_LSTM{10}" \
-                        "_dense{11}{12}{13}{14}".format(
+                        "_dense{11}{12}{13}{14}_r{15}".format(
             config.Learn.save_mother_dir,
             train_msg,
             str(config.Learn.feature_type),
@@ -664,7 +682,8 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
             str(config.Arch.Dense.dense_layer_size),
             player_info,
             predict_target,
-            player_id_info
+            player_id_info,
+            str(running_number)
         )
 
     return saved_network, log_dir
@@ -716,6 +735,7 @@ def compute_mae(target_actions_prob, output_actions_prob, if_print=False):
 
 
 def compute_acc(target_label, output_prob,
+                bounding_id_trace_length=None,
                 if_print=False,
                 if_binary_result=False,
                 if_add_ll=False):
@@ -732,7 +752,20 @@ def compute_acc(target_label, output_prob,
 
     for batch_index in range(0, len(target_label)):
         total_number += 1
-        output_prediction = np.argmax(output_prob[batch_index])
+
+        if bounding_id_trace_length is not None and batch_index - bounding_id_trace_length - 1 > 0:  # TODO: any other ideas?
+            bounding_ids = set()
+            # if batch_index - bounding_id_trace_length - 1 > 0:
+            bounding_end_index = batch_index - bounding_id_trace_length - 1
+            for i in range(batch_index - 1, bounding_end_index, -1):
+                bounding_ids.add(np.argmax(target_label[i]))
+            bounding_ids_index = sorted(list(bounding_ids), reverse=True)
+            # temp = output_prob[batch_index][bounding_ids_index]
+            bounding_output_prediction_index = np.argmax(output_prob[batch_index][bounding_ids_index])
+            output_prediction = bounding_ids_index[bounding_output_prediction_index]
+        else:
+            output_prediction = np.argmax(output_prob[batch_index])
+
         target_prediction = np.argmax(target_label[batch_index])
 
         if if_binary_result:
@@ -763,10 +796,11 @@ def compute_acc(target_label, output_prob,
         print(correct_output_all)
 
     if if_binary_result:
+        auc_score = roc_auc_score(y_true=target_label[:, 0], y_score=output_prob[:, 0])
         if if_add_ll:
-            return TP, TN, FP, FN, float(correct_number) / total_number, float(ll_sum) / total_number
+            return TP, TN, FP, FN, float(correct_number) / total_number, float(ll_sum) / total_number, auc_score
         else:
-            return TP, TN, FP, FN, float(correct_number) / total_number
+            return TP, TN, FP, FN, float(correct_number) / total_number, auc_score
     else:
         if if_add_ll:
             return float(correct_number) / total_number, float(ll_sum) / total_number
@@ -1396,10 +1430,10 @@ def compute_game_values(sess_nn, model, data_store, dir_game, config,
 def validate_games_prediction(config,
                               data_store_dir,
                               source_data_dir,
-                              dir_all=None,
-                              # model_nn,
-                              # sess_nn,
-                              # model_path,
+                              dir_all,
+                              model_nn,
+                              sess_nn,
+                              model_path,
                               player_basic_info_dir=None,
                               game_date_dir=None,
                               player_box_score_dir=None,
@@ -1409,36 +1443,36 @@ def validate_games_prediction(config,
                               saved_network_dir=None,
                               model_category=None,
                               file_writer=None):
-    sess_nn = tf.InteractiveSession()
+    # sess_nn = tf.InteractiveSession()
     if model_category == 'cvrnn':
         prediction_target = config.Arch.Predict.predict_target
-        cvrnn = CVRNN(config=config, extra_prediction_flag=True)
-        cvrnn()
-        model_nn = cvrnn
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    #     cvrnn = CVRNN(config=config, extra_prediction_flag=True)
+    #     cvrnn()
+    #     model_nn = cvrnn
+    #     sess_nn.run(tf.global_variables_initializer())
+    #     model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     if model_category == 'cvae' or model_category == 'vhe':
         prediction_target = config.Arch.Predict.predict_target
-        cvae = CVAE_NN(config=config)
-        cvae()
-        sess_nn.run(tf.global_variables_initializer())
-        model_nn = cvae
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    #     cvae = CVAE_NN(config=config)
+    #     cvae()
+    #     sess_nn.run(tf.global_variables_initializer())
+    #     model_nn = cvae
+    #     model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     elif model_category == 'lstm_prediction':
         prediction_target = config.Learn.predict_target
-        model_nn = Td_Prediction_NN(config=config)
-        model_nn.initialize_ph()
-        model_nn.build()
-        model_nn.call()
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    #     model_nn = Td_Prediction_NN(config=config)
+    #     model_nn.initialize_ph()
+    #     model_nn.build()
+    #     model_nn.call()
+    #     sess_nn.run(tf.global_variables_initializer())
+    #     model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     elif model_category == 'encoder':
         prediction_target = config.Arch.Predict.predict_target
-        encoder = Encoder_NN(config=config)
-        encoder()
-        model_nn = encoder
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    #     encoder = Encoder_NN(config=config)
+    #     encoder()
+    #     model_nn = encoder
+    #     sess_nn.run(tf.global_variables_initializer())
+    #     model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     if model_number is not None:
         saver = tf.train.Saver()
         saver.restore(sess_nn, model_path)
@@ -1473,37 +1507,31 @@ def validate_games_prediction(config,
                 # try:
                 output_decoder_all = np.concatenate([output_decoder_all, output_prediction_prob], axis=0)
                 target_data_all = np.concatenate([target_data_all, target_prediction], axis=0)
-        TP, TN, FP, FN, acc, ll = compute_acc(output_prob=output_decoder_all,
-                                              target_label=target_data_all,
-                                              if_print=True,
-                                              if_binary_result=True,
-                                              if_add_ll=True)
+        TP, TN, FP, FN, acc, ll, auc = compute_acc(output_prob=output_decoder_all,
+                                                   target_label=target_data_all,
+                                                   if_print=True,
+                                                   if_binary_result=True,
+                                                   if_add_ll=True)
         precision = float(TP) / (TP + FP)
         recall = float(TP) / (TP + FN)
         f1 = 2 * (precision * recall) / (precision + recall)
-        print ("prediction testing precision is {6}, recall is {7}, f1 is {8}, acc is {0}, ll is {5} "
-               "with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
-                                                            str(TP),
-                                                            str(TN),
-                                                            str(FP),
-                                                            str(FN),
-                                                            str(ll),
-                                                            str(precision),
-                                                            str(recall),
-                                                            str(f1)
-                                                            ))
+
+        prediction_results_str = "prediction testing precision is {6}, recall is {7}, f1 is {8}, acc is {0}, ll is {5} " \
+                                 "with TP:{1}, TN:{2}, FP:{3}, FN:{4}\n".format(str(acc),
+                                                                                str(TP),
+                                                                                str(TN),
+                                                                                str(FP),
+                                                                                str(FN),
+                                                                                str(ll),
+                                                                                str(precision),
+                                                                                str(recall),
+                                                                                str(f1)
+                                                                                )
+
+        print (prediction_results_str)
         if file_writer is not None:
-            file_writer.write("prediction testing precision is {6}, recall is {7}, f1 is {8}, acc is {0}, ll is {5} "
-                              "with TP:{1}, TN:{2}, FP:{3}, FN:{4}".format(str(acc),
-                                                                           str(TP),
-                                                                           str(TN),
-                                                                           str(FP),
-                                                                           str(FN),
-                                                                           str(ll),
-                                                                           str(precision),
-                                                                           str(recall),
-                                                                           str(f1)
-                                                                           ))
+            file_writer.write(prediction_results_str)
+        return precision, recall, f1, acc, ll, auc
 
     elif prediction_type == 'spatial_simulation':
 
@@ -1594,12 +1622,49 @@ def validate_games_embedding(config,
     return all_embedding, all_player_index
 
 
+def validate_model_initialization(sess_nn,
+                                  model_category,
+                                  config,
+                                  ):
+    if model_category == 'cvrnn':
+        cvrnn = CVRNN(config=config, extra_prediction_flag=True)
+        cvrnn()
+        model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+    elif model_category == 'vhe':
+        vhe = CVAE_NN(config=config)
+        vhe()
+        model_nn = vhe
+        sess_nn.run(tf.global_variables_initializer())
+
+    elif model_category == 'cvae':
+        cvae = CVAE_NN(config=config)
+        cvae()
+        model_nn = cvae
+        sess_nn.run(tf.global_variables_initializer())
+
+    elif model_category == 'encoder':
+        encoder = Encoder_NN(config=config)
+        encoder()
+        model_nn = encoder
+        sess_nn.run(tf.global_variables_initializer())
+
+    elif model_category == 'lstm_prediction':
+        model_nn = Td_Prediction_NN(config=config)
+        model_nn.initialize_ph()
+        model_nn.build()
+        model_nn.call()
+        sess_nn.run(tf.global_variables_initializer())
+
+    return model_nn
+
+
 def validate_games_player_id(config,
                              data_store_dir,
                              dir_all,
-                             # model_nn,
-                             # sess_nn,
-                             # model_path,
+                             model_nn,
+                             sess_nn,
+                             model_path,
                              player_basic_info_dir,
                              game_date_dir,
                              player_box_score_dir,
@@ -1608,45 +1673,13 @@ def validate_games_player_id(config,
                              saved_network_dir=None,
                              model_category=None,
                              file_writer=None):
-    sess_nn = tf.InteractiveSession()
-    if model_category == 'cvrnn':
-        cvrnn = CVRNN(config=config)
-        cvrnn()
-        model_nn = cvrnn
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-
-    elif model_category == 'vhe':
-        vhe = CVAE_NN(config=config)
-        vhe()
-        model_nn = vhe
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'cvae':
-        cvae = CVAE_NN(config=config)
-        cvae()
-        model_nn = cvae
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'encoder':
-        encoder = Encoder_NN(config=config)
-        encoder()
-        model_nn = encoder
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'lstm_prediction':
-        model_nn = Td_Prediction_NN(config=config)
-        model_nn.initialize_ph()
-        model_nn.build()
-        model_nn.call()
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     if model_number is not None:
         saver = tf.train.Saver()
         saver.restore(sess_nn, model_path)
         print 'successfully load data from' + model_path
     else:
         raise ValueError('please provide a model number or no model will be loaded')
+    # return 0, 0
     output_decoder_all = None
     target_data_all = None
     selection_matrix_all = None
@@ -1684,65 +1717,24 @@ def validate_games_player_id(config,
                                   selection_matrix=selection_matrix_all, config=config,
                                   if_print=True, if_add_ll=True)
     else:
-        acc, ll = compute_acc(target_label=target_data_all, output_prob=output_decoder_all, if_add_ll=True)
+        acc, ll = compute_acc(target_label=target_data_all, output_prob=output_decoder_all,
+                              bounding_id_trace_length=10, if_add_ll=True)
     print ("testing acc is {0} with ll {1}".format(str(acc), str(ll)))
 
     if file_writer is not None:
         file_writer.write("testing acc is {0} with ll {1}\n".format(str(acc), str(ll)))
 
+    return acc, ll
+
 
 def compute_games_Q_values(config, data_store_dir, dir_all,
+                           model_nn, sess_nn, model_path,
                            model_number=None,
                            player_id_cluster_dir=None,
                            model_category=None,
-                           return_values_flag=False):
-    saved_network_dir, log_dir = get_model_and_log_name(config=config, model_catagoery=model_category)
-
-    # saved_network_dir = saved_network_dir.replace('cvrnn_saved_networks', 'bak_cvrnn_saved_networks')
-
-    # saved_network_dir = '/Local-Scratch/oschulte/Galen/icehockey-models/cvrnn_saved_NN/' \
-    #                     'bak_cvrnn_saved_networks_featureV1_latent128_x83_y150_batch32_iterate30_lr0.0001_' \
-    #                     'normal_MaxTL10_LSTM512_box'
-
-    sess_nn = tf.InteractiveSession()
-    if model_category == 'cvrnn':
-        cvrnn = CVRNN(config=config)
-        cvrnn()
-        model_nn = cvrnn
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'vhe':
-        vhe = CVAE_NN(config=config)
-        vhe()
-        model_nn = vhe
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'cvae':
-        cvae = CVAE_NN(config=config)
-        cvae()
-        model_nn = cvae
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'encoder':
-        encoder = Encoder_NN(config=config)
-        encoder()
-        model_nn = encoder
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'lstm_Qs':
-        model_nn = TD_Prediction(config=config)
-        model_nn()
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/Ice-Hockey-game--{0}'.format(model_number)
-    elif model_category == 'lstm_diff':
-        model_nn = Diff_Prediction(config=config)
-        model_nn()
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/Ice-Hockey-game--{0}'.format(model_number)
-    else:
-        raise ValueError('unknown model type {0}'.format(model_category))
-
-    data_name = get_data_name(config=config, model_catagoery=model_category, model_number=model_number)
+                           return_values_flag=False,
+                           apply_cv=False,
+                           running_number=None):
     if model_number is not None:
         saver = tf.train.Saver()
         saver.restore(sess_nn, model_path)
@@ -1779,19 +1771,26 @@ def compute_games_Q_values(config, data_store_dir, dir_all,
                                                                 'end': float(readout_accumu_Q[value_index][2])}})
             model_accumu_Q_value_all.append(model_accumu_Q_value_json)
 
+        data_name = get_data_name(config=config, model_catagoery=model_category, model_number=model_number)
         game_store_dir = game_name_dir.split('.')[0]
         if not return_values_flag:
-            if readout_next_Q is not None:
-                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs'),
-                          'w') as outfile:
-                    json.dump(model_next_Q_value_json, outfile)
-            if readout_accumu_Q is not None:
-                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs'),
-                          'w') as outfile:
-                    json.dump(model_accumu_Q_value_json, outfile)
+            if apply_cv:
+                if readout_next_Q is not None:
+                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs')
+                              + '_r'+str(running_number), 'w') as outfile:
+                        json.dump(model_next_Q_value_json, outfile)
+                if readout_accumu_Q is not None:
+                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs')
+                              + '_r'+str(running_number), 'w') as outfile:
+                        json.dump(model_accumu_Q_value_json, outfile)
+            else:
+                if readout_next_Q is not None:
+                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs'), 'w') as outfile:
+                        json.dump(model_next_Q_value_json, outfile)
+                if readout_accumu_Q is not None:
+                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs'), 'w') as outfile:
+                        json.dump(model_accumu_Q_value_json, outfile)
 
-            # sio.savemat(data_store_dir + "/" + game_name_dir + "/" + data_name,
-            #             {'model_value': np.asarray(model_value)})
     if return_values_flag:
         return model_next_Q_values_all, model_accumu_Q_value_all
     else:
@@ -1903,6 +1902,10 @@ def tmp_compute_games_Q_values(config, data_store_dir, dir_all,
 
 
 if __name__ == '__main__':
+    # compute_acc(target_label=np.array([[1, 0, 0], [2], 3]),
+    #             output_prob=np.array([1, 2, 3]),
+    #             bounding_id_trace_length=2)
+
     print('testing normal_td')
     sess = tf.Session()
     mu1 = tf.constant([0.480746])

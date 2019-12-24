@@ -761,7 +761,6 @@ def train_prediction(model, sess, config,
 
 
 def cvae_validation(sess, model, input_data_t0, target_data_t0, trace_length_t0, train_mask, config):
-
     if config.Learn.apply_lstm:
         x_ph_input = []
         for trace_index in range(0, len(trace_length_t0)):
@@ -978,10 +977,11 @@ def run():
     training = True
     local_test_flag = False
     box_msg = ''
+    running_number = 3
     player_id_type = 'local_id'
     predict_action = '_predict_next_goal'
     rnn_type = '_lstm'
-    model_type = 'vhe'
+    model_type = 'cvae'
 
     if player_id_type == 'ap_cluster':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -998,28 +998,41 @@ def run():
 
     icehockey_cvae_config_path = "../environment_settings/" \
                                  "icehockey_{4}{3}{0}{1}_config{2}.yaml".format(predicted_target,
-                                                                                 predict_action,
-                                                                                 box_msg,
-                                                                                 rnn_type,
-                                                                               model_type)
+                                                                                predict_action,
+                                                                                box_msg,
+                                                                                rnn_type,
+                                                                                model_type)
     icehockey_cvae_config = CVAECongfig.load(icehockey_cvae_config_path)
     Prediction_MemoryBuffer.set_cache_memory(cache_number=icehockey_cvae_config.Arch.Predict.output_node)
-    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvae_config, model_catagoery=model_type)
+    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_cvae_config, model_catagoery=model_type,
+                                                        running_number=running_number)
 
     if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
+        validate_dir_games_all = os.listdir(data_store_dir)
+        tmp_testing_dir_games_all = os.listdir(data_store_dir)
         source_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
     else:
         source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
         data_store_dir = icehockey_cvae_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
         # shuffle(dir_games_all)  # randomly shuffle the list
-        training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 8]
-        # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
-        testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
+        if running_number == 0:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5]
+        else:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5] \
+                                     + dir_games_all[-running_number * len(dir_games_all) / 5:]
+
+        test_validate_dir_games_all = [item for item in dir_games_all if item not in training_dir_games_all]
+
+        testing_dir_games_all = test_validate_dir_games_all[:len(test_validate_dir_games_all) / 2]
+        validate_dir_games_all = test_validate_dir_games_all[len(test_validate_dir_games_all) / 2:]
+        tmp_testing_dir_games_all = testing_dir_games_all[-10:]  # TODO: it is a small running testing, not the real one
     number_of_total_game = len(dir_games_all)
     icehockey_cvae_config.Learn.number_of_total_game = number_of_total_game
 
@@ -1031,6 +1044,9 @@ def run():
         if not local_test_flag:
             # save the training and testing dir list
 
+            if not os.path.exists(saved_network_dir):
+                os.mkdir(saved_network_dir)
+            # save the training and testing dir list
             if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
                 os.rename(saved_network_dir + '/training_file_dirs_all.csv',
                           saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
@@ -1039,19 +1055,24 @@ def run():
                 os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
                           saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
                           .format(datetime.date.today().strftime("%Y%B%d")))
-
-            if not os.path.exists(saved_network_dir):
-                os.mkdir(saved_network_dir)
+            if os.path.exists(saved_network_dir + '/validate_file_dirs_all.csv'):
+                os.rename(saved_network_dir + '/validate_file_dirs_all.csv',
+                          saved_network_dir + '/bak_validate_file_dirs_all_{0}.csv'
+                          .format(datetime.date.today().strftime("%Y%B%d")))
             with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
-                for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+                for dir in training_dir_games_all:
+                    f.write(dir + '\n')
+            with open(saved_network_dir + '/validate_file_dirs_all.csv', 'wb') as f:
+                for dir in validate_dir_games_all:
                     f.write(dir + '\n')
             with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
-                for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+                for dir in testing_dir_games_all:
                     f.write(dir + '\n')
         print('training the model.')
         run_network(sess=sess, model=cvae, config=icehockey_cvae_config, log_dir=log_dir,
                     save_network_dir=saved_network_dir, data_store=data_store_dir, source_data_dir=source_data_dir,
-                    training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
+                    training_dir_games_all=training_dir_games_all,
+                    testing_dir_games_all=tmp_testing_dir_games_all,
                     player_id_cluster_dir=player_id_cluster_dir)
         sess.close()
     else:
