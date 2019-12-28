@@ -977,7 +977,7 @@ def run():
     training = True
     local_test_flag = False
     box_msg = ''
-    running_number = 3
+    running_number = 4
     player_id_type = 'local_id'
     predict_action = '_predict_next_goal'
     rnn_type = '_lstm'

@@ -404,7 +404,7 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 def run():
     play_info = ''
     running_number = 1
-    type = 'pids'
+    type = 'action_goal'
     if type == 'ap_playerId':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
         predicted_target = 'PlayerPositionClusterAP'  # playerId_
