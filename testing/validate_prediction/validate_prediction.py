@@ -16,8 +16,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 if __name__ == '__main__':
     local_test_flag = False
-    model_category = 'cvae'
-    model_number = 1301
+    model_category = 'encoder'
+    model_number = 1801
     player_info = ''
     embed_mode = ''
     rnn_type = ''

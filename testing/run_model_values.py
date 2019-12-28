@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     model_type = 'cvrnn'
     player_info = ''
-    model_number = 2101
+    model_number = 1801
     local_test_flag = False
     if model_type == 'cvrnn':
         embed_mode = '_embed_random'

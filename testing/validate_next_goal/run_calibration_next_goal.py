@@ -163,7 +163,7 @@ def generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir):
 
 
 def run_calibration():
-    model_type = 'encoder'
+    model_type = 'cvrnn'
     player_info = ''
     apply_old = False
     apply_difference = False
@@ -220,15 +220,6 @@ def run_calibration():
     source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
     model_data_store_dir = '/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019'
 
-    testing_dir_games_all = []
-    # with open('../../sport_resource/ice_hockey_201819/testing_file_dirs_all.csv', 'rb') as f:
-    saved_network_dir, log_dir = get_model_and_log_name(config=config,
-                                                        model_catagoery=model_type)
-    # with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
-    with open('../../sport_resource/ice_hockey_201819/' + '/testing_file_dirs_all.csv', 'rb') as f:
-        testing_dir_all = f.readlines()
-    for testing_dir in testing_dir_all:
-        testing_dir_games_all.append(str(int(testing_dir)) + '-playsequence-wpoi.json')
 
     Cali = Calibration(bins=calibration_bins, source_data_dir=source_data_dir,
                        calibration_features=calibration_features, config=config,
@@ -236,13 +227,23 @@ def run_calibration():
                        apply_difference=apply_difference,
                        model_type=model_type, model_number=model_number,
                        player_info=player_info, calibration_type='next_goal',
-                       testing_dir_all=testing_dir_games_all,
+                       # testing_dir_all=testing_dir_games_all[:1],
                        embed_mode=embed_mode,
                        focus_actions_list=[],
                        if_apply_cv=True,
                        running_numbers=running_numbers)
     Cali.construct_bin_dicts()
-    Cali.aggregate_calibration_values()
+    for running_number in running_numbers:
+        saved_network_dir, log_dir = get_model_and_log_name(config=config,
+                                                            model_catagoery=model_type,
+                                                            running_number=running_number)
+        with open(saved_network_dir + '/testing_file_dirs_all.csv', 'rb') as f:
+            # with open('../../sport_resource/ice_hockey_201819/' + '/testing_file_dirs_all.csv', 'rb') as f:
+            testing_dir_all = f.readlines()
+        testing_dir_games_all = []
+        for testing_dir in testing_dir_all:
+            testing_dir_games_all.append(str(int(testing_dir)) + '-playsequence-wpoi.json')
+        Cali.aggregate_calibration_values(testing_dir_games_all=testing_dir_games_all, running_number=running_number)
     Cali.compute_distance()
     print Cali.save_calibration_dir
 

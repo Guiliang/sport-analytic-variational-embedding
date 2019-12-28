@@ -11,11 +11,11 @@ from support.model_tools import get_model_and_log_name, get_data_name, validate_
 
 if __name__ == '__main__':
     local_test_flag = False
-    model_category = 'vhe'
-    model_number = 1801
+    model_category = 'encoder'
+    model_number =1801
     player_info = ''
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     if model_category == 'cvrnn':
         embed_mode = '_embed_random'

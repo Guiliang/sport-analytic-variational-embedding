@@ -6,14 +6,14 @@ import datetime
 import scipy.io as sio
 from support.data_processing_tools import read_features_within_events, read_feature_within_events
 from support.model_tools import get_data_name
+from decimal import Decimal
 
 
 class Calibration:
     def __init__(self, bins, source_data_dir, calibration_features,
                  config, model_data_store_dir,
                  apply_old, apply_difference, model_type,
-                 model_number, player_info, calibration_type,
-                 testing_dir_all, embed_mode,
+                 model_number, player_info, calibration_type, embed_mode,
                  focus_actions_list=[], if_apply_cv=False,
                  running_numbers=[None]):
         self.calibration_type = calibration_type
@@ -40,7 +40,7 @@ class Calibration:
                 self.cv_calibration_values_all_list = []
                 for running_number in self.running_numbers:
                     self.cv_calibration_values_all_list.append(
-                        {'cv_{0}'.format(str(running_number)): {'cali_sum': [0, 0, 0],
+                        {'all'.format(str(running_number)): {'cali_sum': [0, 0, 0],
                                                                 'model_sum': [0, 0, 0],
                                                                 'number': 0}})
             else:
@@ -57,7 +57,7 @@ class Calibration:
                 format(str(self.focus_actions_list), datetime.date.today().strftime("%Y%B%d"), model_type,
                        player_info, model_number, embed_mode)
         if self.if_apply_cv:
-            self.save_calibration_dir.replace('.txt', '_cv.txt')
+            self.save_calibration_dir = self.save_calibration_dir.replace('.txt', '_cv.txt')
         self.save_calibration_file = open(self.save_calibration_dir, 'w')
         if apply_difference:
             self.teams = ['home-away']
@@ -80,7 +80,7 @@ class Calibration:
             self.data_name = self.data_name + "_cv"
         print(self.data_name)
         self.calibration_type = calibration_type
-        self.testing_dir_all = testing_dir_all
+        # self.testing_dir_all = testing_dir_all
 
     def __del__(self):
         print 'ending bak_calibration'
@@ -174,13 +174,13 @@ class Calibration:
         "model_three_cut_featureV1_latent128_x76_y150_batch32_iterate30_lr0.0001_normal_MaxTL10_LSTM512"
         return model_output
 
-    def aggregate_calibration_values(self, running_number=None):
+    def aggregate_calibration_values(self, testing_dir_games_all, running_number=None):
         """update bak_calibration dict by each game"""
         dir_all = os.listdir(self.data_path)
         # dir_all = ['919069.json']  # TODO: test
         # self.data_path = '/Users/liu/Desktop/'
         # for json_dir in dir_all:
-        for json_dir in self.testing_dir_all:
+        for json_dir in testing_dir_games_all:
             features_all = []
             for calibration_feature in self.calibration_features:
                 features = self.bins.get(calibration_feature).get('feature_name')
@@ -193,7 +193,7 @@ class Calibration:
             model_values = self.obtain_model_prediction(directory=json_dir.split('-')[0],
                                                         if_apply_cv=self.if_apply_cv)
             if running_number is not None:
-                model_values = model_values[running_number]
+                model_values = model_values[str(running_number)]
             game_files = os.listdir(self.data_store_dir + "/" + json_dir.split('-')[0])
             for filename in game_files:
                 if 'home_away' in filename:
@@ -271,8 +271,10 @@ class Calibration:
 
                 calibration_value = calibration_values[index]
                 model_value = model_values[str(index)]
-
-                cali_bin_info = self.calibration_values_all_dict.get(cali_dict_str)
+                if running_number is not None:
+                    cali_bin_info = self.cv_calibration_values_all_list[running_number].get(cali_dict_str)
+                else:
+                    cali_bin_info = self.calibration_values_all_dict.get(cali_dict_str)
                 # print cali_dict_str
                 assert cali_bin_info is not None
                 cali_sum = cali_bin_info.get('cali_sum')
@@ -338,6 +340,17 @@ class Calibration:
             cali_dict_strs = self.calibration_values_all_dict.keys()
 
         for cali_dict_str in cali_dict_strs:
+            cali_prob_all = []
+            model_prob_all = []
+            visit_number_all = []
+            for team in self.teams:
+                cali_prob_all.append([])
+                model_prob_all.append([])
+            # cali_prob_all = [[]] * len(self.teams)
+            # model_prob_all = [[]] * len(self.teams)
+            mae_sum_all = []
+            kld_sum_all = []
+            cali_bin_info = None
             for running_number in self.running_numbers:
                 if self.if_apply_cv:
                     cali_record_dict = 'CV{0}-Bin:'.format(str(running_number)) + cali_dict_str
@@ -348,12 +361,18 @@ class Calibration:
                 kld_sum = 0
                 mae_sum = 0
                 if cali_bin_info['number'] == 0:
-                    print "number of bin {0} is 0".format(cali_dict_str)
+                    if self.if_apply_cv:
+                        print ("cv {1} number of bin {0} is 0".format(cali_dict_str, str(running_number)))
+                    else:
+                        print ("number of bin {0} is 0".format(cali_dict_str))
                     continue
                 # cali_record_dict = 'Bin:' + cali_dict_str
+                visit_number_all.append(cali_bin_info['number'])
                 for i in range(len(self.teams)):  # [home, away,end]
                     cali_prob = float(cali_bin_info['cali_sum'][i]) / cali_bin_info['number']
+                    cali_prob_all[i].append(cali_prob)
                     model_prob = float(cali_bin_info['model_sum'][i]) / cali_bin_info['number']
+                    model_prob_all[i].append(model_prob)
                     cali_record_dict += '\t{0}_number'.format(self.teams[i]) + ":" + str(cali_bin_info['number'])
                     cali_record_dict += '\t{0}_cali'.format(self.teams[i]) + ":" + str(cali_prob)
                     cali_record_dict += '\t{0}_model'.format(self.teams[i]) + ":" + str(model_prob)
@@ -368,5 +387,33 @@ class Calibration:
                     ae = abs(cali_prob - model_prob)
                     mae_sum = mae_sum + ae
                 cali_record_dict += '\tkld:' + str(kld_sum)
+                kld_sum_all.append(kld_sum)
                 cali_record_dict += '\tmae:' + str(float(mae_sum) / len(self.teams))
-                self.save_calibration_file.write(str(cali_record_dict) + '\n')
+                mae_sum_all.append(mae_sum)
+                if not self.if_apply_cv:
+                    self.save_calibration_file.write(str(cali_record_dict) + '\n')
+
+            if self.if_apply_cv:
+                cv_cali_record_dict = 'CV-Bin:' + cali_dict_str
+
+                cali_prob_all = np.asarray(cali_prob_all)
+                model_prob_all = np.asarray(model_prob_all)
+                visit_number_all = np.asarray(visit_number_all)
+                if len(visit_number_all) == 0:
+                    continue
+                mae_sum_all = np.asarray(mae_sum_all)
+                kld_sum_all = np.asarray(kld_sum_all)
+                cv_cali_record_dict += '\tnumber' + "-mean:%.3E" % Decimal(np.mean(visit_number_all)) \
+                                       + "/var:%.3E" % Decimal(np.var(visit_number_all))
+                for i in range(len(self.teams)):
+                    cv_cali_record_dict += '\t{0}_cali'.format(self.teams[i]) + "-mean:%.3E" % \
+                                           Decimal(np.mean(cali_prob_all[i])) + \
+                                           "/var:%.3E" % Decimal(np.var(cali_prob_all[i]))
+                    cv_cali_record_dict += '\t{0}_model'.format(self.teams[i]) + "-mean:%.3E" % \
+                                           Decimal(Decimal(np.mean(model_prob_all[i]))) + \
+                                           "/var:%.3E" % (Decimal(np.var(model_prob_all[i])))
+                cv_cali_record_dict += '\tkld-mean:%.3E' % Decimal(np.mean(kld_sum_all)) + "/var:%.3E" % Decimal(
+                    np.var(kld_sum_all))
+                cv_cali_record_dict += '\tmae-mean:%.3E' % Decimal(np.mean(mae_sum_all)) + "/var:%.3E" % Decimal(
+                    np.var(mae_sum_all))
+                self.save_calibration_file.write(str(cv_cali_record_dict) + '\n')

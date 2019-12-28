@@ -249,8 +249,8 @@ class CVAE_NN(object):
                 # add a small epsilon for numerical stability
                 stddev = 1e-6 + tf.nn.softplus(gaussian_params[:, self.config.Arch.CVAE.latent_dim:])
             else:
-                mean = tf.ones(shape=[tf.shape(encoder_input)[0], self.config.Arch.CVAE.latent_dim])
-                stddev = tf.zeros(shape=[tf.shape(encoder_input)[0], self.config.Arch.CVAE.latent_dim])
+                mean = tf.zeros(shape=[tf.shape(encoder_input)[0], self.config.Arch.CVAE.latent_dim])
+                stddev = tf.ones(shape=[tf.shape(encoder_input)[0], self.config.Arch.CVAE.latent_dim])
 
         return mean, stddev
 
