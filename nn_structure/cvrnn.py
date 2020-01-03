@@ -372,7 +372,7 @@ class CVRNN():
             print('embeding mode is mean_var')
 
         self.select_index = tf.range(0, batch_size) * self.config.Learn.max_seq_length + (self.trace_length_ph - 1)
-        self.z_encoder_output = tf.gather(self.enc_sigma, self.select_index)
+        self.z_encoder_output = tf.gather(z_encoder, self.select_index)
         # self.z_encoder_output = tf.reshape(
         #     tf.reshape(self.z_encoder, shape=[batch_size, self.config.Learn.max_seq_length,
         #                                       self.config.Arch.CVRNN.latent_dim]), shape=[batch_size, -1])

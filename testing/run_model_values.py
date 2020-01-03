@@ -15,9 +15,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 if __name__ == '__main__':
 
-    model_type = 'cvrnn'
+    model_type = 'lstm_Qs'
     player_info = ''
-    model_number = 1801
+    model_number = 601
     local_test_flag = False
     if model_type == 'cvrnn':
         embed_mode = '_embed_random'
@@ -85,11 +85,14 @@ if __name__ == '__main__':
     #     cv_record_all_model_accumu_Q_values.append({dir_game_index: game_cv_record})
 
     for running_number in running_numbers:
+        print('handing games for running number {0}'.format(str(running_number)))
         saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_model_config,
                                                             model_catagoery=model_type,
                                                             running_number=running_number)
-
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+        if model_type == 'lstm_Qs':
+            model_path = saved_network_dir +'/Ice-Hockey-game--{0}'.format(model_number)
+        else:
+            model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
 
         compute_games_Q_values(config=icehockey_model_config,
                                data_store_dir=data_store_dir,

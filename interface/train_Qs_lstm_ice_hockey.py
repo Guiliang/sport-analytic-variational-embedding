@@ -192,27 +192,39 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0,
 
 
 def run():
+    running_number = 4
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     local_test_flag = False
-    type = '_box'
+    type = ''
     icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm{0}.yaml".format(str(type))
     icehockey_mdn_Qs_config = LSTMQsCongfig.load(icehockey_mdn_Qs_config_path)
-    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config, model_catagoery='lstm_Qs')
+    saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config,
+                                                        model_catagoery='lstm_Qs',
+                                                        running_number=running_number)
 
     if local_test_flag:
         data_store_dir = "/Users/liu/Desktop/Ice-hokcey-data-sample/feature-sample"
         dir_games_all = os.listdir(data_store_dir)
         training_dir_games_all = os.listdir(data_store_dir)
+        validate_dir_games_all = os.listdir(data_store_dir)
         testing_dir_games_all = os.listdir(data_store_dir)
+        tmp_testing_dir_games_all = os.listdir(data_store_dir)
         save_flag = False
     else:
         data_store_dir = icehockey_mdn_Qs_config.Learn.save_mother_dir + "/oschulte/Galen/Ice-hockey-data/2018-2019/"
         dir_games_all = os.listdir(data_store_dir)
-        training_dir_games_all = dir_games_all[0: len(dir_games_all) / 10 * 9]
-        # testing_dir_games_all = dir_games_all[len(dir_games_all)/10*9:]
-        testing_dir_games_all = dir_games_all[-10:]  # TODO: testing
         save_flag = True
-
+        if running_number == 0:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5]
+        else:
+            training_dir_games_all = dir_games_all[
+                                     0: len(dir_games_all) / 5 * 4 - running_number * len(dir_games_all) / 5] \
+                                     + dir_games_all[-running_number * len(dir_games_all) / 5:]
+        test_validate_dir_games_all = [item for item in dir_games_all if item not in training_dir_games_all]
+        testing_dir_games_all = test_validate_dir_games_all[:len(test_validate_dir_games_all)/2]
+        validate_dir_games_all = test_validate_dir_games_all[len(test_validate_dir_games_all) / 2:]
+        tmp_testing_dir_games_all = testing_dir_games_all[-10:]  # TODO: it is a small running testing, not the real one
     # data_store_dir = '/cs/oschulte/xiangyus/2019-icehockey-data-preprocessed/2018-2019'
     # saved_network_dir = '/Local-Scratch/oschulte/Galen/icehockey-models/lstm_Qs_model_saved_NN/lstm_saved_networks_featurev1_Qs_batch32_iterate10_lr1e-05_v1_MaxTL10_LSTM512_dense256'
     number_of_total_game = len(dir_games_all)
@@ -235,16 +247,22 @@ def run():
             os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
                       saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
                       .format(datetime.date.today().strftime("%Y%B%d")))
-        # save the training and testing dir list
+        if os.path.exists(saved_network_dir + '/validate_file_dirs_all.csv'):
+            os.rename(saved_network_dir + '/validate_file_dirs_all.csv',
+                      saved_network_dir + '/bak_validate_file_dirs_all_{0}.csv'
+                      .format(datetime.date.today().strftime("%Y%B%d")))
         with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
-            for dir in dir_games_all[0: len(dir_games_all) / 10 * 8]:
+            for dir in training_dir_games_all:
+                f.write(dir + '\n')
+        with open(saved_network_dir + '/validate_file_dirs_all.csv', 'wb') as f:
+            for dir in validate_dir_games_all:
                 f.write(dir + '\n')
         with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
-            for dir in dir_games_all[len(dir_games_all) / 10 * 9:]:
+            for dir in testing_dir_games_all:
                 f.write(dir + '\n')
     run_network(sess=sess, model=model, config=icehockey_mdn_Qs_config, log_dir=log_dir,
                 save_network_dir=saved_network_dir, data_store=data_store_dir,
-                training_dir_games_all=training_dir_games_all, testing_dir_games_all=testing_dir_games_all,
+                training_dir_games_all=training_dir_games_all, testing_dir_games_all=tmp_testing_dir_games_all,
                 player_id_cluster_dir=None, save_flag=save_flag)
     sess.close()
 

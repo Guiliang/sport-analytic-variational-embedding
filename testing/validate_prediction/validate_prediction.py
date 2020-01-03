@@ -16,9 +16,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 if __name__ == '__main__':
     local_test_flag = False
-    model_category = 'encoder'
+    model_category = 'lstm_prediction'
     model_number = 1801
-    player_info = ''
+    player_info = '_pid'
     embed_mode = ''
     rnn_type = ''
     source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
