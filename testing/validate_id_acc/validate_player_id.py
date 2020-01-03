@@ -11,9 +11,11 @@ from support.model_tools import get_model_and_log_name, get_data_name, validate_
 
 if __name__ == '__main__':
     local_test_flag = False
-    model_category = 'encoder'
-    model_number =1801
+    model_category = 'cvae'
+    model_number =301
     player_info = ''
+    apply_bounding = True
+    msg_bounding = ''
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -25,18 +27,24 @@ if __name__ == '__main__':
             format(predicted_target, player_info, embed_mode)
         icehockey_model_config = CVRNNCongfig.load(icehockey_cvrnn_config_path)
     elif model_category == 'vhe':
+        if apply_bounding:
+            msg_bounding = '_bound'
         predicted_target = '_PlayerLocalId_predict_next_goal'  # playerId_
         player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
         icehockey_config_path = "../../environment_settings/icehockey_vhe_lstm{0}_config{1}.yaml".format(
             predicted_target, player_info)
         icehockey_model_config = CVAECongfig.load(icehockey_config_path)
     elif model_category == 'cvae':
+        if apply_bounding:
+            msg_bounding = '_bound'
         predicted_target = '_PlayerLocalId_predict_next_goal'  # playerId_
         player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
         icehockey_config_path = "../../environment_settings/icehockey_cvae_lstm{0}_config{1}.yaml".format(
             predicted_target, player_info)
         icehockey_model_config = CVAECongfig.load(icehockey_config_path)
     elif model_category == 'encoder':
+        if apply_bounding:
+            msg_bounding = '_bound'
         rnn_type = ''
         predicted_target = '_PlayerLocalId_predict_next_goal'
         player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
@@ -62,7 +70,7 @@ if __name__ == '__main__':
     running_numbers = [0, 1, 2, 3, 4]
 
     with open('./results/player_id_acc_' + model_category + '_'
-              + str(model_number) + player_info + '_cv', 'wb') as file_writer:
+              + str(model_number) + player_info + msg_bounding+'_cv', 'wb') as file_writer:
 
         for running_number in running_numbers:
             saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_model_config,
@@ -99,6 +107,7 @@ if __name__ == '__main__':
                                               player_basic_info_dir='../../sport_resource/ice_hockey_201819/player_info_2018_2019.json',
                                               game_date_dir='../../sport_resource/ice_hockey_201819/game_dates_2018_2019.json',
                                               player_box_score_dir='../../sport_resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv',
+                                              apply_bounding=apply_bounding,
                                               model_number=model_number,
                                               player_id_cluster_dir=player_id_cluster_dir,
                                               saved_network_dir=saved_network_dir,

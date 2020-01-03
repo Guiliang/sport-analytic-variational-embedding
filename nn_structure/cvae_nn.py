@@ -291,7 +291,7 @@ class CVAE_NN(object):
                     # self.batch_size = tf.shape(outputs)[0]
                     # Start indices for each sample
                     index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
-                                 + (self.trace_lengths_ph - 1)
+                            + (self.trace_lengths_ph - 1)
                     rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), index)
                     input_ = rnn_last
             else:
@@ -327,7 +327,7 @@ class CVAE_NN(object):
                     # self.batch_size = tf.shape(outputs)[0]
                     # Start indices for each sample
                     index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
-                                 + (self.trace_lengths_ph - 1)
+                            + (self.trace_lengths_ph - 1)
                     rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), index)
                     input_ = rnn_last
             else:
@@ -364,7 +364,7 @@ class CVAE_NN(object):
                     # self.batch_size = tf.shape(outputs)[0]
                     # Start indices for each sample
                     index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
-                                 + (self.trace_lengths_ph - 1)
+                            + (self.trace_lengths_ph - 1)
                     rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), index)
                     input_ = rnn_last
             else:
@@ -399,7 +399,7 @@ class CVAE_NN(object):
             #     # Hack to build the indexing and retrieve the right output.
             #     # Start indices for each sample
             index = tf.range(0, self.batch_size) * self.config.Learn.max_seq_length \
-                         + (self.trace_lengths_ph - 1)
+                    + (self.trace_lengths_ph - 1)
             #     rnn_last = tf.gather(tf.reshape(outputs, [-1, self.config.Learn.h_size]), self.index)
             #     input_ = rnn_last
             encoder_input = tf.gather(tf.reshape(self.y_ph, [-1, self.config.Arch.CVAE.y_dim]), index)

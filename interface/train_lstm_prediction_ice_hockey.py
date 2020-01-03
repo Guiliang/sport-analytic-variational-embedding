@@ -402,8 +402,8 @@ def save_model(game_number, saver, sess, save_network_dir, config):
 
 
 def run():
-    play_info = ''
-    running_number = 1
+    play_info = '_pid'
+    running_number = 2
     type = 'action_goal'
     if type == 'ap_playerId':
         player_id_cluster_dir = '../sport_resource/ice_hockey_201819/player_id_ap_cluster.json'
@@ -426,7 +426,7 @@ def run():
     else:
         raise ValueError('unknown type')
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     BalancedMemoryBuffer.set_cache_memory(cache_number=2)
 
@@ -472,31 +472,30 @@ def run():
     sess.run(tf.global_variables_initializer())
 
     if not local_test_flag:
-        if not local_test_flag:
-            if not os.path.exists(saved_network_dir):
-                os.mkdir(saved_network_dir)
-            # save the training and testing dir list
-            if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
-                os.rename(saved_network_dir + '/training_file_dirs_all.csv',
-                          saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
-                          .format(datetime.date.today().strftime("%Y%B%d")))
-            if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
-                os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
-                          saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
-                          .format(datetime.date.today().strftime("%Y%B%d")))
-            if os.path.exists(saved_network_dir + '/validate_file_dirs_all.csv'):
-                os.rename(saved_network_dir + '/validate_file_dirs_all.csv',
-                          saved_network_dir + '/bak_validate_file_dirs_all_{0}.csv'
-                          .format(datetime.date.today().strftime("%Y%B%d")))
-            with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
-                for dir in training_dir_games_all:
-                    f.write(dir + '\n')
-            with open(saved_network_dir + '/validate_file_dirs_all.csv', 'wb') as f:
-                for dir in validate_dir_games_all:
-                    f.write(dir + '\n')
-            with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
-                for dir in testing_dir_games_all:
-                    f.write(dir + '\n')
+        if not os.path.exists(saved_network_dir):
+            os.mkdir(saved_network_dir)
+        # save the training and testing dir list
+        if os.path.exists(saved_network_dir + '/training_file_dirs_all.csv'):
+            os.rename(saved_network_dir + '/training_file_dirs_all.csv',
+                      saved_network_dir + '/bak_training_file_dirs_all_{0}.csv'
+                      .format(datetime.date.today().strftime("%Y%B%d")))
+        if os.path.exists(saved_network_dir + '/testing_file_dirs_all.csv'):
+            os.rename(saved_network_dir + '/testing_file_dirs_all.csv',
+                      saved_network_dir + '/bak_testing_file_dirs_all_{0}.csv'
+                      .format(datetime.date.today().strftime("%Y%B%d")))
+        if os.path.exists(saved_network_dir + '/validate_file_dirs_all.csv'):
+            os.rename(saved_network_dir + '/validate_file_dirs_all.csv',
+                      saved_network_dir + '/bak_validate_file_dirs_all_{0}.csv'
+                      .format(datetime.date.today().strftime("%Y%B%d")))
+        with open(saved_network_dir + '/training_file_dirs_all.csv', 'wb') as f:
+            for dir in training_dir_games_all:
+                f.write(dir + '\n')
+        with open(saved_network_dir + '/validate_file_dirs_all.csv', 'wb') as f:
+            for dir in validate_dir_games_all:
+                f.write(dir + '\n')
+        with open(saved_network_dir + '/testing_file_dirs_all.csv', 'wb') as f:
+            for dir in testing_dir_games_all:
+                f.write(dir + '\n')
 
     run_network(sess=sess, model=model, config=lstm_prediction_config,
                 training_dir_games_all=training_dir_games_all, testing_dir_games_all=tmp_testing_dir_games_all,

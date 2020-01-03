@@ -757,7 +757,7 @@ def compute_acc(target_label, output_prob,
             bounding_ids = set()
             # if batch_index - bounding_id_trace_length - 1 > 0:
             bounding_end_index = batch_index - bounding_id_trace_length - 1
-            for i in range(batch_index - 1, bounding_end_index, -1):
+            for i in range(batch_index, bounding_end_index, -1):
                 bounding_ids.add(np.argmax(target_label[i]))
             bounding_ids_index = sorted(list(bounding_ids), reverse=True)
             # temp = output_prob[batch_index][bounding_ids_index]
@@ -966,16 +966,34 @@ def compute_game_embedding(sess_nn, model, data_store,
         [output_encoder] = get_embedding_model_output(sess_nn, [model.z_encoder_output], feed_dict)
         output_player_encoding = output_encoder
 
-    elif model_category == "cvae":
-        feed_dict = {model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
-                     model.y_ph: input_data[:, config.Arch.CVAE.x_dim:],
-                     model.train_flag_ph: train_mask,
-                     }
+    elif model_category == "cvae" or model_category == "vhe":
+        if config.Learn.apply_lstm:
+            x_ph_input = []
+            for trace_index in range(0, len(trace_lengths)):
+                trace_length = trace_lengths[trace_index]
+                trace_length = trace_length - 1
+                if trace_length > 9:
+                    trace_length = 9
+                x_ph_input.append(input_data[trace_index, trace_length, : config.Arch.CVAE.x_dim])
+            x_ph_input = np.asarray(x_ph_input)
+
+            feed_dict = {model.x_ph: x_ph_input,
+                         model.y_ph: input_data[:, :, config.Arch.CVAE.x_dim:],
+                         model.trace_lengths_ph: trace_lengths,
+                         model.train_flag_ph: train_mask, }
+        else:
+            feed_dict = {model.x_ph: input_data[:, : config.Arch.CVAE.x_dim],
+                         model.train_flag_ph: train_mask,
+                         model.y_ph: input_data[:, config.Arch.CVAE.x_dim:]}
         [output_encoder] = get_embedding_model_output(sess_nn, [model.z], feed_dict)
         output_player_encoding = output_encoder
 
     elif model_category == "encoder":
-        feed_dict = {model.input_ph: input_data[:, config.Arch.Encoder.output_dim:], }
+        if config.Learn.apply_lstm:
+            feed_dict = {model.input_ph: input_data[:, :, config.Arch.Encoder.output_dim:],
+                         model.trace_lengths_ph: trace_lengths}
+        else:
+            feed_dict = {model.input_ph: input_data[:, config.Arch.Encoder.output_dim:], }
         [output_encoder] = get_embedding_model_output(sess_nn, [model.embedding], feed_dict)
         output_player_encoding = output_encoder
 
@@ -1564,12 +1582,19 @@ def validate_games_embedding(config,
                              player_id_cluster_dir=None,
                              saved_network_dir=None,
                              model_category=None,
+                             sess_nn=None
                              ):
     sess_nn = tf.InteractiveSession()
     if model_category == 'cvrnn':
         cvrnn = CVRNN(config=config)
         cvrnn()
         model_nn = cvrnn
+        sess_nn.run(tf.global_variables_initializer())
+        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    elif model_category == 'vhe':
+        vhe = CVAE_NN(config=config)
+        vhe()
+        model_nn = vhe
         sess_nn.run(tf.global_variables_initializer())
         model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
     elif model_category == 'cvae':
@@ -1584,13 +1609,8 @@ def validate_games_embedding(config,
         model_nn = encoder
         sess_nn.run(tf.global_variables_initializer())
         model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-    elif model_category == 'lstm_prediction':
-        model_nn = Td_Prediction_NN(config=config)
-        model_nn.initialize_ph()
-        model_nn.build()
-        model_nn.call()
-        sess_nn.run(tf.global_variables_initializer())
-        model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
+    else:
+        raise ValueError('unkown model {0}'.format(model_category))
     if model_number is not None:
         saver = tf.train.Saver()
         saver.restore(sess_nn, model_path)
@@ -1598,8 +1618,8 @@ def validate_games_embedding(config,
     else:
         raise ValueError('please provide a model number or no model will be loaded')
 
-    all_embedding = []
-    all_player_index = []
+    all_embedding = None
+    all_player_index = None
 
     for game_name_dir in dir_all:
         print('working for game {0}'.format(game_name_dir))
@@ -1616,9 +1636,19 @@ def validate_games_embedding(config,
                                                          game_date_dir=game_date_dir,
                                                          player_box_score_dir=player_box_score_dir
                                                          )
-        all_player_index.append(player_index)
-        all_embedding.append(embedding)
 
+        if all_embedding is None:
+            all_embedding = embedding
+            all_player_index = player_index
+        else:
+            all_embedding = np.concatenate([all_embedding, embedding], axis=0)
+            all_player_index = np.concatenate([all_player_index, player_index], axis=0)
+        # all_player_index.append(player_index)
+        # all_embedding.append(embedding)
+        # print(np.sum(embedding - np.flip(embedding, axis=0)))
+        # print(np.mean(embedding - np.flip(embedding, axis=0)))
+    tf.reset_default_graph()
+    sess_nn.close()
     return all_embedding, all_player_index
 
 
@@ -1655,6 +1685,11 @@ def validate_model_initialization(sess_nn,
         model_nn.build()
         model_nn.call()
         sess_nn.run(tf.global_variables_initializer())
+    elif model_category == 'lstm_Qs':
+        model_nn = TD_Prediction(config=config)
+        model_nn()
+        'lstm_saved_networks_featurev1_Qs_batch32_iterate10_lr1e-05_v1_MaxTL10_LSTM512_dense256_r0'
+        sess_nn.run(tf.global_variables_initializer())
 
     return model_nn
 
@@ -1668,6 +1703,7 @@ def validate_games_player_id(config,
                              player_basic_info_dir,
                              game_date_dir,
                              player_box_score_dir,
+                             apply_bounding=False,
                              model_number=None,
                              player_id_cluster_dir=None,
                              saved_network_dir=None,
@@ -1717,8 +1753,12 @@ def validate_games_player_id(config,
                                   selection_matrix=selection_matrix_all, config=config,
                                   if_print=True, if_add_ll=True)
     else:
+        if apply_bounding:
+            bounding_id_trace_length = 10
+        else:
+            bounding_id_trace_length = None
         acc, ll = compute_acc(target_label=target_data_all, output_prob=output_decoder_all,
-                              bounding_id_trace_length=10, if_add_ll=True)
+                              bounding_id_trace_length=bounding_id_trace_length, if_add_ll=True)
     print ("testing acc is {0} with ll {1}".format(str(acc), str(ll)))
 
     if file_writer is not None:
@@ -1777,18 +1817,20 @@ def compute_games_Q_values(config, data_store_dir, dir_all,
             if apply_cv:
                 if readout_next_Q is not None:
                     with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs')
-                              + '_r'+str(running_number), 'w') as outfile:
+                              + '_r' + str(running_number), 'w') as outfile:
                         json.dump(model_next_Q_value_json, outfile)
                 if readout_accumu_Q is not None:
                     with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs')
-                              + '_r'+str(running_number), 'w') as outfile:
+                              + '_r' + str(running_number), 'w') as outfile:
                         json.dump(model_accumu_Q_value_json, outfile)
             else:
                 if readout_next_Q is not None:
-                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs'), 'w') as outfile:
+                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs'),
+                              'w') as outfile:
                         json.dump(model_next_Q_value_json, outfile)
                 if readout_accumu_Q is not None:
-                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs'), 'w') as outfile:
+                    with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs'),
+                              'w') as outfile:
                         json.dump(model_accumu_Q_value_json, outfile)
 
     if return_values_flag:
