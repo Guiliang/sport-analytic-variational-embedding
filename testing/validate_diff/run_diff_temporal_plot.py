@@ -5,6 +5,7 @@ import datetime
 import json
 import numpy as np
 import matplotlib
+matplotlib.use('Agg')
 from matplotlib.pyplot import cm
 from config.LSTM_diff_config import LSTMDiffCongfig
 from config.cvae_config import CVAECongfig
@@ -13,9 +14,6 @@ from config.stats_encoder_config import EncoderConfig
 from support.data_processing_tools import read_feature_within_events
 from support.model_tools import get_model_and_log_name, get_data_name
 from support.plot_tools import plot_diff, plot_cv_diff
-
-matplotlib.use('Agg')
-
 
 def read_results_values(result_dir):
     with open(result_dir, 'rb') as f:
@@ -134,11 +132,11 @@ def validate_score_diff(model_data_store_dir,
     acc_global = []
     game_time_diff_record_list = []
     game_time_list = []
+    include_number = 0
     for i in range(0, 3601):
         game_time_diff_record_list.append([])
         game_time_list.append(i)
     for i in range(0, length_max):
-        include_number = 0
         real_outcome_record_step = real_label_record_all[:, i]
         model_output_record_step = output_label_record_all[:, i]
         game_time_record_step = game_time_record_all[:, i]
@@ -152,6 +150,7 @@ def validate_score_diff(model_data_store_dir,
                             real_outcome_record_step[win_index] == -100 or \
                             game_time_record_step[win_index] == -100:
                 check_flag = True
+		# print (i)
                 # include_flag = False
                 continue
             else:
@@ -164,6 +163,7 @@ def validate_score_diff(model_data_store_dir,
             acc_global.append(diff)
             total_number += 1
         if check_flag:
+	    # print('checking')
             diff_list_new = []
             for diff in diff_list:
                 if diff < 0.2:
@@ -172,16 +172,17 @@ def validate_score_diff(model_data_store_dir,
                 include_flag = False
 
         if include_flag:
-            include_number += 1
             acc_diff_mean_by_event.append(np.mean(np.asarray(diff_list)))
             acc_diff_var_by_event.append(np.var(np.asarray(diff_list)))
             if file_writer is not None:
                 file_writer.write('diff of event {0} is {1}\n'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
 
             if print_flag:
+		#print ('length is'+ str(len(acc_diff_mean_by_event)))
                 if include_number % 100 == 0:
                     print('diff of event {0} is {1}'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
-        else:
+            include_number += 1
+	else:
             continue
         # event_numbers.append(i)
 
@@ -193,7 +194,7 @@ def validate_score_diff(model_data_store_dir,
         acc_diff_var_by_time.append(np.var(np.asarray(game_time_diff_list)))
 
         if i % 100 == 0:
-            print('diff of time {0} is {1}'.format(str(i), str(acc_diff_mean_by_event[i])))
+            print('diff of time {0} is {1}'.format(str(i), str(acc_diff_mean_by_time[i])))
 
     print('diff of {0} has the mean {1} and variance {2}.'.format(model_category,
                                                                   str(np.mean(np.asarray(acc_global))),

@@ -1,0 +1,9 @@
+prediction testing precision is 0.422967189729, recall is 0.837570621469, f1 is 0.562085308057, acc is 0.946297803092, ll is -0.927203699561 with TP:593, TN:15689, FP:809, FN:115
+prediction testing precision is 0.394533987386, recall is 0.850453172205, f1 is 0.53901388224, acc is 0.941266162479, ll is -1.07249323645 with TP:563, TN:14870, FP:864, FN:99
+prediction testing precision is 0.390171258377, recall is 0.835725677831, f1 is 0.531979695431, acc is 0.943567144081, ll is -0.828050432082 with TP:524, TN:14892, FP:819, FN:103
+prediction testing precision is 0.366395262768, recall is 0.816831683168, f1 is 0.505876341339, acc is 0.941269359247, ll is -0.995472763209 with TP:495, TN:15003, FP:856, FN:111
+prediction testing precision is 0.397820163488, recall is 0.865185185185, f1 is 0.545030331311, acc is 0.942198245198, ll is -1.04942587079 with TP:584, TN:15309, FP:884, FN:91
+avg testing precision is 0.39437757234958204 with variance 0.00032598896960936256
+avg testing recall is 0.8411532679717615 with variance 0.0002595709683521128 
+avg testing f1 is 0.536797111675736 with variance 0.0003382988782028873 
+avg testing acc is 0.9429197428193554 with variance 3.5618144592459373e-06 

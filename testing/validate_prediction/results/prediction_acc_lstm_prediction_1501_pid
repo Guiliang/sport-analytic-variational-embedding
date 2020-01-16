@@ -1,0 +1,1 @@
+prediction testing precision is 0.0918367346939, recall is 0.648305084746, f1 is 0.160883280757, acc is 0.721724979658, ll is -0.581116828041 with TP:459, TN:11959, FP:4539, FN:249
