@@ -115,9 +115,9 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
             for index in range(int(float(11)/12*len(game_time_list[i])), len(game_time_list[i])):
                 print ('adding value')
                 if diff_mean_values_list[i][index] < 0.5:
-                    np.append(game_time_list_new, game_time_list[i][index])
-                    np.append(diff_mean_values_list_new, diff_mean_values_list[i][index])
-                    np.append(diff_var_values_list_new, diff_var_values_list[i][index])
+                    game_time_list_new = np.append(game_time_list_new, game_time_list[i][index])
+                    diff_mean_values_list_new = np.append(diff_mean_values_list_new, diff_mean_values_list[i][index])
+                    diff_var_values_list_new = np.append(diff_var_values_list_new, diff_var_values_list[i][index])
 
             game_time_list[i] = game_time_list_new
             diff_mean_values_list[i] = diff_mean_values_list_new
