@@ -106,6 +106,9 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
     for i in range(0, len(game_time_list)):
 
         if 'pid' in model_category_all[i] or 'N/A' in model_category_all[i]:
+
+            print (diff_mean_values_list[i])
+
             game_time_list_new = game_time_list[i][:int(float(11)/12*len(game_time_list[i]))]
             diff_mean_values_list_new = diff_mean_values_list[i][:int(float(11)/12*len(diff_mean_values_list[i]))]
             diff_var_values_list_new = diff_var_values_list[i][:int(float(11)/12*len(diff_var_values_list[i]))]
