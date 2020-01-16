@@ -138,6 +138,7 @@ def validate_score_diff(model_data_store_dir,
         game_time_diff_record_list.append([])
         game_time_list.append(i)
     for i in range(0, length_max):
+        include_number = 0
         real_outcome_record_step = real_label_record_all[:, i]
         model_output_record_step = output_label_record_all[:, i]
         game_time_record_step = game_time_record_all[:, i]
@@ -164,25 +165,25 @@ def validate_score_diff(model_data_store_dir,
             total_number += 1
         if check_flag:
             diff_list_new = []
-            for diff_index in diff_list:
-                if diff_list[diff_index] < 0.2:
-                    diff_list_new.append(diff_list[diff_index])
+            for diff in diff_list:
+                if diff < 0.2:
+                    diff_list_new.append(diff)
             if len(diff_list_new) == 0:
                 include_flag = False
 
         if include_flag:
+            include_number += 1
             acc_diff_mean_by_event.append(np.mean(np.asarray(diff_list)))
             acc_diff_var_by_event.append(np.var(np.asarray(diff_list)))
+            if file_writer is not None:
+                file_writer.write('diff of event {0} is {1}\n'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
+
+            if print_flag:
+                if include_number % 100 == 0:
+                    print('diff of event {0} is {1}'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
         else:
             continue
         # event_numbers.append(i)
-
-        if file_writer is not None:
-            file_writer.write('diff of event {0} is {1}\n'.format(str(i), str(acc_diff_mean_by_event[i])))
-
-        if print_flag:
-            if i % 100 == 0 and total_number > 0:
-                print('diff of event {0} is {1}'.format(str(i), str(acc_diff_mean_by_event[i])))
 
     acc_diff_mean_by_time = []
     acc_diff_var_by_time = []
