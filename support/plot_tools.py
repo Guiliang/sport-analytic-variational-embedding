@@ -101,7 +101,7 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
     plt.ylabel('Average Difference', fontsize=15)
 
     # colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
-    colors = ['b', 'g', 'y', 'm', 'k', 'r', 'w']
+    colors = ['b', 'g', 'y', 'm', 'r', 'k', 'w']
 
     for i in range(0, len(game_time_list)):
 
