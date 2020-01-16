@@ -119,7 +119,7 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
                  label=model_category_all[i], color=colors[i],
                  linewidth=2)
     plt.legend(fontsize=15)
-    plt.show()
+    plt.savefig('./diff_plots/temporal-absolute-difference-plot.png')
 
 
 def plot_diff(game_time_list, diff_values_list, model_category_all):

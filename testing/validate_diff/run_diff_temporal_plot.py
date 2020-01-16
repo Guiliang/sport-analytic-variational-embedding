@@ -1,6 +1,7 @@
 import datetime
 import json
 import numpy as np
+import matplotlib
 from matplotlib.pyplot import cm
 from config.LSTM_diff_config import LSTMDiffCongfig
 from config.cvae_config import CVAECongfig
@@ -9,6 +10,8 @@ from config.stats_encoder_config import EncoderConfig
 from support.data_processing_tools import read_feature_within_events
 from support.model_tools import get_model_and_log_name, get_data_name
 from support.plot_tools import plot_diff, plot_cv_diff
+
+matplotlib.use('Agg')
 
 
 def read_results_values(result_dir):
@@ -138,29 +141,37 @@ def validate_score_diff(model_data_store_dir,
         diff_list = []
         total_number = 0
         print_flag = True
+        check_flag = False
         include_flag = False
         for win_index in range(0, len(real_outcome_record_step)):
             if model_output_record_step[win_index] == -100 or \
-                    real_outcome_record_step[win_index] == -100 or \
-                    game_time_record_step[win_index] == -100:
+                            real_outcome_record_step[win_index] == -100 or \
+                            game_time_record_step[win_index] == -100:
+                check_flag = True
                 # include_flag = False
                 continue
             else:
                 include_flag = True
+
             diff = abs(model_output_record_step[win_index] - real_outcome_record_step[win_index])
             game_time_index = int(game_time_record_step[win_index])
             game_time_diff_record_list[game_time_index].append(diff)
             diff_list.append(diff)
             acc_global.append(diff)
             total_number += 1
-        if not include_flag:
-            length_min = i if i < length_min else length_min
+        if check_flag:
+            diff_list_new = []
+            for diff_index in diff_list:
+                if diff_list[diff_index] < 0.2:
+                    diff_list_new.append(diff_list[diff_index])
+            if len(diff_list_new) == 0:
+                include_flag = False
+
+        if include_flag:
+            acc_diff_mean_by_event.append(np.mean(np.asarray(diff_list)))
+            acc_diff_var_by_event.append(np.var(np.asarray(diff_list)))
+        else:
             continue
-        if total_number == 0:
-            length_min = i if i < length_min else length_min
-            continue
-        acc_diff_mean_by_event.append(np.mean(np.asarray(diff_list)))
-        acc_diff_var_by_event.append(np.var(np.asarray(diff_list)))
         # event_numbers.append(i)
 
         if file_writer is not None:
@@ -195,37 +206,37 @@ if __name__ == '__main__':
 
     model_data_store_dir = "/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019/"
     data_store = '/Local-Scratch/oschulte/Galen/2018-2019/'
-    # validated_model_type = [
-    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1801', 'player_info': ''},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1501', 'player_info': ''},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1201', 'player_info': ''},
-    #     {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '901', 'player_info': ''},
-    #     {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1801', 'player_info': '_pid'},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1501', 'player_info': '_pid'},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1201', 'player_info': '_pid'},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '901', 'player_info': '_pid'},
-    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
-    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1801', 'player_info': ''},
-    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1501', 'player_info': ''},
-    #     {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1201', 'player_info': ''},
-    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '901', 'player_info': ''},
-    #     {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1801', 'player_info': ''},
-    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1501', 'player_info': ''},
-    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1201', 'player_info': ''},
-    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '901', 'player_info': ''},
-    #     {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1801', 'player_info': ''},
-    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1501', 'player_info': ''},
-    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1201', 'player_info': ''},
-    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '901', 'player_info': ''},
-    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1801', 'player_info': ''},
-    #     {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''},
-    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1201', 'player_info': ''},
-    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '901', 'player_info': ''},
-    # ]
     validated_model_type = [
-        {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''}, ]
+        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
+        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1801', 'player_info': ''},
+        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1501', 'player_info': ''},
+        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1201', 'player_info': ''},
+        {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '901', 'player_info': ''},
+        {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'},
+        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1801', 'player_info': '_pid'},
+        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1501', 'player_info': '_pid'},
+        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1201', 'player_info': '_pid'},
+        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '901', 'player_info': '_pid'},
+        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
+        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1801', 'player_info': ''},
+        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1501', 'player_info': ''},
+        {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1201', 'player_info': ''},
+        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '901', 'player_info': ''},
+        {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1801', 'player_info': ''},
+        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1501', 'player_info': ''},
+        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1201', 'player_info': ''},
+        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '901', 'player_info': ''},
+        {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1801', 'player_info': ''},
+        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1501', 'player_info': ''},
+        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1201', 'player_info': ''},
+        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '901', 'player_info': ''},
+        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1801', 'player_info': ''},
+        {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''},
+        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1201', 'player_info': ''},
+        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '901', 'player_info': ''},
+    ]
+    # validated_model_type = [
+    #     {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''}, ]
 
     colors = cm.rainbow(np.linspace(0, 1, len(validated_model_type)))
 
@@ -304,14 +315,14 @@ if __name__ == '__main__':
     # plot_diff(game_time_list=event_numbers_all, diff_values_list=acc_diff_mean_all,
     #           model_category_all=model_category_msg_all)
 
-    # plot_cv_diff(game_time_list=event_numbers_all,
-    #              diff_mean_values_list=acc_diff_mean_by_event_all,
-    #              diff_var_values_list=acc_diff_var_by_event_all,
-    #              model_category_all=model_category_msg_all,
-    #              colors=colors)
-
-    plot_cv_diff(game_time_list=game_time_all,
-                 diff_mean_values_list=acc_diff_mean_by_time_all,
-                 diff_var_values_list=acc_diff_var_by_time_all,
+    plot_cv_diff(game_time_list=event_numbers_all,
+                 diff_mean_values_list=acc_diff_mean_by_event_all,
+                 diff_var_values_list=acc_diff_var_by_event_all,
                  model_category_all=model_category_msg_all,
                  colors=colors)
+
+    # plot_cv_diff(game_time_list=game_time_all,
+    #              diff_mean_values_list=acc_diff_mean_by_time_all,
+    #              diff_var_values_list=acc_diff_var_by_time_all,
+    #              model_category_all=model_category_msg_all,
+    #              colors=colors)
