@@ -15,6 +15,8 @@ from support.data_processing_tools import read_feature_within_events
 from support.model_tools import get_model_and_log_name, get_data_name
 from support.plot_tools import plot_diff, plot_cv_diff
 
+
+
 def read_results_values(result_dir):
     with open(result_dir, 'rb') as f:
         lines = f.readlines()
@@ -132,6 +134,7 @@ def validate_score_diff(model_data_store_dir,
     acc_global = []
     game_time_diff_record_list = []
     game_time_list = []
+
     include_number = 0
     for i in range(0, 3601):
         game_time_diff_record_list.append([])
@@ -150,7 +153,6 @@ def validate_score_diff(model_data_store_dir,
                             real_outcome_record_step[win_index] == -100 or \
                             game_time_record_step[win_index] == -100:
                 check_flag = True
-		# print (i)
                 # include_flag = False
                 continue
             else:
@@ -163,7 +165,6 @@ def validate_score_diff(model_data_store_dir,
             acc_global.append(diff)
             total_number += 1
         if check_flag:
-	    # print('checking')
             diff_list_new = []
             for diff in diff_list:
                 if diff < 0.2:
