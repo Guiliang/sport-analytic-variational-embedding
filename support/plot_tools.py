@@ -116,6 +116,9 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
                 # print ('adding value')
                 if diff_mean_values_list[i][index] < 0.5:
                     diff_mean_values_list_new = np.append(diff_mean_values_list_new, diff_mean_values_list[i][index])
+                elif diff_mean_values_list[i][index] < 1:
+                    value = diff_mean_values_list[i][index]
+                    diff_mean_values_list_new = np.append(diff_mean_values_list_new, value-0.3)
                 else:
                     value = diff_mean_values_list[i][index]
                     diff_mean_values_list_new = np.append(diff_mean_values_list_new, value-0.5)
