@@ -182,7 +182,8 @@ def validate_score_diff(model_data_store_dir,
 
             if print_flag:
                 if include_number % 100 == 0:
-                    print('diff of event {0} is {1}'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
+                    print(
+                    'diff of event {0} is {1}'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
             include_number += 1
         else:
             continue
@@ -213,37 +214,38 @@ if __name__ == '__main__':
 
     model_data_store_dir = "/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019/"
     data_store = '/Local-Scratch/oschulte/Galen/2018-2019/'
-    validated_model_type = [
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1201', 'player_info': ''},
-        {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '901', 'player_info': ''},
-        {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1801', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1501', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1201', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '901', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
-        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1501', 'player_info': ''},
-        {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '901', 'player_info': ''},
-        {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '901', 'player_info': ''},
-        {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '901', 'player_info': ''},
-        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1801', 'player_info': ''},
-        {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '901', 'player_info': ''},
-    ]
     # validated_model_type = [
-    #     {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''}, ]
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1201', 'player_info': ''},
+    #     {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '901', 'player_info': ''},
+    #     {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1801', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1501', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1201', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '901', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
+    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1501', 'player_info': ''},
+    #     {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '901', 'player_info': ''},
+    #     {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '901', 'player_info': ''},
+    #     {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '901', 'player_info': ''},
+    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1801', 'player_info': ''},
+    #     {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '901', 'player_info': ''},
+    # ]
+    validated_model_type = [
+        {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '901', 'player_info': ''},
+        {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'}, ]
 
     colors = cm.rainbow(np.linspace(0, 1, len(validated_model_type)))
 

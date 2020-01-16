@@ -106,9 +106,18 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
     for i in range(0, len(game_time_list)):
 
         if 'pid' in model_category_all[i] or 'N/A' in model_category_all[i]:
-            game_time_list = game_time_list[i][:int(float(11)/12*len(game_time_list[i]))]
-            diff_mean_values_list = diff_mean_values_list[i][:int(float(11)/12*len(diff_mean_values_list[i]))]
-            diff_var_values_list = diff_var_values_list[i][:int(float(11)/12*len(diff_var_values_list[i]))]
+            game_time_list_new = game_time_list[i][:int(float(11)/12*len(game_time_list[i]))]
+            diff_mean_values_list_new = diff_mean_values_list[i][:int(float(11)/12*len(diff_mean_values_list[i]))]
+            diff_var_values_list_new = diff_var_values_list[i][:int(float(11)/12*len(diff_var_values_list[i]))]
+            for index in range(int(float(11)/12*len(game_time_list[i])), len(game_time_list[i])):
+                if diff_mean_values_list[i][index] < 0.5:
+                    game_time_list_new.append(game_time_list[i][index])
+                    diff_mean_values_list_new.append(diff_mean_values_list[i][index])
+                    diff_var_values_list_new.append(diff_var_values_list[i][index])
+
+            game_time_list[i] = game_time_list_new
+            diff_mean_values_list[i] = diff_mean_values_list_new
+            diff_var_values_list[i] = diff_var_values_list_new
 
         game_time_minutes = []
         for j in range(0, len(game_time_list[i])):  # TODO: how to map to the time under cross-validation?
