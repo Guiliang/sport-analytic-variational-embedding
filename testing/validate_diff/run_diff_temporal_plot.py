@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
+print sys.path
 import datetime
 import json
 import numpy as np
