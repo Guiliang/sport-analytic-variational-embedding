@@ -38,15 +38,15 @@ if __name__ == '__main__':
     model_type_all = ['cvrnn', 'cvae', 'vhe', 'encoder']
     model_number = 1801
     player_info = ''
-    embed_mode = '_'
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    # embed_mode = '_'
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     player_basic_info_dir = '../sport_resource/ice_hockey_201819/player_info_2018_2019.json'
     game_date_dir = '../sport_resource/ice_hockey_201819/game_dates_2018_2019.json'
     player_box_score_dir = '../sport_resource/ice_hockey_201819/Scale_NHL_players_game_summary_201819.csv'
     data_store_dir = "/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019/"
     dir_games_all = os.listdir(data_store_dir)
-    selected_game_index = random.sample(range(0, len(dir_games_all)), 100)
+    selected_game_index = random.sample(range(0, len(dir_games_all)), 5)
     testing_dir_games_all = [dir_games_all[index] for index in selected_game_index]
 
     all_type_embedding = []
@@ -102,7 +102,7 @@ if __name__ == '__main__':
         all_embedding, \
         all_player_index = validate_games_embedding(config=icehockey_model_config,
                                                     data_store_dir=data_store_dir,
-                                                    dir_all=testing_dir_games_all[:1],
+                                                    dir_all=testing_dir_games_all,
                                                     player_basic_info_dir=player_basic_info_dir,
                                                     game_date_dir=game_date_dir,
                                                     player_box_score_dir=player_box_score_dir,

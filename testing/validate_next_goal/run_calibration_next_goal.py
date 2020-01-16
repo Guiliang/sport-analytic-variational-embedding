@@ -14,7 +14,7 @@ sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embed
 def generate_cali_latex_table(result_file_dir):
 
     calibration_features = ['period', 'scoreDifferential', 'zone', 'manpowerSituation', 'home_away']
-    calibration_bins = {'period': {'feature_name': ('period'), 'range': [3]},
+    calibration_bins = {'period': {'feature_name': ('period'), 'range': [2]},
                         'scoreDifferential': {'feature_name': ('scoreDifferential'), 'range': range(-1, 2)},
                         'zone': {'feature_name': ('zone'), 'range': ['nz']},
                         'manpowerSituation': {'feature_name': ('manpowerSituation'),
@@ -168,8 +168,8 @@ def generate_cali_latex_table(result_file_dir):
 
 
 def run_calibration():
-    model_type = 'encoder'
-    player_info = ''
+    model_type = 'lstm_Qs'
+    player_info = '_pid'
     apply_old = False
     apply_difference = False
     running_numbers = [0, 1, 2, 3, 4]
@@ -207,7 +207,7 @@ def run_calibration():
     elif model_type == 'lstm_Qs':
         embed_mode = ''
         # 'model_2101_three_cut_lstm_next_Qs_featurev1_next_Qs_batch32_iterate10_lr1e-05_v1_MaxTL10_LSTM512_dense256'
-        model_number = 2101
+        model_number = 901
         icehockey_config_path = "../../environment_settings/ice_hockey_predict_Qs_lstm{0}.yaml".format(
             player_info)
         config = LSTMQsCongfig.load(icehockey_config_path)
@@ -254,13 +254,13 @@ def run_calibration():
 
 
 if __name__ == '__main__':
-    run_calibration()
+    # run_calibration()
 
-    # save_calibration_dir = './calibration_results/calibration_cvrnn_[]_2019December31_model1201__embed_random_cv.txt'
+    save_calibration_dir = './calibration_results/calibration_cvrnn_[]_2019December26_model1801__embed_random_cv.txt'
     # save_calibration_dir = './calibration_results/calibration_cvrnn_[]_2019October02_box_model1801.txt'
 
     #
-    # generate_cali_latex_table(save_calibration_dir)
+    generate_cali_latex_table(save_calibration_dir)
     # tt_result_file_dir = "./calibration_results/bak_calibration-['shot', 'pass']-2019June05.txt"
     # markov_result_file_dir = "../sport_resource/bak_calibration-markov-['shot', 'pass']-2019May30.txt"
     # generate_final_cali_latex_table(tt_result_file_dir, markov_result_file_dir)

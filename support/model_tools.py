@@ -1688,7 +1688,10 @@ def validate_model_initialization(sess_nn,
     elif model_category == 'lstm_Qs':
         model_nn = TD_Prediction(config=config)
         model_nn()
-        'lstm_saved_networks_featurev1_Qs_batch32_iterate10_lr1e-05_v1_MaxTL10_LSTM512_dense256_r0'
+        sess_nn.run(tf.global_variables_initializer())
+    elif model_category == 'lstm_diff':
+        model_nn = Diff_Prediction(config=config)
+        model_nn()
         sess_nn.run(tf.global_variables_initializer())
 
     return model_nn
