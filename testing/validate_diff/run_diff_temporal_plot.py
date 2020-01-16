@@ -1,10 +1,12 @@
 import sys
+
 sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 print sys.path
 import datetime
 import json
 import numpy as np
 import matplotlib
+
 matplotlib.use('Agg')
 from matplotlib.pyplot import cm
 from config.LSTM_diff_config import LSTMDiffCongfig
@@ -14,7 +16,6 @@ from config.stats_encoder_config import EncoderConfig
 from support.data_processing_tools import read_feature_within_events
 from support.model_tools import get_model_and_log_name, get_data_name
 from support.plot_tools import plot_diff, plot_cv_diff
-
 
 
 def read_results_values(result_dir):
@@ -176,16 +177,16 @@ def validate_score_diff(model_data_store_dir,
             acc_diff_mean_by_event.append(np.mean(np.asarray(diff_list)))
             acc_diff_var_by_event.append(np.var(np.asarray(diff_list)))
             if file_writer is not None:
-                file_writer.write('diff of event {0} is {1}\n'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
+                file_writer.write('diff of event {0} is {1}\n'.format(str(include_number),
+                                                                      str(acc_diff_mean_by_event[include_number])))
 
             if print_flag:
-		#print ('length is'+ str(len(acc_diff_mean_by_event)))
                 if include_number % 100 == 0:
                     print('diff of event {0} is {1}'.format(str(include_number), str(acc_diff_mean_by_event[include_number])))
             include_number += 1
-	else:
+        else:
             continue
-        # event_numbers.append(i)
+            # event_numbers.append(i)
 
     acc_diff_mean_by_time = []
     acc_diff_var_by_time = []

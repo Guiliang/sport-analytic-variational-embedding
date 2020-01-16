@@ -104,6 +104,12 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
     colors = ['b', 'g', 'y', 'm', 'k', 'r', 'w']
 
     for i in range(0, len(game_time_list)):
+
+        if 'lstm' in model_category_all[i]:
+            game_time_list = game_time_list[i][:float(11)/12*len(game_time_list[i])]
+            diff_mean_values_list = diff_mean_values_list[i][:float(11)/12*len(diff_mean_values_list[i])]
+            diff_var_values_list = diff_var_values_list[i][:float(11)/12*len(diff_var_values_list[i])]
+
         game_time_minutes = []
         for j in range(0, len(game_time_list[i])):  # TODO: how to map to the time under cross-validation?
             game_time_minutes.append(float(60) / len(game_time_list[i]) * j)
