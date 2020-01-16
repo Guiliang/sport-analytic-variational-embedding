@@ -81,11 +81,44 @@ def line_plot_3d():
 def plot_shadow(x_values_list, y_mean_values_list,
                 y_lower_values_list, y_upper_values_list,
                 sample_size):
+    # from matplotlib.pyplot import cm
+    # colors =cm.rainbow(np.linspace(0,1,n))
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
     for i in range(sample_size):
         plt.fill_between(x_values_list, y_lower_values_list[:, i],
-                         y_upper_values_list[:, i], alpha=.3, color=colors[i], edgecolor="none")
+                         y_upper_values_list[:, i], alpha=.25, color=colors[i], edgecolor="w")
         plt.plot(x_values_list, y_mean_values_list[:, i], linewidth=2, )
+    plt.show()
+
+
+def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, model_category_all, colors):
+    # event_numbers = range(0, len(diff_values))
+    plt.figure(figsize=(10, 5))
+    plt.xticks(size=15)
+    plt.yticks(size=15)
+    # plt.figure()
+    plt.xlabel('Game Time', fontsize=15)
+    plt.ylabel('Average Difference', fontsize=15)
+
+    # colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+    colors = ['b', 'g', 'y', 'm', 'k', 'r', 'w']
+
+    for i in range(0, len(game_time_list)):
+        game_time_minutes = []
+        for j in range(0, len(game_time_list[i])):  # TODO: how to map to the time under cross-validation?
+            game_time_minutes.append(float(60) / len(game_time_list[i]) * j)
+
+        # print('avg of {0} is {1}'.format(model_category_all[i], np.mean(diff_mean_values_list[i])))
+
+        y_lower_values = diff_mean_values_list[i] - diff_var_values_list[i]/5
+        y_upper_values = diff_mean_values_list[i] + diff_var_values_list[i]/5
+        plt.fill_between(game_time_minutes, y_lower_values,
+                         y_upper_values, alpha=.2, color=colors[i], edgecolor="none",
+                         linewidth=0)
+        plt.plot(game_time_minutes, diff_mean_values_list[i],
+                 label=model_category_all[i], color=colors[i],
+                 linewidth=2)
+    plt.legend(fontsize=15)
     plt.show()
 
 
@@ -97,7 +130,7 @@ def plot_diff(game_time_list, diff_values_list, model_category_all):
     for i in range(0, len(game_time_list)):
         print('avg of {0} is {1}'.format(model_category_all[i], np.mean(diff_values_list[i])))
         plt.plot(game_time_list[i], diff_values_list[i], label=model_category_all[i])
-    plt.legend()
+    plt.legend(fontsize=15)
     plt.show()
 
 

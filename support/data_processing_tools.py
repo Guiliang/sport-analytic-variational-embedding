@@ -743,7 +743,7 @@ def start_lstm_generate_spatial_simulation(history_action_type, history_action_t
             for xcoord in np.linspace(-100.0, 100.0, 401):
                 set_dict = {'xAdjCoord': xcoord, 'yAdjCoord': ycoord}
                 state_generated = construct_simulation_data(
-                    feature_names_all=feature_names_all+action_all,
+                    feature_names_all=feature_names_all + action_all,
                     features_mean=features_mean,
                     features_scale=features_var,
                     feature_type=feature_type,
@@ -776,7 +776,7 @@ def start_lstm_generate_spatial_simulation(history_action_type, history_action_t
                     max_trace_length=max_trace_length,
                     features_num=len(feature_names_all) + len(action_all))
                 state_xcoord_list.append(state_generated_padding)
-                trace_xcoord_list.append(history_index+1)
+                trace_xcoord_list.append(history_index + 1)
             input_list.append(np.asarray(state_xcoord_list))
             trace_list.append(trace_xcoord_list)
 
@@ -796,7 +796,7 @@ def start_lstm_generate_spatial_simulation(history_action_type, history_action_t
             sio.savemat(
                 store_data_dir + "/LSTM_Home_" + simulation_type + "-" + action_type + '-' + str(
                     history_action_type[0:history_index]) + "-feature" + str(
-                    feature_type)+'_trace' + ".mat",
+                    feature_type) + '_trace' + ".mat",
                 {'simulate_data': np.asarray(trace_list)})
         else:
             sio.savemat(
@@ -808,11 +808,11 @@ def start_lstm_generate_spatial_simulation(history_action_type, history_action_t
             sio.savemat(
                 store_data_dir + "/LSTM_Away_" + simulation_type + "-" + action_type + '-' + str(
                     history_action_type[0:history_index]) + "-feature" + str(
-                    feature_type)+'_trace' + ".mat",
+                    feature_type) + '_trace' + ".mat",
                 {'simulate_data': np.asarray(trace_list)})
         # simulated_data_all.append(np.asarray(input_list))
         simulated_data_dir_all.append(store_data_dir + "/LSTM_Home_" + simulation_type + "-" + action_type + '-' + str(
-                    history_action_type[0:history_index]) + "-feature" + str(feature_type))
+            history_action_type[0:history_index]) + "-feature" + str(feature_type))
 
     return simulated_data_dir_all
 
@@ -849,7 +849,9 @@ def find_game_dir(dir_all, data_path, target_game_id, sports='IceHockey'):
 
 
 def read_feature_within_events(directory, data_path, feature_name,
-                               transfer_home_number=False, data_store=None):
+                               transfer_home_number=False,
+                               data_store=None,
+                               allow_overtime=True):
     if transfer_home_number:
         home_away_identifier = sio.loadmat(data_store + directory +
                                            '/home_away_identifier_game_{0}-playsequence-wpoi.mat'.format(
@@ -862,6 +864,9 @@ def read_feature_within_events(directory, data_path, feature_name,
     features_all = []
     index = 0
     for event in events:
+        if not allow_overtime:
+            if float(event.get('gameTime')) - 3600 > 0:
+                continue
         try:
             value = str(event.get(feature_name).encode('utf-8'))
         except:
@@ -1080,7 +1085,6 @@ def find_game_event_id(hockey_data_dir, game_id, event_names, event_values):
 
 
 def find_unseen_player_id(file_store_dir, data_path):
-
     seen_player_id = set()
 
     with open(file_store_dir + '/training_file_dirs_all.csv', 'rb') as f:
@@ -1120,7 +1124,6 @@ def count_event_number(data_path='/Local-Scratch/oschulte/Galen/2018-2019/'):
         events = data.get('events')
         total_count += len(events)
     print(total_count)
-
 
 
 if __name__ == '__main__':

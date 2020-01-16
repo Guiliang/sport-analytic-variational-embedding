@@ -192,10 +192,10 @@ def train_td_model(model, sess, config, input_data_t0, trace_lengths_t0,
 
 
 def run():
-    running_number = 4
+    running_number = 2
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     local_test_flag = False
-    type = ''
+    type = '_pid'
     icehockey_mdn_Qs_config_path = "../environment_settings/ice_hockey_predict_Qs_lstm{0}.yaml".format(str(type))
     icehockey_mdn_Qs_config = LSTMQsCongfig.load(icehockey_mdn_Qs_config_path)
     saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_mdn_Qs_config,

@@ -185,7 +185,7 @@ class CVRNN():
                                   "dec_x", "prior_mu", "prior_sigma", "z_encoder"]
 
         self.sarsa_lstm_cell = []
-        self.win_lstm_cell = []
+        self.score_diff_lstm_cell = []
         self.action_lstm_cell = []
         self.build_sarsa()
 
@@ -200,7 +200,7 @@ class CVRNN():
         with tf.name_scope("win"):
             with tf.name_scope("LSTM-layer"):
                 for i in range(self.config.Arch.WIN.lstm_layer_num):
-                    self.win_lstm_cell.append(
+                    self.score_diff_lstm_cell.append(
                         tf.nn.rnn_cell.LSTMCell(num_units=self.config.Arch.WIN.h_size, state_is_tuple=True,
                                                 initializer=tf.random_uniform_initializer(-0.05, 0.05)))
 
@@ -490,7 +490,7 @@ class CVRNN():
                         rnn_input = tf.concat([data_input_action_pred, z_encoder_score_diff],
                                               axis=2) if i == 0 else rnn_output
                         rnn_output, rnn_state = tf.nn.dynamic_rnn(  # while loop dynamic learning rnn
-                            inputs=rnn_input, cell=self.win_lstm_cell[i],
+                            inputs=rnn_input, cell=self.score_diff_lstm_cell[i],
                             sequence_length=self.trace_length_ph, dtype=tf.float32,
                             scope='score_diff_rnn_{0}'.format(str(i)))
                     action_pred_rnn_outputs = tf.stack(rnn_output)

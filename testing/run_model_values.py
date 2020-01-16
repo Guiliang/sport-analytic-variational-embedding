@@ -1,3 +1,7 @@
+import sys
+
+print sys.path
+sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import json
 import os
 import tensorflow as tf
@@ -15,9 +19,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 if __name__ == '__main__':
 
-    model_type = 'lstm_Qs'
-    player_info = ''
-    model_number = 601
+    model_type = 'lstm_diff'
+    player_info = '_pid'
+    model_number = 901
     local_test_flag = False
     if model_type == 'cvrnn':
         embed_mode = '_embed_random'
@@ -89,11 +93,11 @@ if __name__ == '__main__':
         saved_network_dir, log_dir = get_model_and_log_name(config=icehockey_model_config,
                                                             model_catagoery=model_type,
                                                             running_number=running_number)
-        if model_type == 'lstm_Qs':
+        if model_type == 'lstm_Qs' or model_type == 'lstm_diff':
             model_path = saved_network_dir +'/Ice-Hockey-game--{0}'.format(model_number)
         else:
             model_path = saved_network_dir + '/ice_hockey-2019-game--{0}'.format(model_number)
-
+        # dir_games_all = ['16276']
         compute_games_Q_values(config=icehockey_model_config,
                                data_store_dir=data_store_dir,
                                dir_all=dir_games_all,
@@ -112,6 +116,7 @@ if __name__ == '__main__':
         #     cv_record_all_model_accumu_Q_values[dir_game_index].update(
         #         {running_number: model_accumu_Q_value_all[dir_game_index]})
 
+    # dir_games_all = dir_games_all[1:]
     for dir_game_index in range(0, len(dir_games_all)):
         data_name = get_data_name(config=icehockey_model_config,
                                   model_catagoery=model_type,
@@ -121,23 +126,28 @@ if __name__ == '__main__':
         game_all_next_Qs_values = {}
         game_all_accumu_Qs_values = {}
         for running_number in running_numbers:
-            with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs')
-                      + '_r'+str(running_number), 'r') as outfile:
-                cv_next_Qs_game_values = json.load(outfile)
-            game_all_next_Qs_values.update({running_number: cv_next_Qs_game_values})
-            os.remove(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs')
-                      + '_r'+str(running_number))
+            if model_type != 'lstm_diff':
+                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs')
+                          + '_r'+str(running_number), 'r') as outfile:
+                    cv_next_Qs_game_values = json.load(outfile)
+                game_all_next_Qs_values.update({running_number: cv_next_Qs_game_values})
+                os.remove(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'next_Qs')
+                          + '_r'+str(running_number))
 
-            with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs')
-                      + '_r'+str(running_number), 'r') as outfile:
-                cv_accumu_Qs_game_values = json.load(outfile)
-            game_all_accumu_Qs_values.update({running_number: cv_accumu_Qs_game_values})
-            os.remove(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs')
-                      + '_r'+str(running_number))
+            if model_type != 'lstm_Qs':
+                with open(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs')
+                          + '_r'+str(running_number), 'r') as outfile:
+                    cv_accumu_Qs_game_values = json.load(outfile)
+                game_all_accumu_Qs_values.update({running_number: cv_accumu_Qs_game_values})
+                os.remove(data_store_dir + "/" + game_store_dir + "/" + data_name.replace('Qs', 'accumu_Qs')
+                          + '_r'+str(running_number))
 
-        with open(data_store_dir + "/" + game_store_dir + "/"
-                  + data_name.replace('Qs', 'next_Qs')+'_cv', 'w') as outfile:
-            json.dump(game_all_next_Qs_values, outfile)
-        with open(data_store_dir + "/" + game_store_dir + "/"
-                  + data_name.replace('Qs', 'accumu_Qs')+'_cv', 'w') as outfile:
-            json.dump(game_all_accumu_Qs_values, outfile)
+        if model_type != 'lstm_diff':
+            with open(data_store_dir + "/" + game_store_dir + "/"
+                      + data_name.replace('Qs', 'next_Qs')+'_cv', 'w') as outfile:
+                json.dump(game_all_next_Qs_values, outfile)
+
+        if model_type != 'lstm_Qs':
+            with open(data_store_dir + "/" + game_store_dir + "/"
+                      + data_name.replace('Qs', 'accumu_Qs')+'_cv', 'w') as outfile:
+                json.dump(game_all_accumu_Qs_values, outfile)
