@@ -1126,8 +1126,34 @@ def count_event_number(data_path='/Local-Scratch/oschulte/Galen/2018-2019/'):
     print(total_count)
 
 
+def count_shot_success_rate(source_data_dir):
+    dir_game_all = os.listdir(source_data_dir)
+    goal_number = 0
+    total_number = 0
+    for dir_game in dir_game_all:
+        actions_all = read_feature_within_events(directory=dir_game.split('-')[0],
+                                                 data_path=source_data_dir,
+                                                 feature_name='name')
+        data_length = len(actions_all)
+        for action_index in range(0, data_length):
+            action = actions_all[action_index]
+            if 'shot' in action:
+                total_number += 1
+                if action_index + 1 == data_length:
+                    continue
+                if actions_all[action_index + 1] == 'goal':
+                    goal_number += 1
+
+    print ('goal scoring rate is {0}'.format(float(goal_number)/total_number))
+
 if __name__ == '__main__':
-    count_event_number()
+    # source_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
+    import sys
+    print sys.path
+    sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
+    source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
+    count_shot_success_rate(source_data_dir=source_data_dir)
+    # count_event_number()
     # find_unseen_player_id(file_store_dir='/Local-Scratch/oschulte/Galen/icehockey-models/cvrnn_saved_NN/'
     #                                      'cvrnn_saved_networks_featureV1_latent256_x83_y150_batch32_iterate30'
     #                                      '_lr0.0001_normal_MaxTL10_LSTM512_box_integral_skip_ActionGoal/',
