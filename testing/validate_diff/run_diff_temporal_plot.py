@@ -214,38 +214,41 @@ if __name__ == '__main__':
 
     model_data_store_dir = "/Local-Scratch/oschulte/Galen/Ice-hockey-data/2018-2019/"
     data_store = '/Local-Scratch/oschulte/Galen/2018-2019/'
-    validated_model_type = [
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1201', 'player_info': ''},
-        {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '901', 'player_info': ''},
-        {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1801', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1501', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1201', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '901', 'player_info': '_pid'},
-        # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
-        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1501', 'player_info': ''},
-        {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '901', 'player_info': ''},
-        {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '901', 'player_info': ''},
-        {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1801', 'player_info': ''},
-        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '901', 'player_info': ''},
-        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1801', 'player_info': ''},
-        {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''},
-        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1201', 'player_info': ''},
-        # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '901', 'player_info': ''},
-    ]
     # validated_model_type = [
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '1201', 'player_info': ''},
     #     {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '901', 'player_info': ''},
-    #     {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'}, ]
+    #     {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '2101', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1801', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1501', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '1201', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'pid', 'model_number': '901', 'player_info': '_pid'},
+    #     # {'model_category': 'lstm_diff', 'model_name': 'N/A', 'model_number': '2101', 'player_info': ''},
+    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1501', 'player_info': ''},
+    #     {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'encoder', 'model_name': 'DE', 'model_number': '901', 'player_info': ''},
+    #     {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'cvae', 'model_name': 'CVAE', 'model_number': '901', 'player_info': ''},
+    #     {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1801', 'player_info': ''},
+    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '901', 'player_info': ''},
+    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1801', 'player_info': ''},
+    #     {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1501', 'player_info': ''},
+    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '1201', 'player_info': ''},
+    #     # {'model_category': 'cvrnn', 'model_name': 'VHER', 'model_number': '901', 'player_info': ''},
+    # ]
+    validated_model_type = [
+            {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1801', 'player_info': ''},
+            {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1501', 'player_info': ''},
+            {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '1201', 'player_info': ''},
+            {'model_category': 'vhe', 'model_name': 'VHE', 'model_number': '901', 'player_info': ''},
+    ]
 
     colors = cm.rainbow(np.linspace(0, 1, len(validated_model_type)))
 

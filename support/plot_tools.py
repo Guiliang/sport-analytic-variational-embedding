@@ -91,9 +91,11 @@ def plot_shadow(x_values_list, y_mean_values_list,
     plt.show()
 
 
-def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, model_category_all, colors):
+def plot_cv_diff(game_time_list, diff_mean_values_list,
+                 diff_var_values_list, model_category_all,
+                 colors, apply_shadow=False):
     # event_numbers = range(0, len(diff_values))
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(5, 5))
     plt.xticks(size=15)
     plt.yticks(size=15)
     # plt.figure()
@@ -134,17 +136,21 @@ def plot_cv_diff(game_time_list, diff_mean_values_list, diff_var_values_list, mo
             game_time_minutes.append(float(60) / len(game_time_list[i]) * j)
 
         # print('avg of {0} is {1}'.format(model_category_all[i], np.mean(diff_mean_values_list[i])))
-
-        y_lower_values = diff_mean_values_list[i] - diff_var_values_list[i]/5
-        y_upper_values = diff_mean_values_list[i] + diff_var_values_list[i]/5
-        plt.fill_between(game_time_minutes, y_lower_values,
-                         y_upper_values, alpha=.2, color=colors[i], edgecolor="none",
-                         linewidth=0)
+        if apply_shadow:
+            y_lower_values = diff_mean_values_list[i] - diff_var_values_list[i]/5
+            y_upper_values = diff_mean_values_list[i] + diff_var_values_list[i]/5
+            plt.fill_between(game_time_minutes, y_lower_values,
+                             y_upper_values, alpha=.2, color=colors[i], edgecolor="none",
+                             linewidth=0)
         plt.plot(game_time_minutes, diff_mean_values_list[i],
                  label=model_category_all[i], color=colors[i],
                  linewidth=2)
+
     plt.legend(fontsize=15)
-    plt.savefig('./diff_plots/temporal-absolute-difference-plot.png')
+    if apply_shadow:
+        plt.savefig('./diff_plots/temporal-absolute-difference-shadow-plot.png')
+    else:
+        plt.savefig('./diff_plots/temporal-absolute-difference-plot.png')
 
 
 def plot_diff(game_time_list, diff_values_list, model_category_all):
