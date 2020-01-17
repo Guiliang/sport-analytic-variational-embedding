@@ -1,3 +1,6 @@
+import sys
+print sys.path
+sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import copy
 import csv
 import json
@@ -1148,9 +1151,6 @@ def count_shot_success_rate(source_data_dir):
 
 if __name__ == '__main__':
     # source_data_dir = '/Users/liu/Desktop/Ice-hokcey-data-sample/data-sample/'
-    import sys
-    print sys.path
-    sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
     source_data_dir = '/Local-Scratch/oschulte/Galen/2018-2019/'
     count_shot_success_rate(source_data_dir=source_data_dir)
     # count_event_number()
