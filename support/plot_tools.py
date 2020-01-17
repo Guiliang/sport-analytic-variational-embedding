@@ -145,6 +145,7 @@ def plot_cv_diff(game_time_list, diff_mean_values_list,
         plt.plot(game_time_minutes, diff_mean_values_list[i],
                  label=model_category_all[i], color=colors[i],
                  linewidth=2)
+        plt.ylim(0, 3)
 
     plt.legend(fontsize=15)
     if apply_shadow:
