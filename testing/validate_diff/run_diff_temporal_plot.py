@@ -316,11 +316,11 @@ if __name__ == '__main__':
         event_numbers_all.append(event_numbers)
         acc_diff_mean_by_event_all.append(acc_diff_mean_by_event)
         acc_diff_var_by_event_all.append(acc_diff_var_by_event)
-        model_category_msg_all.append(model_name)
+        # model_category_msg_all.append(model_name)
         game_time_all.append(game_time_list)
         acc_diff_mean_by_time_all.append(acc_diff_mean_by_time)
         acc_diff_var_by_time_all.append(acc_diff_var_by_time)
-        # model_category_msg_all.append(model_name + '_' + model_number + player_info)
+        model_category_msg_all.append(model_name + '_' + model_number + player_info)
         # model_category_msg_all.append(model_name + player_info)
         # testing_file.close()
 
@@ -331,7 +331,12 @@ if __name__ == '__main__':
                  diff_mean_values_list=acc_diff_mean_by_event_all,
                  diff_var_values_list=acc_diff_var_by_event_all,
                  model_category_all=model_category_msg_all,
-                 colors=colors)
+                 colors=colors, apply_shadow=False)
+    plot_cv_diff(game_time_list=event_numbers_all,
+                 diff_mean_values_list=acc_diff_mean_by_event_all,
+                 diff_var_values_list=acc_diff_var_by_event_all,
+                 model_category_all=model_category_msg_all,
+                 colors=colors, apply_shadow=True)
 
     # plot_cv_diff(game_time_list=game_time_all,
     #              diff_mean_values_list=acc_diff_mean_by_time_all,

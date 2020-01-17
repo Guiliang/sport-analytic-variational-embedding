@@ -95,7 +95,7 @@ def plot_cv_diff(game_time_list, diff_mean_values_list,
                  diff_var_values_list, model_category_all,
                  colors, apply_shadow=False):
     # event_numbers = range(0, len(diff_values))
-    plt.figure(figsize=(5, 5))
+    plt.figure(figsize=(6, 5))
     plt.xticks(size=15)
     plt.yticks(size=15)
     # plt.figure()
