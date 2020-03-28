@@ -338,6 +338,7 @@ class CVRNN():
                                                           initial_state=tf.contrib.rnn.LSTMStateTuple(
                                                               self.initial_state_c,
                                                               self.initial_state_h))
+
         # print outputs
         # outputs = map(tf.pack,zip(*outputs))
         cvrnn_outputs = tf.split(value=tf.transpose(a=cvrnn_outputs, perm=[1, 0, 2]),

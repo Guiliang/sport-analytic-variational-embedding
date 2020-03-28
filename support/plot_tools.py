@@ -6,8 +6,9 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import PolyCollection, LineCollection, PatchCollection
 from matplotlib import colors as mcolors
+# import matplotlib.style as style
 import seaborn as sns
-
+# sns.set()
 
 # fig = plt.figure()
 # ax = fig.gca(projection='3d')
@@ -81,6 +82,7 @@ def line_plot_3d():
 def plot_shadow(x_values_list, y_mean_values_list,
                 y_lower_values_list, y_upper_values_list,
                 sample_size):
+    # style.use('seaborn-darkgrid')
     # from matplotlib.pyplot import cm
     # colors =cm.rainbow(np.linspace(0,1,n))
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
@@ -88,6 +90,7 @@ def plot_shadow(x_values_list, y_mean_values_list,
         plt.fill_between(x_values_list, y_lower_values_list[:, i],
                          y_upper_values_list[:, i], alpha=.25, color=colors[i], edgecolor="w")
         plt.plot(x_values_list, y_mean_values_list[:, i], linewidth=2, )
+    plt.grid(linestyle='dotted')
     plt.show()
 
 
@@ -96,14 +99,16 @@ def plot_cv_diff(game_time_list, diff_mean_values_list,
                  colors, apply_shadow=False):
     # event_numbers = range(0, len(diff_values))
     plt.figure(figsize=(6, 5))
+    # style.use('seaborn-darkgrid')
     plt.xticks(size=15)
     plt.yticks(size=15)
     # plt.figure()
-    plt.xlabel('Game Time', fontsize=15)
-    plt.ylabel('Average Difference', fontsize=15)
+    plt.xlabel('Game Time', fontsize=18)
+    plt.ylabel('Average Difference', fontsize=18)
 
     # colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
     colors = ['b', 'g', 'y', 'm', 'r', 'k', 'w']
+    markers = ['^', '*', 'x', 'P', 'o', '1']
 
     for i in range(0, len(game_time_list)):
 
@@ -111,19 +116,19 @@ def plot_cv_diff(game_time_list, diff_mean_values_list,
 
             print (diff_mean_values_list[i])
 
-            game_time_list_new = game_time_list[i][:int(float(11)/12*len(game_time_list[i]))]
-            diff_mean_values_list_new = diff_mean_values_list[i][:int(float(11)/12*len(diff_mean_values_list[i]))]
-            diff_var_values_list_new = diff_var_values_list[i][:int(float(11)/12*len(diff_var_values_list[i]))]
-            for index in range(int(float(11)/12*len(game_time_list[i])), len(game_time_list[i])):
+            game_time_list_new = game_time_list[i][:int(float(11) / 12 * len(game_time_list[i]))]
+            diff_mean_values_list_new = diff_mean_values_list[i][:int(float(11) / 12 * len(diff_mean_values_list[i]))]
+            diff_var_values_list_new = diff_var_values_list[i][:int(float(11) / 12 * len(diff_var_values_list[i]))]
+            for index in range(int(float(11) / 12 * len(game_time_list[i])), len(game_time_list[i])):
                 # print ('adding value')
                 if diff_mean_values_list[i][index] < 0.5:
                     diff_mean_values_list_new = np.append(diff_mean_values_list_new, diff_mean_values_list[i][index])
                 elif diff_mean_values_list[i][index] < 1:
                     value = diff_mean_values_list[i][index]
-                    diff_mean_values_list_new = np.append(diff_mean_values_list_new, value-0.3)
+                    diff_mean_values_list_new = np.append(diff_mean_values_list_new, value - 0.3)
                 else:
                     value = diff_mean_values_list[i][index]
-                    diff_mean_values_list_new = np.append(diff_mean_values_list_new, value-0.5)
+                    diff_mean_values_list_new = np.append(diff_mean_values_list_new, value - 0.5)
                 game_time_list_new = np.append(game_time_list_new, game_time_list[i][index])
                 diff_var_values_list_new = np.append(diff_var_values_list_new, diff_var_values_list[i][index])
 
@@ -137,17 +142,20 @@ def plot_cv_diff(game_time_list, diff_mean_values_list,
 
         # print('avg of {0} is {1}'.format(model_category_all[i], np.mean(diff_mean_values_list[i])))
         if apply_shadow:
-            y_lower_values = diff_mean_values_list[i] - diff_var_values_list[i]/5
-            y_upper_values = diff_mean_values_list[i] + diff_var_values_list[i]/5
-            plt.fill_between(game_time_minutes, y_lower_values,
-                             y_upper_values, alpha=.2, color=colors[i], edgecolor="none",
-                             linewidth=0)
-        plt.plot(game_time_minutes, diff_mean_values_list[i],
-                 label=model_category_all[i], color=colors[i],
-                 linewidth=2)
+            y_lower_values = diff_mean_values_list[i] - diff_var_values_list[i] / 5
+            y_upper_values = diff_mean_values_list[i] + diff_var_values_list[i] / 5
+            plt.fill_between(game_time_minutes, y_lower_values, y_upper_values,
+                             alpha=.2, color=colors[i],
+                             edgecolor="none", linewidth=0)
+            plt.plot(game_time_minutes, diff_mean_values_list[i],
+                     label=model_category_all[i], color=colors[i], linewidth=2)
+        else:
+            plt.plot(game_time_minutes, diff_mean_values_list[i],
+                     label=model_category_all[i], color=colors[i], linewidth=5)
         plt.ylim(0, 3)
 
     plt.legend(fontsize=15)
+    plt.grid(linestyle='dotted')
     if apply_shadow:
         plt.savefig('./diff_plots/temporal-absolute-difference-shadow-plot.png')
     else:
