@@ -1,3 +1,6 @@
+import sys
+print sys.path
+sys.path.append('/Local-Scratch/PycharmProjects/sport-analytic-variational-embedding/')
 import os
 import tensorflow as tf
 import numpy as np
@@ -11,15 +14,17 @@ from support.model_tools import get_model_and_log_name, get_data_name, validate_
 
 if __name__ == '__main__':
     local_test_flag = False
-    model_category = 'cvae'
-    model_number =301
+    model_category = 'cvrnn'
+    model_number =1801
     player_info = ''
-    apply_bounding = True
+    apply_bounding = False
     msg_bounding = ''
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     if model_category == 'cvrnn':
+        if apply_bounding:
+            msg_bounding = '_bound'
         embed_mode = '_embed_random'
         predicted_target = '_PlayerLocalId_predict_nex_goal'  # playerId_
         player_id_cluster_dir = '../../sport_resource/ice_hockey_201819/local_player_id_2018_2019.json'
