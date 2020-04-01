@@ -17,7 +17,7 @@ if __name__ == '__main__':
     model_category = 'cvrnn'
     model_number =1801
     player_info = ''
-    apply_bounding = False
+    apply_bounding = True
     msg_bounding = ''
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"

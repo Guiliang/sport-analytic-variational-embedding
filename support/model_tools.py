@@ -689,17 +689,34 @@ def get_model_and_log_name(config, model_catagoery, train_flag=False,
     return saved_network, log_dir
 
 
-def compute_rnn_acc(target_label, output_prob, selection_matrix, config, if_print=False,
-                    if_add_ll=False):
+def compute_rnn_acc(target_label, output_prob, selection_matrix,
+                    config, bounding_id_trace_length=None, if_print=False, if_add_ll=False):
     total_number = 0
     correct_number = 0
     ll_sum = 0
     correct_output_all = {}
+    bounding_ids_index = None
     for batch_index in range(0, len(selection_matrix)):
+
+        if bounding_id_trace_length is not None and batch_index - bounding_id_trace_length - 1 > 0:
+            bounding_ids = set()
+            # if batch_index - bounding_id_trace_length - 1 > 0:
+            bounding_end_index = batch_index - bounding_id_trace_length - 1
+            for i in range(batch_index, bounding_end_index, -1):
+                for trace_length_index in range(0, config.Learn.max_seq_length):
+                    if selection_matrix[batch_index][trace_length_index]:
+                        bounding_ids.add(np.argmax(target_label[i][trace_length_index]))
+            bounding_ids_index = sorted(list(bounding_ids), reverse=True)
+
+
         for trace_length_index in range(0, config.Learn.max_seq_length):
             if selection_matrix[batch_index][trace_length_index]:
                 total_number += 1
-                output_prediction = np.argmax(output_prob[batch_index][trace_length_index])
+                if bounding_ids_index is not None:
+                    output_prediction = bounding_ids_index[np.argmax(output_prob[batch_index][trace_length_index][bounding_ids_index])]
+                    bounding_ids_index = None
+                else:
+                    output_prediction = np.argmax(output_prob[batch_index][trace_length_index])
                 target_prediction = np.argmax(target_label[batch_index][trace_length_index])
                 if if_add_ll:
                     likelihood = output_prob[batch_index][trace_length_index] * \
@@ -1751,15 +1768,17 @@ def validate_games_player_id(config,
             target_data_all = np.concatenate([target_data_all, player_index_seq], axis=0)
             if selection_matrix is not None:
                 selection_matrix_all = np.concatenate([selection_matrix_all, selection_matrix], axis=0)
+
+    if apply_bounding:
+        bounding_id_trace_length = 10
+    else:
+        bounding_id_trace_length = None
+
     if selection_matrix_all is not None:
         acc, ll = compute_rnn_acc(output_prob=output_decoder_all, target_label=target_data_all,
                                   selection_matrix=selection_matrix_all, config=config,
-                                  if_print=True, if_add_ll=True)
+                                  bounding_id_trace_length=bounding_id_trace_length, if_print=True, if_add_ll=True)
     else:
-        if apply_bounding:
-            bounding_id_trace_length = 10
-        else:
-            bounding_id_trace_length = None
         acc, ll = compute_acc(target_label=target_data_all, output_prob=output_decoder_all,
                               bounding_id_trace_length=bounding_id_trace_length, if_add_ll=True)
     print ("testing acc is {0} with ll {1}".format(str(acc), str(ll)))

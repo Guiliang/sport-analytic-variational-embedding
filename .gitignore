@@ -98,11 +98,11 @@ ENV/
 #nonhup output
 *.out
 
-./testing/validate_id_acc/results/
-./testing/validate_prediction/results_old/
-./testing/validate_prediction/results/
-./testing/spatial_projection/simulation_data_all/
 testing/spatial_projection/simulation_data_all/
 testing/validate_id_acc/results/
 testing/validate_prediction/results/
 testing/validate_prediction/results_old/
+.idea/deployment.xml
+.idea/encodings.xml
+.idea/snapshots/
+.idea/webServers.xml
